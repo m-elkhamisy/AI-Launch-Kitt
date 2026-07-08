@@ -113,43 +113,7 @@ function TopHeader({ showProfile = true }: { showProfile?: boolean }) {
       </div>
 
       {/* Right side actions */}
-      <div className="absolute flex items-center gap-[24px]" style={{ right: 32 }}>
-        {/* Ask AI */}
-        <button className="flex items-center gap-[8px] text-white font-semibold text-[14px]">
-          <svg width="16" height="20" viewBox="0 0 16 20" fill="none">
-            <path d={p.p3e76600} fill="rgba(255,255,255,0.2)" />
-          </svg>
-          Ask AI
-        </button>
-        {/* Help */}
-        <button className="flex items-center gap-[8px] text-white font-semibold text-[14px]">
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-            <path d={p.pbcad900} fill="rgba(255,255,255,0.2)" />
-          </svg>
-          Help &amp; Support
-        </button>
-        {/* Avatar */}
-        {showProfile && (
-          <div
-            className="flex items-center justify-center rounded-full"
-            style={{
-              width: 36,
-              height: 36,
-              background: "#0f766e",
-            }}
-          >
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-              <path
-                d={p.p61d9400}
-                stroke="white"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </div>
-        )}
-      </div>
+      
     </div>
   );
 }
@@ -353,24 +317,38 @@ function LoginPage({ onNext }: { onNext: () => void }) {
   return (
     <ScaledPage designHeight={900}>
       <div
-        className="w-full h-full flex flex-col items-center justify-center"
-        style={{ background: "#0b0b0b", fontFamily: "'Montserrat', sans-serif" }}
+        className="w-full flex flex-col"
+        style={{ background: "#0b0b0b", fontFamily: "'Montserrat', sans-serif", minHeight: "100%" }}
       >
-        <TopHeader showProfile={false} />
-        <div className="flex-1 flex items-center justify-center w-full">
+        {/* Header bar — logo top left */}
+        <div
+          className="flex items-center px-[40px]"
+          style={{
+            height: 84,
+            borderBottom: "1px solid rgba(255,255,255,0.1)",
+            backdropFilter: "blur(20px)",
+            flexShrink: 0,
+          }}
+        >
+          {/* Innovation City logo mark + wordmark */}
+          <LogoSvg />
+        </div>
+
+        {/* Page body — card centered */}
+        <div className="flex flex-1 items-center justify-center" style={{ minHeight: "calc(100% - 84px)" }}>
           <div
-            className="flex flex-col gap-[32px]"
+            className="flex flex-col items-center gap-[28px]"
             style={{
               width: 480,
               backdropFilter: "blur(12px)",
               background: "rgba(255,255,255,0.03)",
-              border: "1px solid white",
+              border: "1px solid rgba(255,255,255,0.15)",
               borderRadius: 20,
               padding: 48,
             }}
           >
-            {/* Logo mark */}
-            <div className="flex flex-col gap-[20px]">
+            {/* Card header — logo mark + text centered */}
+            <div className="flex flex-col items-center gap-[16px] w-full">
               <div
                 className="flex items-center justify-center"
                 style={{
@@ -381,13 +359,12 @@ function LoginPage({ onNext }: { onNext: () => void }) {
                   borderRadius: 14,
                 }}
               >
-                <svg width="32" height="32" viewBox="0 0 44 44" fill="none">
+                <svg width="28" height="28" viewBox="10 14 32 24" fill="none">
                   <path d={p.pdbfe710} fill="#5752A3" />
                   <path d={p.p389a4180} fill="#5752A3" />
                 </svg>
               </div>
-
-              <div>
+              <div className="text-center">
                 <h2 className="text-white font-semibold text-[18px] mb-[8px]">Welcome back</h2>
                 <p style={{ color: "rgba(255,255,255,0.6)", fontSize: 14, fontWeight: 500 }}>
                   Enter your email to receive a one-time code
@@ -395,75 +372,74 @@ function LoginPage({ onNext }: { onNext: () => void }) {
               </div>
             </div>
 
-            <div style={{ height: 1, background: "rgba(255,255,255,0.1)" }} />
+            {/* Divider */}
+            <div style={{ height: 1, background: "rgba(255,255,255,0.1)", width: "100%" }} />
 
-            {/* Email field */}
-            <div className="flex flex-col gap-[8px]">
-              <label
-                className="font-semibold uppercase"
-                style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", letterSpacing: "0.08em" }}
-              >
-                Email Address
-              </label>
-              <div
-                className="flex items-center gap-[12px]"
+            {/* Form */}
+            <div className="flex flex-col gap-[20px] w-full">
+              {/* Email field */}
+              <div className="flex flex-col gap-[8px]">
+                <label
+                  className="font-semibold uppercase"
+                  style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", letterSpacing: "0.08em" }}
+                >
+                  Email Address
+                </label>
+                <div
+                  className="flex items-center gap-[12px]"
+                  style={{
+                    background: "rgba(255,255,255,0.03)",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    borderRadius: 12,
+                    padding: "14px 16px",
+                  }}
+                >
+                  <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                    <path
+                      d={p.pd3d5900}
+                      stroke="rgba(255,255,255,0.6)"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    className="flex-1 bg-transparent outline-none font-medium text-[14px]"
+                    style={{ color: "white", caretColor: "#6fccdd" }}
+                    onKeyDown={(e) => e.key === "Enter" && onNext()}
+                  />
+                </div>
+              </div>
+
+              {/* Send Code button */}
+              <button
+                onClick={onNext}
+                className="w-full flex items-center justify-center gap-[8px] font-semibold text-[14px] uppercase"
                 style={{
-                  background: "rgba(255,255,255,0.03)",
-                  border: "1px solid rgba(255,255,255,0.1)",
+                  background: "#6fccdd",
+                  color: "#0b0b0b",
                   borderRadius: 12,
-                  padding: "14px 16px",
+                  padding: "16px 0",
                 }}
               >
-                <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                Send Code
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                   <path
-                    d={p.pd3d5900}
-                    stroke="rgba(255,255,255,0.6)"
-                    strokeWidth="1.5"
+                    d={p.p3bfa7a00}
+                    stroke="#0b0b0b"
+                    strokeWidth="2"
                     strokeLinecap="round"
                     strokeLinejoin="round"
                   />
                 </svg>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@company.com"
-                  className="flex-1 bg-transparent outline-none font-medium text-[14px] text-white"
-                  style={{ color: "white", caretColor: "#6fccdd" }}
-                  onKeyDown={(e) => e.key === "Enter" && onNext()}
-                />
-              </div>
+              </button>
             </div>
 
-            {/* Send Code button */}
-            <button
-              onClick={onNext}
-              className="w-full flex items-center justify-center gap-[8px] font-semibold text-[14px] text-white uppercase"
-              style={{
-                background: "#6fccdd",
-                color: "#0b0b0b",
-                borderRadius: 12,
-                padding: "16px 0",
-              }}
-            >
-              Send Code
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <path
-                  d={p.p3bfa7a00}
-                  stroke="#0b0b0b"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </button>
-
-            <p className="text-center font-medium text-[13px]" style={{ color: "rgba(255,255,255,0.5)" }}>
-              No account?{" "}
-              <span className="cursor-pointer font-semibold" style={{ color: "#6fccdd" }}>
-                Sign up free
-              </span>
-            </p>
+            
           </div>
         </div>
       </div>
@@ -608,9 +584,25 @@ function OtpPage({ onNext, onBack }: { onNext: () => void; onBack: () => void })
 // ─── PAGE 3: Questionnaire ────────────────────────────────────────────────────
 function QuestionnairePage({ onNext, onBack, onStepClick, completedUpTo }: { onNext: () => void; onBack: () => void; onStepClick?: (step: number) => void; completedUpTo?: number }) {
   const p = svgPathsMerged;
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  function handleFileDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files[0];
+    if (file) { setUploadedFile(file); setUploadOpen(false); }
+  }
+  function handleFileChoose(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (file) { setUploadedFile(file); setUploadOpen(false); }
+  }
+
   const [form, setForm] = useState({
     companyName: "",
-    businessCategory: "",
+    uniqueness: "",
     customers: "",
     tagline: "",
     cta: "",
@@ -620,7 +612,7 @@ function QuestionnairePage({ onNext, onBack, onStepClick, completedUpTo }: { onN
   const fields = [
     [
       { key: "companyName", label: "Company / Brand Name", placeholder: "e.g. Acme Corp" },
-      { key: "businessCategory", label: "Business Category", placeholder: "e.g. SaaS, Retail..." },
+      { key: "uniqueness", label: "What makes your business unique?", placeholder: "e.g. 10 years of expertise, eco-friendly..." },
     ],
     [
       { key: "customers", label: "Who Are Your Customers?", placeholder: "e.g. Small business owners..." },
@@ -649,7 +641,9 @@ function QuestionnairePage({ onNext, onBack, onStepClick, completedUpTo }: { onN
               background: "rgba(255,255,255,0.03)",
               border: "1px solid white",
               borderRadius: 12,
+              cursor: "pointer",
             }}
+            onClick={() => setUploadOpen(true)}
           >
             <div className="flex items-center gap-[12px]">
               <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
@@ -662,16 +656,107 @@ function QuestionnairePage({ onNext, onBack, onStepClick, completedUpTo }: { onN
                 />
               </svg>
               <span className="text-white font-semibold text-[14px]">
-                Prefer to upload your portfolio instead?
+                {uploadedFile ? `Uploaded: ${uploadedFile.name}` : "Prefer to upload your portfolio instead?"}
               </span>
             </div>
             <button
               className="font-semibold text-[14px] underline"
               style={{ color: "#6fccdd" }}
+              onClick={(e) => { e.stopPropagation(); setUploadOpen(true); }}
             >
-              Upload here →
+              {uploadedFile ? "Change file →" : "Upload here →"}
             </button>
           </div>
+
+          {/* Upload overlay */}
+          {uploadOpen && (
+            <div
+              className="fixed inset-0 flex items-center justify-center"
+              style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(6px)", zIndex: 9999 }}
+              onClick={() => setUploadOpen(false)}
+            >
+              <div
+                className="flex flex-col items-center gap-[24px] p-[48px]"
+                style={{
+                  background: "#111",
+                  border: "1px solid rgba(255,255,255,0.15)",
+                  borderRadius: 20,
+                  width: 520,
+                  fontFamily: "'Montserrat', sans-serif",
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Header */}
+                <div className="flex items-center justify-between w-full">
+                  <span className="text-white font-semibold text-[18px]">Upload Portfolio</span>
+                  <button
+                    onClick={() => setUploadOpen(false)}
+                    style={{ color: "rgba(255,255,255,0.5)", fontSize: 22, lineHeight: 1, background: "none", border: "none", cursor: "pointer" }}
+                  >×</button>
+                </div>
+
+                {/* Drop zone */}
+                <div
+                  onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                  onDragLeave={() => setDragOver(false)}
+                  onDrop={handleFileDrop}
+                  className="flex flex-col items-center justify-center gap-[16px] w-full"
+                  style={{
+                    border: `2px dashed ${dragOver ? "#6FCCDD" : "rgba(255,255,255,0.2)"}`,
+                    borderRadius: 14,
+                    padding: "48px 32px",
+                    background: dragOver ? "rgba(111,204,221,0.06)" : "rgba(255,255,255,0.02)",
+                    transition: "all 0.2s ease",
+                    cursor: "pointer",
+                  }}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+                    <circle cx="24" cy="24" r="24" fill="rgba(111,204,221,0.1)" />
+                    <path d="M24 32V20M24 20L19 25M24 20L29 25" stroke="#6FCCDD" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M16 34h16" stroke="#6FCCDD" strokeWidth="2" strokeLinecap="round" />
+                  </svg>
+                  <div className="text-center">
+                    <p className="text-white font-semibold text-[15px]">Drag & drop your file here</p>
+                    <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 13, marginTop: 6 }}>or click to browse from your computer</p>
+                  </div>
+                  <p style={{ color: "rgba(255,255,255,0.3)", fontSize: 12 }}>
+                    PDF · DOCX · PPTX · TXT · PNG · JPG — max 20 MB
+                  </p>
+                </div>
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf,.docx,.pptx,.txt,.png,.jpg,.jpeg"
+                  style={{ display: "none" }}
+                  onChange={handleFileChoose}
+                />
+
+                {/* Or divider */}
+                <div className="flex items-center gap-[12px] w-full">
+                  <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.1)" }} />
+                  <span style={{ color: "rgba(255,255,255,0.3)", fontSize: 13 }}>or</span>
+                  <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.1)" }} />
+                </div>
+
+                <button
+                  className="w-full font-semibold text-[14px]"
+                  style={{
+                    background: "#6FCCDD",
+                    color: "#0b0b0b",
+                    border: "none",
+                    borderRadius: 10,
+                    padding: "14px 0",
+                    cursor: "pointer",
+                  }}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  Choose File from Computer
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Main form panel */}
           <div
@@ -1159,31 +1244,45 @@ function CategoryMoodPage({ onNext, onBack, onStepClick, completedUpTo }: { onNe
 }
 
 // ─── PAGE 5: Colors & Fonts ───────────────────────────────────────────────────
-const PALETTES = [
-  ["#293681", "#4274d9", "#95ccdd", "#d0e7e6"],
-  ["#659287", "#88bda4", "#b1d3b9", "#e6f2dd"],
-  ["#111111", "#cb2957", "#dddddd", "#eeeeee"],
-  ["#111844", "#4b5694", "#7288ae", "#eae0cf"],
-  ["#7f2020", "#869b7e", "#c9caac", "#f6f3eb"],
-  ["#c0e1d2", "#e5eee4", "#f6f4e8", "#dc9b9b"],
-  ["#41431b", "#aeb784", "#e3dbbb", "#f8f3e1"],
-  ["#eaefef", "#bfc9d1", "#25343f", "#ff9b51"],
+type PaletteEntry = { name: string; primary: string; secondary: string; background: string; text: string };
+const PALETTES: PaletteEntry[] = [
+  { name: "Modern Blue",    primary: "#2563EB", secondary: "#60A5FA", background: "#F8FAFC", text: "#1E293B" },
+  { name: "Nature Green",   primary: "#16A34A", secondary: "#86EFAC", background: "#F0FDF4", text: "#14532D" },
+  { name: "Elegant Purple", primary: "#7C3AED", secondary: "#C4B5FD", background: "#FAF5FF", text: "#312E81" },
+  { name: "Warm Orange",    primary: "#EA580C", secondary: "#FDBA74", background: "#FFF7ED", text: "#7C2D12" },
+  { name: "Minimal",        primary: "#111827", secondary: "#6B7280", background: "#FFFFFF", text: "#111827" },
+  { name: "Luxury Gold",    primary: "#D4AF37", secondary: "#F5D76E", background: "#1C1C1C", text: "#F9FAFB" },
+  { name: "Soft Pink",      primary: "#EC4899", secondary: "#F9A8D4", background: "#FDF2F8", text: "#831843" },
 ];
 
-const FONT_PAIRS = [
-  { heading: "Proxima Nova", body: "Inter" },
-  { heading: "Urbanist", body: "Poppins" },
-  { heading: "Outfit", body: "Sofia Pro" },
-  { heading: "Anton", body: "Montserrat" },
-  { heading: "Playfair Display", body: "Lato" },
-  { heading: "Raleway", body: "Open Sans" },
-  { heading: "DM Sans", body: "Nunito" },
-  { heading: "Josefin Sans", body: "Source Sans Pro" },
+type FontPair = { name: string; heading: string; body: string };
+const FONT_PAIRS: FontPair[] = [
+  { name: "Modern Startup",    heading: "Poppins",           body: "Inter" },
+  { name: "Elegant Editorial", heading: "Playfair Display",  body: "Source Sans 3" },
+  { name: "Corporate",         heading: "Montserrat",        body: "Open Sans" },
+  { name: "Professional Blog", heading: "Merriweather",      body: "Lato" },
+  { name: "Tech & SaaS",       heading: "Space Grotesk",     body: "Inter" },
+  { name: "Luxury Brand",      heading: "DM Serif Display",  body: "Manrope" },
+  { name: "Creative Studio",   heading: "Bebas Neue",        body: "Nunito Sans" },
 ];
 
+// Top-200 Google Fonts for the custom font search
+const GOOGLE_FONTS_LIST = [
+  "ABeeZee","Abel","Abhaya Libre","Abril Fatface","Aclonica","Acme","Actor","Adamina","Advent Pro","Aguafina Script","Akronim","Aladin","Aldrich","Alef","Alegreya","Alegreya SC","Alegreya Sans","Alegreya Sans SC","Aleo","Alex Brush","Alfa Slab One","Alice","Alike","Alike Angular","Allan","Allerta","Allerta Stencil","Allura","Almarai","Almendra","Almendra Display","Almendra SC","Amatic SC","Amethysta","Amiko","Amiri","Amita","Anaheim","Andada Pro","Andika","Angkor","Annie Use Your Telescope","Anonymous Pro","Antic","Antic Didone","Antic Slab","Anton","Arbutus","Arbutus Slab","Architects Daughter","Archivo","Archivo Black","Archivo Narrow","Aref Ruqaa","Arima Madurai","Arimo","Arizonia","Armata","Arsenal","Arvo","Arya","Asap","Asap Condensed","Asset","Assistant","Astloch","Asul","Athiti","Atma","Atomic Age","Aubrey","Audiowide","Autour One","Average","Average Sans","Averia Gruesa Libre","Averia Libre","Averia Sans Libre","Averia Serif Libre","B612","B612 Mono","Bad Script","Bahiana","Bahianita","Baloo 2","Baloo Bhai 2","Baloo Bhaijaan 2","Baloo Bhaina 2","Baloo Chettan 2","Baloo Da 2","Baloo Paaji 2","Baloo Tamma 2","Baloo Tammudu 2","Baloo Thambi 2","Balsamiq Sans","Balthazar","Bangers","Barlow","Barlow Condensed","Barlow Semi Condensed","Barriecito","Barrio","Basic","Baskervville","Battambang","Baumans","Bayon","Be Vietnam Pro","Bebas Neue","Belgrano","Bellefair","Belleza","Bellota","Bellota Text","BenchNine","Benne","Bentham","Berkshire Swash","Beth Ellen","Bevan","Big Shoulders Display","Big Shoulders Inline Display","Big Shoulders Inline Text","Big Shoulders Stencil Display","Big Shoulders Stencil Text","Big Shoulders Text","Bigelow Rules","Bigshot One","Bilbo","Bilbo Swash Caps","BioRhyme","BioRhyme Expanded","Birthstone","Birthstone Bounce","Biryani","Bitter","Black And White Picture","Black Han Sans","Black Ops One","Blinker","Bonbon","Boogaloo","Bowlby One","Bowlby One SC","Brawler","Bree Serif","Brygada 1918","Bubblegum Sans","Bubbler One","Buenard","Bungee","Bungee Hairline","Bungee Inline","Bungee Outline","Bungee Shade","Butcherman","Butterfly Kids","Cabin","Cabin Condensed","Cabin Sketch","Caesar Dressing","Cagliostro","Cairo","Cairo Play","Caladea","Calistoga","Calligraffitti","Cambay","Cambo","Candal","Cantarell","Cantata One","Cantora One","Capriola","Caramel","Carattere","Cardo","Carme","Carrois Gothic","Carrois Gothic SC","Carter One","Castoro","Catamaran","Caudex","Caveat","Caveat Brush","Cedarville Cursive","Ceviche One","Chakra Petch","Changa","Changa One","Chango","Charm","Charmonman","Chathura","Chau Philomene One","Chela One","Chelsea Market","Chenla","Cherry Cream Soda","Cherry Swash","Chewy","Chicle","Chilanka","Chivo","Chivo Mono","Chonburi","Cinzel","Cinzel Decorative","Clicker Script","Coda","Coda Caption","Codystar","Coiny","Combo","Comfortaa","Comforter","Comforter Brush","Comic Neue","Coming Soon","Commissioner","Concert One","Condiment","Content","Contrail One","Convergence","Cookie","Copse","Corben","Corinthia","Cormorant","Cormorant Garamond","Cormorant Infant","Cormorant SC","Cormorant Unicase","Cormorant Upright","Courgette","Courier Prime","Cousine","Coustard","Covered By Your Grace","Crafty Girls","Creepster","Crete Round","Crimson Pro","Crimson Text","Croissant One","Crushed","Cuprum","Cute Font","Cutive","Cutive Mono","DM Mono","DM Sans","DM Serif Display","DM Serif Text","Damion","Dancing Script","Dangrek","Darker Grotesque","David Libre","Dawning of a New Day","Days One","Dekko","Dela Gothic One","Delius","Delius Swash Caps","Delius Unicase","Della Respira","Denk One","Devonshire","Dhurjati","Didact Gothic","Diplomata","Diplomata SC","Do Hyeon","Dokdo","Domine","Donegal One","Dongle","Doppio One","Dorsa","Dosis","DotGothic16","Duru Sans","Dynalight","EB Garamond","Eagle Lake","East Sea Dokdo","Eater","Economica","Eczar","El Messiri","Electrolize","Elsie","Elsie Swash Caps","Emblema One","Emilys Candy","Encode Sans","Encode Sans Condensed","Encode Sans Expanded","Encode Sans SC","Encode Sans Semi Condensed","Encode Sans Semi Expanded","Engagement","Englebert","Enriqueta","Ephesis","Epilogue","Erica One","Esteban","Estonia","Euphoria Script","Ewert","Exo","Exo 2","Expletus Sans","Explora","Fahkwang","Familjen Grotesk","Fanwood Text","Farro","Farsan","Fascinate","Fascinate Inline","Faster One","Fasthand","Fauna One","Faustina","Federant","Federo","Felipa","Fenix","Festive","Figtree","Finger Paint","Finlandica","Fira Code","Fira Mono","Fira Sans","Fira Sans Condensed","Fira Sans Extra Condensed","Fjalla One","Fjord One","Flamenco","Flavors","Fleur De Leah","Flow Block","Flow Circular","Flow Rounded","Fondamento","Fontdiner Swanky","Forum","Fragment Mono","Francois One","Frank Ruhl Libre","Fraunces","Freckle Face","Fredericka the Great","Fredoka","Freehand","Fresca","Frijole","Fruktur","Fugaz One","Fuggles","Fuzzy Bubbles","GFS Didot","GFS Neohellenic","Gabriela","Gaegu","Gafata","Galada","Galdeano","Galindo","Gamja Flower","Gantari","Gayathri","Gelasio","Gemunu Libre","Genos","Gentium Book Plus","Gentium Plus","Geo","Georama","Geostar","Geostar Fill","Germania One","Gideon Roman","Gidugu","Gilda Display","Girassol","Give You Glory","Glass Antiqua","Glegoo","Gloock","Gloria Hallelujah","Gluten","Goblin One","Gochi Hand","Goldman","Gorditas","Gothic A1","Gotu","Goudy Bookletter 1911","Goudy Starved","Graduate","Grand Hotel","Grandstander","Gravitas One","Great Vibes","Grechen Fuemen","Grenze","Grenze Gotisch","Grey Qo","Griffy","Gruppo","Gudea","Gugi","Gulzar","Gupter","Gurajada","Gwendolyn","Habibi","Hachi Maru Pop","Hahmlet","Halant","Hammersmith One","Hanalei","Hanalei Fill","Handlee","Hanuman","Happy Monkey","Harmattan","Headland One","Heebo","Henny Penny","Hepta Slab","Herr Von Muellerhoff","Hi Melody","Hiragino Sans","Holtwood One SC","Homemade Apple","Homenaje","Hubballi","Hurricane","IBM Plex Mono","IBM Plex Sans","IBM Plex Sans Arabic","IBM Plex Sans Condensed","IBM Plex Sans Devanagari","IBM Plex Sans Hebrew","IBM Plex Sans KR","IBM Plex Sans Thai","IBM Plex Sans Thai Looped","IBM Plex Serif","IM Fell Double Pica","IM Fell DW Pica","IM Fell English","IM Fell English SC","IM Fell French Canon","IM Fell French Canon SC","IM Fell Great Primer","IM Fell Great Primer SC","Ibarra Real Nova","Iceberg","Iceland","Imbue","Imperial Script","Imprima","Inconsolata","Inder","Indie Flower","Ingrid Darling","Inika","Inknut Antiqua","Inria Sans","Inria Serif","Inspiration","Inter","Inter Tight","Irish Grover","Island Moments","Istok Web","Italiana","Italianno","Itim","Jacques Francois","Jacques Francois Shadow","Jaldi","JetBrains Mono","Jim Nightshade","Joan","Josefin Sans","Josefin Slab","Jost","Joti One","Jua","Judson","Julee","Julius Sans One","Junge","Jura","Just Another Hand","Just Me Again Down Here","K2D","Kaisei Decol","Kaisei HarunoUmi","Kaisei Opti","Kaisei Tokumin","Kalam","Karla","Karma","Katibeh","Kaushan Script","Kavivanar","Kavoon","Kdam Thmor Pro","Keania One","Kelly Slab","Kenia","Khand","Khmer","Khula","Kings","Kirang Haerang","Kite One","Kiwi Maru","Klee One","Knewave","KoHo","Kodchasan","Koh Santepheap","Kolker Brush","Konkhmer Sleokchher","Kosugi","Kosugi Maru","Kotta One","Koulen","Kranky","Kreon","Kristi","Krona One","Krub","Kufam","Kulim Park","Kumar One","Kumar One Outline","Kumbh Sans","Kurale","La Belle Aurore","Lacquer","Laila","Lakki Reddy","Lalezar","Lancelot","Langar","Lateef","Lato","League Gothic","League Script","League Spartan","Leckerli One","Ledger","Lekton","Lemon","Lemonada","Lexend","Lexend Deca","Lexend Exa","Lexend Giga","Lexend Mega","Lexend Peta","Lexend Tera","Lexend Zetta","Libre Baskerville","Libre Bodoni","Libre Caslon Display","Libre Caslon Text","Libre Franklin","Licorice","Life Savers","Lilita One","Lily Script One","Limelight","Linden Hill","Lithograph","Literata","Liu Jian Mao Cao","Livvic","Lobster","Lobster Two","Londrina Outline","Londrina Shadow","Londrina Sketch","Londrina Solid","Long Cang","Lora","Love Light","Love Ya Like A Sister","Loved by the King","Lovers Quarrel","Luckiest Guy","Lusitana","Lustria","Luxurious Roman","Luxurious Script","M PLUS 1","M PLUS 1 Code","M PLUS 1p","M PLUS 2","M PLUS Code Latin","M PLUS Rounded 1c","Ma Shan Zheng","Macondo","Macondo Swash Caps","Mada","Magra","Maiden Orange","Maitree","Major Mono Display","Mako","Mali","Mallanna","Mandali","Manjari","Manrope","Mansalva","Manuale","Marcellus","Marcellus SC","Marck Script","Margarine","Marhey","Markazi Text","Marko One","Marmelad","Martel","Martel Sans","Marvel","Mate","Mate SC","Maven Pro","McLaren","Mea Culpa","Meddon","MedievalSharp","Medula One","Meera Inimai","Megrim","Meie Script","Meow Script","Merienda","Merriweather","Merriweather Sans","Metal","Metal Mania","Metamorphous","Metrophobic","Michroma","Milonga","Miltonian","Miltonian Tattoo","Mina","Mingzat","Miniver","Miriam Libre","Mirza","Miss Fajardose","Mitr","Mochiy Pop One","Mochiy Pop P One","Modak","Modern Antiqua","Mogra","Mohave","Molengo","Molle","Monda","Monofett","Monomaniac One","Monoton","Monsieur La Doulaise","Montaga","Montagu Slab","MonteCarlo","Montez","Montserrat","Montserrat Alternates","Montserrat Subrayada","Moo Lah Lah","Moon Dance","Moul","Moulpali","Mountains of Christmas","Mouse Memoirs","Mr Bedfort","Mr Dafoe","Mr De Haviland","Mrs Saint Delafield","Mrs Sheppards","Ms Madi","Mukta","Mukta Mahee","Mukta Malar","Mukta Vaani","Mulish","Murecho","MuseoModerno","Mystery Quest","NTR","Nanum Brush Script","Nanum Gothic","Nanum Gothic Coding","Nanum Myeongjo","Nanum Pen Script","Neonderthaw","Nerko One","Neucha","Neuton","New Rocker","New Tegomin","News Cycle","Newsreader","Niconne","Niramit","Nixie One","Nobile","Nokora","Norican","Nosifer","Notable","Nothing You Could Do","Noticia Text","Noto Color Emoji","Noto Emoji","Noto Kufi Arabic","Noto Music","Noto Naskh Arabic","Noto Nastaliq Urdu","Noto Rashi Hebrew","Noto Sans","Noto Serif","Nova Cut","Nova Flat","Nova Mono","Nova Oval","Nova Round","Nova Script","Nova Slim","Nova Square","Numans","Nunito","Nunito Sans","Odibee Sans","Odor Mean Chey","Offside","Oi","Ojuju","Old Standard TT","Oldenburg","Ole","Oleo Script","Oleo Script Swash Caps","Onest","Open Sans","Oranienbaum","Orbit","Orbitron","Oregano","Orienta","Original Surfer","Oswald","Outfit","Over the Rainbow","Overlock","Overlock SC","Overpass","Overpass Mono","Ovo","Oxanium","Oxygen","Oxygen Mono","PT Mono","PT Sans","PT Sans Caption","PT Sans Narrow","PT Serif","PT Serif Caption","Pacifico","Padauk","Padyakke Expanded One","Palanquin","Palanquin Dark","Palette Mosaic","Pangolin","Paprika","Parisienne","Passero One","Passion One","Passions Conflict","Pathway Extreme","Pathway Gothic One","Patrick Hand","Patrick Hand SC","Pattaya","Patua One","Pavanam","Paytone One","Peddana","Peralta","Permanent Marker","Petemoss","Petit Formal Script","Petrona","Phetsarath OT","Philosopher","Piazzolla","Piedra","Pinyon Script","Pirata One","Plaster","Play","Playball","Playfair Display","Playfair Display SC","Playfair Display","Plus Jakarta Sans","Podkova","Poiret One","Poller One","Poltawski Nowy","Poly","Pompiere","Pontano Sans","Poor Story","Poppins","Potta One","Pragati Narrow","Praise","Prata","Preahvihear","Press Start 2P","Pridi","Princess Sofia","Prociono","Prompt","Prosto One","Proza Libre","Public Sans","Puppies Play","Puritan","Purple Purse","Qahiri","Quando","Quantico","Quattrocento","Quattrocento Sans","Questrial","Quicksand","Quintessential","Qwigley","Qwitcher Grypen","Racing Sans One","Radio Canada","Radley","Rajdhani","Rakkas","Raleway","Raleway Dots","Ramabhadra","Ramaraja","Rambla","Rammetto One","Rampart One","Rancho","Ranga","Rasa","Rationale","Ravi Prakash","Readex Pro","Recursive","Red Hat Display","Red Hat Mono","Red Hat Text","Red Rose","Redacted","Redacted Script","Reenie Beanie","Reggae One","Revalia","Rhodium Libre","Ribeye","Ribeye Marrow","Righteous","Risque","Road Rage","Roboto","Roboto Condensed","Roboto Flex","Roboto Mono","Roboto Serif","Roboto Slab","Rochester","Rock 3D","Rock Salt","RocknRoll One","Rokkitt","Romanesco","Ropa Sans","Rosario","Rosarivo","Rouge Script","Rowdies","Rozha One","Rubik","Rubik 80s Fade","Rubik Beastly","Rubik Bubbles","Rubik Burned","Rubik Dirt","Rubik Distressed","Rubik Gemstones","Rubik Glitch","Rubik Iso","Rubik Marker Hatch","Rubik Maze","Rubik Microbe","Rubik Mono One","Rubik Moonrocks","Rubik One","Rubik Pixels","Rubik Puddles","Rubik Scribble","Rubik Spray Paint","Rubik Storm","Rubik Vinyl","Rubik Wet Paint","Ruda","Rufina","Ruge Boogie","Ruluko","Rum Raisin","Ruslan Display","Russo One","Ruthie","Rye","STIX Two Text","Sacramento","Sahitya","Sail","Saira","Saira Condensed","Saira Extra Condensed","Saira Semi Condensed","Saira Stencil One","Salsa","Sanchez","Sancreek","Sansita","Sansita Swashed","Sarabun","Sarala","Sarina","Sarpanch","Sassy Frass","Satisfy","Sawarabi Gothic","Sawarabi Mincho","Scada","Scheherazade New","Schibsted Grotesk","Schoolbell","Scope One","Seaweed Script","Secular One","Sedgwick Ave","Sedgwick Ave Display","Sen","Sevillana","Seymour One","Shadows Into Light","Shadows Into Light Two","Shalimar","Shantell Sans","Shanti","Share","Share Tech","Share Tech Mono","Shippori Antique","Shippori Antique B1","Shippori Mincho","Shippori Mincho B1","Shizuru","Shojumaru","Short Stack","Shrikhand","Siemreap","Sigmar","Sigmar One","Signika","Signika Negative","Simonetta","Single Day","Sintony","Sirin Stencil","Six Caps","Skranji","Slabo 13px","Slabo 27px","Slackey","Sloshy","Smythe","Sniglet","Snippet","Snowburst One","Sofadi One","Sofia","Sofia Sans","Sofia Sans Condensed","Sofia Sans Extra Condensed","Sofia Sans Semi Condensed","Solway","Song Myung","Sono","Sonsie One","Sora","Sorts Mill Goudy","Source Code Pro","Source Sans 3","Source Serif 4","Space Grotesk","Space Mono","Special Elite","Spectral","Spectral SC","Spicy Rice","Spinnaker","Spirax","Splash","Spline Sans","Spline Sans Mono","Squada One","Square Peg","Sree Krushnadevaraya","Sriracha","Srisakdi","Staatliches","Stalemate","Stalinist One","Stardos Stencil","Stick","Stick No Bills","Stint Ultra Condensed","Stint Ultra Expanded","Stoke","Strait","Style Script","Stylish","Sue Ellen Francisco","Suez One","Sulphur Point","Sumana","Sunflower","Sunshiney","Supermercado One","Sura","Suranna","Suravaram","Suwannaphum","Swanky and Moo Moo","Syncopate","Syne","Syne Mono","Syne Tactile","Tai Heritage Pro","Tajawal","Tangerine","Tapestry","Taprom","Tauri","Taviraj","Teko","Tektur","Tenali Ramakrishna","Tenor Sans","Text Me One","Thasadith","The Girl Next Door","The Nautigal","Tienne","Tillana","Tilt Neon","Tilt Prism","Tilt Warp","Timmana","Tinos","Tiro Bangla","Tiro Devanagari Hindi","Tiro Devanagari Marathi","Tiro Devanagari Sanskrit","Tiro Gurmukhi","Tiro Kannada","Tiro Tamil","Tiro Telugu","Titan One","Titillium Web","Tomorrow","Tourney","Trade Winds","Train One","Trirong","Trocchi","Trochut","Truculenta","Tsukimi Rounded","Tulpen One","Turret Road","Twinkle Star","Ubuntu","Ubuntu Condensed","Ubuntu Mono","Uchen","Ultra","Unbounded","Uncial Antiqua","Underdog","Unica One","UnifrakturCook","UnifrakturMaguntia","Unkempt","Unlock","Unna","Updock","Urbanist","Varta","Vesper Libre","Viaoda Libre","Vibes","Vibur","Victor Mono","Vidaloka","Viga","Vujahday Script","Vollkorn","Vollkorn SC","Voltaire","Vonique","Waiting for the Sunrise","Wallpoet","Walter Turncoat","Warnes","Water Brush","Waterfall","Wavefont","Wellfleet","Wendy One","Whisper","WindSong","Wire One","Wix Madefor Display","Wix Madefor Text","Work Sans","Xanh Mono","Yaldevi","Yanone Kaffeesatz","Yantramanav","Yatra One","Yellowtail","Yeon Sung","Yeseva One","Yesteryear","Yomogi","Young Serif","Yrsa","Yuji Boku","Yuji Mai","Yuji Syuku","Yusei Magic","ZCOOL KuaiLe","ZCOOL QingKe HuangYou","ZCOOL XiaoWei","Zen Antique","Zen Antique Soft","Zen Dots","Zen Kaku Gothic Antique","Zen Kaku Gothic New","Zen Kurenaido","Zen Loop","Zen Maru Gothic","Zen Old Mincho","Zen Tokyo Zoo","Zeyada","Zhi Mang Xing","Zilla Slab","Zilla Slab Highlight",
+];
+
+type CustomPalette = { primary: string; secondary: string; background: string; text: string };
 function ColorsFontsPage({ onNext, onBack, onStepClick, completedUpTo }: { onNext: () => void; onBack: () => void; onStepClick?: (step: number) => void; completedUpTo?: number }) {
   const [selectedPalette, setSelectedPalette] = useState(0);
   const [selectedFont, setSelectedFont] = useState(0);
+  const [customModalOpen, setCustomModalOpen] = useState(false);
+  const [customPalette, setCustomPalette] = useState<CustomPalette | null>(null);
+  const [customDraft, setCustomDraft] = useState<CustomPalette>({ primary: "", secondary: "", background: "", text: "" });
+  const [fontModalOpen, setFontModalOpen] = useState(false);
+  const [customFont, setCustomFont] = useState<FontPair | null>(null);
+  const [fontDraft, setFontDraft] = useState<{ heading: string; body: string }>({ heading: "", body: "" });
+  const [headingSearch, setHeadingSearch] = useState("");
+  const [bodySearch, setBodySearch] = useState("");
 
   return (
     <ScaledPage designHeight={1200} scrollable>
@@ -1197,128 +1296,356 @@ function ColorsFontsPage({ onNext, onBack, onStepClick, completedUpTo }: { onNex
         <div className="px-[80px] py-[48px] flex flex-col gap-[40px]">
           {/* Palettes section */}
           <div className="flex flex-col gap-[20px]">
-            <div className="flex items-center justify-between">
-              <span
-                className="font-semibold uppercase text-[13px]"
-                style={{ color: "rgba(255,255,255,0.5)", letterSpacing: "0.1em" }}
-              >
-                Theme Mode
-              </span>
-              <button
-                className="font-semibold text-[13px] flex items-center gap-[6px]"
-                style={{ color: "#6FCCDD" }}
-                onClick={() => {
-                  let next;
-                  do { next = Math.floor(Math.random() * PALETTES.length); } while (next === selectedPalette);
-                  setSelectedPalette(next);
-                }}
-              >
-                Pick automatically
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                  <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" stroke="#6FCCDD" strokeWidth="2" strokeLinecap="round" />
-                </svg>
-              </button>
-            </div>
+            <span
+              className="font-semibold uppercase text-[13px]"
+              style={{ color: "rgba(255,255,255,0.5)", letterSpacing: "0.1em" }}
+            >
+              Theme Mode
+            </span>
             <div className="grid grid-cols-4 gap-[16px]">
-              {PALETTES.map((palette, i) => (
-                <button
-                  key={i}
-                  onClick={() => setSelectedPalette(i)}
-                  className="relative rounded-[8px] overflow-hidden"
-                  style={{
-                    height: 80,
-                    outline:
-                      selectedPalette === i
-                        ? "2px solid #6fccdd"
-                        : "1px solid rgba(255,255,255,0.1)",
-                    outlineOffset: selectedPalette === i ? 2 : 0,
-                  }}
-                >
-                  <div className="flex w-full h-full">
-                    {palette.map((color, j) => (
-                      <div
-                        key={j}
-                        className="flex-1 h-full"
-                        style={{ background: color }}
-                      />
-                    ))}
-                  </div>
-                  {/* Check indicator */}
-                  <div
-                    className="absolute top-[8px] right-[8px] flex items-center justify-center rounded-full"
+              {/* 7 preset palette cards */}
+              {PALETTES.map((palette, i) => {
+                const colors = [palette.primary, palette.secondary, palette.background, palette.text];
+                const selected = selectedPalette === i;
+                return (
+                  <button
+                    key={i}
+                    onClick={() => setSelectedPalette(i)}
+                    className="relative flex flex-col rounded-[8px] overflow-hidden"
                     style={{
-                      width: 20,
-                      height: 20,
-                      background:
-                        selectedPalette === i ? "#6fccdd" : "rgba(255,255,255,0.15)",
-                      border:
-                        selectedPalette === i
-                          ? "none"
-                          : "1px solid rgba(255,255,255,0.3)",
+                      height: 80,
+                      outline: selected ? "2px solid #6fccdd" : "1px solid rgba(255,255,255,0.1)",
+                      outlineOffset: selected ? 2 : 0,
                     }}
                   >
-                    {selectedPalette === i && (
-                      <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                        <path
-                          d="M2 5L4 7L8 3"
-                          stroke="#0b0b0b"
-                          strokeWidth="1.5"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
+                    <div className="flex w-full" style={{ height: 58 }}>
+                      {colors.map((color, j) => (
+                        <div key={j} className="flex-1 h-full" style={{ background: color }} />
+                      ))}
+                    </div>
+                    <div
+                      className="flex items-center justify-center w-full"
+                      style={{ height: 22, background: "#1a1a1a", fontSize: 10, color: "rgba(255,255,255,0.6)", fontFamily: "'Montserrat',sans-serif", fontWeight: 600, letterSpacing: "0.03em" }}
+                    >
+                      {palette.name}
+                    </div>
+                    <div
+                      className="absolute top-[6px] right-[6px] flex items-center justify-center rounded-full"
+                      style={{
+                        width: 18,
+                        height: 18,
+                        background: selected ? "#6fccdd" : "rgba(0,0,0,0.3)",
+                        border: selected ? "none" : "1px solid rgba(255,255,255,0.3)",
+                      }}
+                    >
+                      {selected && (
+                        <svg width="9" height="9" viewBox="0 0 10 10" fill="none">
+                          <path d="M2 5L4 7L8 3" stroke="#0b0b0b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+
+              {/* Custom palette card */}
+              {(() => {
+                const CUSTOM_IDX = PALETTES.length;
+                const selected = selectedPalette === CUSTOM_IDX;
+                return (
+                  <button
+                    onClick={() => { if (customPalette) setCustomDraft({ ...customPalette }); setCustomModalOpen(true); }}
+                    className="relative flex flex-col rounded-[8px] overflow-hidden"
+                    style={{
+                      height: 80,
+                      outline: selected ? "2px solid #6fccdd" : "1px solid rgba(255,255,255,0.1)",
+                      outlineOffset: selected ? 2 : 0,
+                      background: customPalette
+                        ? undefined
+                        : "rgba(255,255,255,0.03)",
+                    }}
+                  >
+                    {customPalette ? (
+                      <div className="flex w-full" style={{ height: 58 }}>
+                        {[customPalette.primary, customPalette.secondary, customPalette.background, customPalette.text].map((c, j) => (
+                          <div key={j} className="flex-1 h-full" style={{ background: c }} />
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center w-full" style={{ height: 58, gap: 4 }}>
+                        {/* Paint palette icon */}
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                          <circle cx="8.5" cy="9" r="1.5" fill="#6FCCDD" />
+                          <circle cx="12" cy="6.5" r="1.5" fill="#EC4899" />
+                          <circle cx="15.5" cy="9" r="1.5" fill="#F5D76E" />
+                          <path d="M12 2C6.477 2 2 6.477 2 12c0 5.522 4.477 10 10 10 1.104 0 2-.896 2-2a1.99 1.99 0 00-.512-1.342c-.13-.149-.247-.31-.347-.48a2 2 0 011.73-3.178h1.943C19.379 15 22 12.379 22 9.129 22 5.195 17.522 2 12 2z" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" strokeLinecap="round" />
+                        </svg>
+                      </div>
                     )}
-                  </div>
-                </button>
-              ))}
+                    <div
+                      className="flex items-center justify-center w-full"
+                      style={{ height: 22, background: "#1a1a1a", fontSize: 10, color: "rgba(255,255,255,0.6)", fontFamily: "'Montserrat',sans-serif", fontWeight: 600, letterSpacing: "0.03em" }}
+                    >
+                      Custom
+                    </div>
+                    <div
+                      className="absolute top-[6px] right-[6px] flex items-center justify-center rounded-full"
+                      style={{
+                        width: 18,
+                        height: 18,
+                        background: selected ? "#6fccdd" : "rgba(0,0,0,0.3)",
+                        border: selected ? "none" : "1px solid rgba(255,255,255,0.3)",
+                      }}
+                    >
+                      {selected && (
+                        <svg width="9" height="9" viewBox="0 0 10 10" fill="none">
+                          <path d="M2 5L4 7L8 3" stroke="#0b0b0b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      )}
+                    </div>
+                  </button>
+                );
+              })()}
             </div>
+
+            {/* Custom palette modal */}
+            {customModalOpen && (
+              <div
+                className="fixed inset-0 flex items-center justify-center"
+                style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)", zIndex: 9999 }}
+                onClick={() => setCustomModalOpen(false)}
+              >
+                <div
+                  className="flex flex-col gap-[24px] p-[40px]"
+                  style={{ background: "#111", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 20, width: 420, fontFamily: "'Montserrat',sans-serif" }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-white font-semibold text-[17px]">Custom Palette</span>
+                    <button onClick={() => setCustomModalOpen(false)} style={{ color: "rgba(255,255,255,0.4)", fontSize: 22, background: "none", border: "none", cursor: "pointer", lineHeight: 1 }}>×</button>
+                  </div>
+
+                  {(["primary","secondary","background","text"] as const).map((field) => {
+                    const labels: Record<string, string> = { primary: "Primary", secondary: "Secondary", background: "Background", text: "Text" };
+                    return (
+                      <div key={field} className="flex items-center gap-[16px]">
+                        <div style={{ position: "relative", width: 36, height: 36, flexShrink: 0 }}>
+                          <div
+                            style={{
+                              width: 36, height: 36, borderRadius: 8,
+                              background: customDraft[field] || "#333",
+                              border: "1px solid rgba(255,255,255,0.15)",
+                              cursor: "pointer",
+                            }}
+                          />
+                          <input
+                            type="color"
+                            value={customDraft[field] || "#333333"}
+                            onChange={(e) => setCustomDraft(d => ({ ...d, [field]: e.target.value }))}
+                            style={{
+                              position: "absolute", inset: 0, width: "100%", height: "100%",
+                              opacity: 0, cursor: "pointer", border: "none", padding: 0,
+                            }}
+                            title="Pick a color"
+                          />
+                        </div>
+                        <div className="flex flex-col gap-[4px] flex-1">
+                          <label style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                            {labels[field]}
+                          </label>
+                          <input
+                            type="text"
+                            value={customDraft[field]}
+                            onChange={(e) => setCustomDraft(d => ({ ...d, [field]: e.target.value }))}
+                            placeholder="#000000"
+                            maxLength={7}
+                            style={{
+                              background: "rgba(255,255,255,0.05)",
+                              border: "1px solid rgba(255,255,255,0.15)",
+                              borderRadius: 8,
+                              color: "white",
+                              fontSize: 14,
+                              fontFamily: "'Montserrat',sans-serif",
+                              fontWeight: 600,
+                              padding: "8px 12px",
+                              outline: "none",
+                              width: "100%",
+                            }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  <div className="flex gap-[12px]">
+                    <button
+                      onClick={() => setCustomModalOpen(false)}
+                      className="flex-1 font-semibold text-[14px]"
+                      style={{ background: "rgba(255,255,255,0.08)", color: "white", border: "none", borderRadius: 10, padding: "12px 0", cursor: "pointer" }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => {
+                        setCustomPalette({ ...customDraft });
+                        setSelectedPalette(PALETTES.length);
+                        setCustomModalOpen(false);
+                      }}
+                      className="flex-1 font-semibold text-[14px]"
+                      style={{ background: "#6FCCDD", color: "#0b0b0b", border: "none", borderRadius: 10, padding: "12px 0", cursor: "pointer" }}
+                    >
+                      Apply
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Font Pairings section */}
           <div className="flex flex-col gap-[20px]">
-            <div className="flex items-center justify-between">
-              <span
-                className="font-semibold uppercase text-[13px]"
-                style={{ color: "rgba(255,255,255,0.5)", letterSpacing: "0.1em" }}
-              >
-                Font Pairings
-              </span>
-              <button
-                className="font-semibold text-[13px] flex items-center gap-[6px]"
-                style={{ color: "#6FCCDD" }}
-                onClick={() => {
-                  let next;
-                  do { next = Math.floor(Math.random() * FONT_PAIRS.length); } while (next === selectedFont);
-                  setSelectedFont(next);
-                }}
-              >
-                Pick automatically
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                  <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" stroke="#6FCCDD" strokeWidth="2" strokeLinecap="round" />
-                </svg>
-              </button>
-            </div>
+            <span
+              className="font-semibold uppercase text-[13px]"
+              style={{ color: "rgba(255,255,255,0.5)", letterSpacing: "0.1em" }}
+            >
+              Font Pairings
+            </span>
 
+            {/* Row 1: first 4 presets */}
             <div className="grid grid-cols-4 gap-[16px]">
               {FONT_PAIRS.slice(0, 4).map((pair, i) => (
-                <FontCard
-                  key={i}
-                  pair={pair}
-                  selected={selectedFont === i}
-                  onClick={() => setSelectedFont(i)}
-                />
+                <FontCard key={i} pair={pair} selected={selectedFont === i} onClick={() => setSelectedFont(i)} />
               ))}
             </div>
+
+            {/* Row 2: last 3 presets + Custom card */}
             <div className="grid grid-cols-4 gap-[16px]">
               {FONT_PAIRS.slice(4).map((pair, i) => (
-                <FontCard
-                  key={i + 4}
-                  pair={pair}
-                  selected={selectedFont === i + 4}
-                  onClick={() => setSelectedFont(i + 4)}
-                />
+                <FontCard key={i + 4} pair={pair} selected={selectedFont === i + 4} onClick={() => setSelectedFont(i + 4)} />
               ))}
+
+              {/* Custom font card */}
+              {(() => {
+                const CUSTOM_FONT_IDX = FONT_PAIRS.length;
+                const selected = selectedFont === CUSTOM_FONT_IDX;
+                return (
+                  <button
+                    onClick={() => {
+                      if (customFont) { setFontDraft({ heading: customFont.heading, body: customFont.body }); setHeadingSearch(customFont.heading); setBodySearch(customFont.body); }
+                      else { setFontDraft({ heading: "", body: "" }); setHeadingSearch(""); setBodySearch(""); }
+                      setFontModalOpen(true);
+                    }}
+                    className="flex flex-col gap-[10px] p-[16px] text-left"
+                    style={{
+                      backdropFilter: "blur(12px)",
+                      borderRadius: 16,
+                      border: selected ? "1px solid #6fccdd" : "1px solid white",
+                      background: selected ? "rgba(111,204,221,0.05)" : "rgba(255,255,255,0.02)",
+                    }}
+                  >
+                    <span className="font-semibold uppercase text-[10px]" style={{ color: "rgba(255,255,255,0.35)", letterSpacing: "0.08em" }}>Custom</span>
+                    {customFont ? (
+                      <>
+                        <p className="text-white font-bold text-[16px] leading-tight" style={{ fontFamily: `'${customFont.heading}', serif` }}>{customFont.heading}</p>
+                        <p className="text-[12px] leading-relaxed" style={{ color: "rgba(255,255,255,0.5)", fontFamily: `'${customFont.body}', sans-serif` }}>{customFont.body} — body text</p>
+                      </>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center flex-1 gap-[8px]" style={{ minHeight: 60 }}>
+                        {/* Typography icon */}
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+                          <path d="M4 7V4h16v3" stroke="rgba(255,255,255,0.35)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                          <path d="M12 4v16M9 20h6" stroke="rgba(255,255,255,0.35)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                        <span style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>Choose fonts</span>
+                      </div>
+                    )}
+                  </button>
+                );
+              })()}
             </div>
+
+            {/* Custom font modal */}
+            {fontModalOpen && (
+              <div
+                className="fixed inset-0 flex items-center justify-center"
+                style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)", zIndex: 9999 }}
+                onClick={() => setFontModalOpen(false)}
+              >
+                <div
+                  className="flex flex-col gap-[24px] p-[40px]"
+                  style={{ background: "#111", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 20, width: 480, fontFamily: "'Montserrat',sans-serif", maxHeight: "90vh", overflowY: "auto" }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-white font-semibold text-[17px]">Custom Font Pairing</span>
+                    <button onClick={() => setFontModalOpen(false)} style={{ color: "rgba(255,255,255,0.4)", fontSize: 22, background: "none", border: "none", cursor: "pointer", lineHeight: 1 }}>×</button>
+                  </div>
+
+                  {/* Heading font picker */}
+                  {[
+                    { label: "Heading Font", searchVal: headingSearch, setSearch: setHeadingSearch, field: "heading" as const },
+                    { label: "Body Font",    searchVal: bodySearch,    setSearch: setBodySearch,    field: "body" as const },
+                  ].map(({ label, searchVal, setSearch, field }) => {
+                    const filtered = GOOGLE_FONTS_LIST.filter(f => f.toLowerCase().includes(searchVal.toLowerCase())).slice(0, 30);
+                    return (
+                      <div key={field} className="flex flex-col gap-[8px]">
+                        <label style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>{label}</label>
+                        <input
+                          type="text"
+                          value={searchVal}
+                          onChange={(e) => setSearch(e.target.value)}
+                          placeholder="Search fonts…"
+                          style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8, color: "white", fontSize: 14, fontFamily: "'Montserrat',sans-serif", padding: "10px 12px", outline: "none", width: "100%" }}
+                        />
+                        {searchVal && (
+                          <div style={{ background: "#1a1a1a", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, maxHeight: 180, overflowY: "auto" }}>
+                            {filtered.length === 0 ? (
+                              <div style={{ padding: "10px 12px", color: "rgba(255,255,255,0.3)", fontSize: 13 }}>No results</div>
+                            ) : filtered.map((font) => (
+                              <button
+                                key={font}
+                                onClick={() => { setFontDraft(d => ({ ...d, [field]: font })); setSearch(font); loadGoogleFont(font); }}
+                                style={{ display: "block", width: "100%", textAlign: "left", padding: "9px 12px", background: "none", border: "none", color: fontDraft[field] === font ? "#6FCCDD" : "rgba(255,255,255,0.7)", fontSize: 13, cursor: "pointer", fontFamily: `'${font}', sans-serif` }}
+                              >
+                                {font}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        {fontDraft[field] && (
+                          <span style={{ fontSize: 11, color: "#6FCCDD", fontWeight: 600 }}>Selected: {fontDraft[field]}</span>
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  {/* Live preview */}
+                  {(fontDraft.heading || fontDraft.body) && (
+                    <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: "20px 24px" }}>
+                      <p style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 12, fontFamily: "'Montserrat',sans-serif" }}>Preview</p>
+                      {fontDraft.heading && <p style={{ fontFamily: `'${fontDraft.heading}', serif`, fontSize: 22, fontWeight: 700, color: "white", marginBottom: 8 }}>The Quick Brown Fox</p>}
+                      {fontDraft.body && <p style={{ fontFamily: `'${fontDraft.body}', sans-serif`, fontSize: 14, color: "rgba(255,255,255,0.55)", lineHeight: 1.6 }}>Jumps over the lazy dog. Clear, readable body copy for the web.</p>}
+                    </div>
+                  )}
+
+                  <div className="flex gap-[12px]">
+                    <button onClick={() => setFontModalOpen(false)} className="flex-1 font-semibold text-[14px]" style={{ background: "rgba(255,255,255,0.08)", color: "white", border: "none", borderRadius: 10, padding: "12px 0", cursor: "pointer" }}>Cancel</button>
+                    <button
+                      onClick={() => {
+                        if (fontDraft.heading && fontDraft.body) {
+                          const pair: FontPair = { name: "Custom", heading: fontDraft.heading, body: fontDraft.body };
+                          setCustomFont(pair);
+                          setSelectedFont(FONT_PAIRS.length);
+                          setFontModalOpen(false);
+                        }
+                      }}
+                      className="flex-1 font-semibold text-[14px]"
+                      style={{ background: "#6FCCDD", color: "#0b0b0b", border: "none", borderRadius: 10, padding: "12px 0", cursor: "pointer", opacity: fontDraft.heading && fontDraft.body ? 1 : 0.5 }}
+                    >Apply</button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -1326,19 +1653,35 @@ function ColorsFontsPage({ onNext, onBack, onStepClick, completedUpTo }: { onNex
   );
 }
 
+function loadGoogleFont(family: string) {
+  const id = `gf-${family.replace(/\s+/g, "-")}`;
+  if (!document.getElementById(id)) {
+    const link = document.createElement("link");
+    link.id = id;
+    link.rel = "stylesheet";
+    link.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family).replace(/%20/g, "+")}:wght@400;700&display=swap`;
+    document.head.appendChild(link);
+  }
+}
+
 function FontCard({
   pair,
   selected,
   onClick,
 }: {
-  pair: { heading: string; body: string };
+  pair: FontPair;
   selected: boolean;
   onClick: () => void;
 }) {
+  useEffect(() => {
+    loadGoogleFont(pair.heading);
+    loadGoogleFont(pair.body);
+  }, [pair.heading, pair.body]);
+
   return (
     <button
       onClick={onClick}
-      className="flex flex-col gap-[12px] p-[20px] text-left"
+      className="flex flex-col gap-[10px] p-[16px] text-left"
       style={{
         backdropFilter: "blur(12px)",
         borderRadius: 16,
@@ -1346,33 +1689,17 @@ function FontCard({
         background: selected ? "rgba(111,204,221,0.05)" : "rgba(255,255,255,0.02)",
       }}
     >
-      <div className="flex items-center justify-between">
-        <span
-          className="font-semibold uppercase text-[11px]"
-          style={{ color: "rgba(255,255,255,0.4)", letterSpacing: "0.08em" }}
-        >
-          Heading
-        </span>
-        <span className="font-semibold text-[11px]" style={{ color: "#6fccdd" }}>
-          {pair.heading}
-        </span>
-      </div>
-      <p className="text-white font-bold text-[18px] leading-tight">
-        The Quick Brown Fox
+      <span
+        className="font-semibold uppercase text-[10px]"
+        style={{ color: "rgba(255,255,255,0.35)", letterSpacing: "0.08em" }}
+      >
+        {pair.name}
+      </span>
+      <p className="text-white font-bold text-[16px] leading-tight" style={{ fontFamily: `'${pair.heading}', serif` }}>
+        {pair.heading}
       </p>
-      <div className="flex items-center justify-between">
-        <span
-          className="font-semibold uppercase text-[11px]"
-          style={{ color: "rgba(255,255,255,0.4)", letterSpacing: "0.08em" }}
-        >
-          Body
-        </span>
-        <span className="font-semibold text-[11px]" style={{ color: "#6fccdd" }}>
-          {pair.body}
-        </span>
-      </div>
-      <p className="text-[13px] leading-relaxed" style={{ color: "rgba(255,255,255,0.5)" }}>
-        Jumps over the lazy dog. Clear, readable body copy for the web.
+      <p className="text-[12px] leading-relaxed" style={{ color: "rgba(255,255,255,0.5)", fontFamily: `'${pair.body}', sans-serif` }}>
+        {pair.body} — body text
       </p>
     </button>
   );
@@ -1916,9 +2243,9 @@ function GeneratingPage({ onNext }: { onNext: () => void }) {
 
 // ─── PAGE 8: Preview ──────────────────────────────────────────────────────────
 const VERSIONS = [
-  { name: "Version 1 — Classic", subtitle: "Clean and structured" },
-  { name: "Version 2 — Modern", subtitle: "Bold and contemporary" },
-  { name: "Version 3 — Minimal", subtitle: "Simple and focused" },
+  { name: "Version 1", subtitle: "Clean and structured" },
+  { name: "Version 2", subtitle: "Bold and contemporary" },
+  { name: "Version 3", subtitle: "Simple and focused" },
 ];
 
 function PreviewPage({ onNext, onBack }: { onNext: () => void; onBack: () => void }) {
@@ -2001,9 +2328,7 @@ function PreviewPage({ onNext, onBack }: { onNext: () => void; onBack: () => voi
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="text-white font-semibold text-[15px]">{v.name}</div>
-                    <div className="text-[12px] font-medium mt-[2px]" style={{ color: "rgba(255,255,255,0.4)" }}>
-                      {v.subtitle}
-                    </div>
+                    
                   </div>
                   <div
                     className="rounded-full flex items-center justify-center"
@@ -2257,27 +2582,21 @@ function DownloadPage({ onBack }: { onBack: () => void }) {
           </div>
 
           {/* Next Actions */}
-          <div className="flex flex-col gap-[16px] w-full max-w-[680px]">
+          <div className="flex flex-col gap-[16px] w-full max-w-[680px] mx-auto items-center">
             <span
               className="font-semibold uppercase text-[12px]"
               style={{ color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em" }}
             >
               Next Actions
             </span>
-            <div className="grid grid-cols-3 gap-[16px]">
+            <div className="flex gap-[16px] justify-center">
               {/* Download HTML */}
               <div
                 className="flex flex-col gap-[16px] p-[24px] rounded-[16px]"
-                style={{ background: "rgba(111,204,221,0.13)", border: "1px solid rgba(111,204,221,0.2)" }}
+                style={{ width: 280, background: "rgba(111,204,221,0.13)", border: "1px solid rgba(111,204,221,0.2)" }}
               >
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                  <path
-                    d={p.pdba8e90}
-                    stroke="#6fccdd"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
+                  <path d={p.pdba8e90} stroke="#6fccdd" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
                 <div>
                   <div className="text-white font-semibold text-[14px]">Download HTML</div>
@@ -2293,47 +2612,13 @@ function DownloadPage({ onBack }: { onBack: () => void }) {
                 </button>
               </div>
 
-              {/* Buy Domain */}
-              <div
-                className="flex flex-col gap-[16px] p-[24px] rounded-[16px]"
-                style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.1)" }}
-              >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                  <path
-                    d={p.p163a41e0}
-                    stroke="#6fccdd"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-                <div>
-                  <div className="text-white font-semibold text-[14px]">Buy a Domain</div>
-                  <div className="font-medium text-[12px] mt-[4px]" style={{ color: "rgba(255,255,255,0.4)" }}>
-                    Connect your custom domain
-                  </div>
-                </div>
-                <button
-                  className="w-full font-semibold text-[13px] py-[10px] rounded-[8px] uppercase"
-                  style={{ border: "1.5px solid #6fccdd", color: "#6fccdd", background: "transparent" }}
-                >
-                  Buy a Domain
-                </button>
-              </div>
-
               {/* Deploy */}
               <div
                 className="flex flex-col gap-[16px] p-[24px] rounded-[16px]"
-                style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.1)" }}
+                style={{ width: 280, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.1)" }}
               >
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                  <path
-                    d={p.p3d0d0400}
-                    stroke="#6fccdd"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
+                  <path d={p.p3d0d0400} stroke="#6fccdd" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
                 <div>
                   <div className="text-white font-semibold text-[14px]">Deploy to Domain</div>
@@ -2349,14 +2634,6 @@ function DownloadPage({ onBack }: { onBack: () => void }) {
                 </button>
               </div>
             </div>
-
-            <button
-              onClick={onBack}
-              className="font-medium text-[13px] text-center mt-[8px]"
-              style={{ color: "rgba(255,255,255,0.3)" }}
-            >
-              ← Start over
-            </button>
           </div>
         </div>
       </div>
