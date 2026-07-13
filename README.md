@@ -8,4 +8,8 @@
   Run `npm i` to install the dependencies.
 
   Run `npm run dev` to start the development server.
+
+  ## GitHub workflow
+
+  This repository uses a feature-branch workflow. Changes should be proposed through a pull request into `main`.
   
