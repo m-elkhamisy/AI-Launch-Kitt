@@ -1,4 +1,19 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { CircleHelp } from "lucide-react";
+import {
+  absoluteApiUrl,
+  BuildView,
+  createIdempotencyKey,
+  DeploymentView,
+  launchKitApi,
+  MockupView,
+  OperationView,
+  PageLayout,
+  ProjectView,
+  waitForDeployment,
+  waitForOperation,
+  WizardCatalog,
+} from "./launchkit-api";
 
 import svgPathsLogin from "@/imports/AiLaunchKitLoginPage/svg-8vlpvs8i0v";
 import svgPathsDl from "@/imports/AiLaunchKitDownloadingGeneratedWebsitesPage/svg-7argp47g3q";
@@ -18,6 +33,7 @@ type Page =
   | "pick-pages"
   | "generating"
   | "preview"
+  | "building"
   | "download";
 
 // ─── Page Wrapper ─────────────────────────────────────────────────────────────
@@ -883,32 +899,68 @@ function OtpPage({ onNext, onBack }: { onNext: () => void; onBack: () => void })
   );
 }
 // ─── PAGE 3: Questionnaire ────────────────────────────────────────────────────
-function QuestionnairePage({ onNext, onBack, onStepClick, completedUpTo }: { onNext: () => void; onBack: () => void; onStepClick?: (step: number) => void; completedUpTo?: number }) {
+type QuestionnaireForm = {
+  companyName: string;
+  uniqueness: string;
+  customers: string;
+  tagline: string;
+  cta: string;
+  anythingElse: string;
+};
+
+function QuestionnairePage({ project, onSave, onUpload, onBack, onStepClick, completedUpTo, busy }: {
+  project: ProjectView;
+  onSave: (form: QuestionnaireForm) => Promise<void>;
+  onUpload: (file: File) => Promise<void>;
+  onBack: () => void;
+  onStepClick?: (step: number) => void;
+  completedUpTo?: number;
+  busy: boolean;
+}) {
   const p = svgPathsMerged;
   const [uploadOpen, setUploadOpen] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  async function acceptFile(file: File) {
+    setUploadedFile(file);
+    setUploadOpen(false);
+    await onUpload(file);
+  }
+
   function handleFileDrop(e: React.DragEvent) {
     e.preventDefault();
     setDragOver(false);
     const file = e.dataTransfer.files[0];
-    if (file) { setUploadedFile(file); setUploadOpen(false); }
+    if (file) void acceptFile(file);
   }
   function handleFileChoose(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (file) { setUploadedFile(file); setUploadOpen(false); }
+    if (file) void acceptFile(file);
   }
 
-  const [form, setForm] = useState({
-    companyName: "",
-    uniqueness: "",
-    customers: "",
-    tagline: "",
-    cta: "",
-    anythingElse: "",
+  const [form, setForm] = useState<QuestionnaireForm>({
+    companyName: project.business.companyName,
+    uniqueness: project.business.uvp,
+    customers: project.business.targetAudience,
+    tagline: project.design.tagline,
+    cta: project.design.cta,
+    anythingElse: project.business.notes,
   });
+
+  useEffect(() => {
+    setForm({
+      companyName: project.business.companyName,
+      uniqueness: project.business.uvp,
+      customers: project.business.targetAudience,
+      tagline: project.design.tagline,
+      cta: project.design.cta,
+      anythingElse: project.business.notes,
+    });
+  }, [project.updatedAt]);
+
+  const continueQuestionnaire = () => void onSave(form);
 
   const fields = [
     [
@@ -929,7 +981,7 @@ function QuestionnairePage({ onNext, onBack, onStepClick, completedUpTo }: { onN
     <ScaledPage
       designHeight={1100}
       scrollable
-      header={<><TopHeader /><SubNav activeStep={0} completedUpTo={completedUpTo} onBack={onBack} onNext={onNext} onStepClick={onStepClick} /></>}
+      header={<><TopHeader /><SubNav activeStep={0} completedUpTo={completedUpTo} onBack={onBack} onNext={busy ? undefined : continueQuestionnaire} onStepClick={onStepClick} /></>}
     >
       <div
         className="w-full min-h-full flex flex-col"
@@ -1029,7 +1081,7 @@ function QuestionnairePage({ onNext, onBack, onStepClick, completedUpTo }: { onN
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept=".pdf,.docx,.pptx,.txt,.png,.jpg,.jpeg"
+                  accept=".pdf,.docx,.pptx,.txt,.md,.png,.jpg,.jpeg"
                   style={{ display: "none" }}
                   onChange={handleFileChoose}
                 />
@@ -1125,7 +1177,8 @@ function QuestionnairePage({ onNext, onBack, onStepClick, completedUpTo }: { onN
 
             {/* Save button */}
             <button
-              onClick={onNext}
+              onClick={continueQuestionnaire}
+              disabled={busy}
               className="w-full font-semibold text-[14px] uppercase"
               style={{
                 background: "#6fccdd",
@@ -1134,7 +1187,7 @@ function QuestionnairePage({ onNext, onBack, onStepClick, completedUpTo }: { onN
                 padding: "16px 0",
               }}
             >
-              Save &amp; Continue
+              {busy ? "Saving..." : "Save & Continue"}
             </button>
           </div>
         </div>
@@ -1175,18 +1228,48 @@ const ANIMATION_LEVELS = [
   { label: "High", sub: "More dynamic" },
 ];
 
-function CategoryMoodPage({ onNext, onBack, onStepClick, completedUpTo }: { onNext: () => void; onBack: () => void; onStepClick?: (step: number) => void; completedUpTo?: number }) {
-  const [category, setCategory] = useState("Tech / SaaS");
-  const [mood, setMood] = useState("Dark & Modern");
-  const [animLevel, setAnimLevel] = useState(2);
+function CategoryMoodPage({ project, catalog, onSave, onBack, onStepClick, completedUpTo, busy }: {
+  project: ProjectView;
+  catalog: WizardCatalog;
+  onSave: (categoryId: string, moodId: string, animationId: string) => Promise<void>;
+  onBack: () => void;
+  onStepClick?: (step: number) => void;
+  completedUpTo?: number;
+  busy: boolean;
+}) {
+  const categories = catalog.businessCategories;
+  const moods = catalog.designMoods;
+  const animationLevels = catalog.animationLevels;
+  const [category, setCategory] = useState(
+    categories.find((item) => item.id === project.business.categoryId)?.label ?? categories[0]?.label ?? "",
+  );
+  const [mood, setMood] = useState(
+    moods.find((item) => item.id === project.design.moodId)?.label ?? moods[0]?.label ?? "",
+  );
+  const [animLevel, setAnimLevel] = useState(
+    Math.max(0, animationLevels.findIndex((item) => item.id === project.design.animationId)),
+  );
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showMoodModal, setShowMoodModal] = useState(false);
+
+  useEffect(() => {
+    setCategory(categories.find((item) => item.id === project.business.categoryId)?.label ?? categories[0]?.label ?? "");
+    setMood(moods.find((item) => item.id === project.design.moodId)?.label ?? moods[0]?.label ?? "");
+    setAnimLevel(Math.max(0, animationLevels.findIndex((item) => item.id === project.design.animationId)));
+  }, [project.updatedAt, catalog]);
+
+  const continueDesign = () => {
+    const categoryId = categories.find((item) => item.label === category)?.id;
+    const moodId = moods.find((item) => item.label === mood)?.id;
+    const animationId = animationLevels[animLevel]?.id;
+    if (categoryId && moodId && animationId) void onSave(categoryId, moodId, animationId);
+  };
 
   return (
     <ScaledPage
       designHeight={1000}
       scrollable
-      header={<><TopHeader /><SubNav activeStep={1} completedUpTo={completedUpTo} onBack={onBack} onNext={onNext} onStepClick={onStepClick} /></>}
+      header={<><TopHeader /><SubNav activeStep={1} completedUpTo={completedUpTo} onBack={onBack} onNext={busy ? undefined : continueDesign} onStepClick={onStepClick} /></>}
     >
       <div
         className="w-full min-h-full flex flex-col"
@@ -1210,7 +1293,7 @@ function CategoryMoodPage({ onNext, onBack, onStepClick, completedUpTo }: { onNe
                   <div className="flex flex-col gap-[6px]">
                     <h3 className="text-white font-semibold text-[16px] sm:text-[18px] leading-[24px] sm:leading-[28px]">{category}</h3>
                     <p className="font-medium text-[13px] sm:text-[14px] leading-[18px] sm:leading-[20px]" style={{ color: "rgba(255,255,255,0.6)", maxWidth: 360 }}>
-                      {BUSINESS_CATEGORIES.find((c) => c.label === category)?.desc ?? ""}
+                      {categories.find((c) => c.label === category)?.description ?? ""}
                     </p>
                   </div>
                 </div>
@@ -1256,7 +1339,7 @@ function CategoryMoodPage({ onNext, onBack, onStepClick, completedUpTo }: { onNe
                   <div className="flex flex-col gap-[6px]">
                     <h3 className="text-white font-semibold text-[16px] sm:text-[18px] leading-[24px] sm:leading-[28px]">{mood}</h3>
                     <p className="font-medium text-[13px] sm:text-[14px] leading-[18px] sm:leading-[20px]" style={{ color: "rgba(255,255,255,0.6)", maxWidth: 360 }}>
-                      {DESIGN_MOODS.find((m) => m.label === mood)?.desc ?? ""}
+                      {moods.find((m) => m.label === mood)?.description ?? ""}
                     </p>
                   </div>
                 </div>
@@ -1296,7 +1379,7 @@ function CategoryMoodPage({ onNext, onBack, onStepClick, completedUpTo }: { onNe
                 className="absolute left-0 right-0 w-full"
                 style={{ bottom: "clamp(8px, 2vw, 11px)", height: 2, background: "rgba(255,255,255,0.1)" }}
               />
-              {ANIMATION_LEVELS.map((lvl, i) => {
+                {animationLevels.map((lvl, i) => {
                 const isActive = i === animLevel;
                 const dotSize = "clamp(18px, 4vw, 24px)";
                 return (
@@ -1334,7 +1417,7 @@ function CategoryMoodPage({ onNext, onBack, onStepClick, completedUpTo }: { onNe
                           display: "block",
                         }}
                       >
-                        {lvl.sub}
+                        {lvl.description}
                       </span>
                     </div>
                     {/* Circle on the track */}
@@ -1395,7 +1478,7 @@ function CategoryMoodPage({ onNext, onBack, onStepClick, completedUpTo }: { onNe
 
               {/* Category grid — 1 col mobile, 3 cols tablet/desktop */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {BUSINESS_CATEGORIES.map((cat) => (
+                  {categories.map((cat) => (
                   <button
                     key={cat.label}
                     onClick={() => {
@@ -1418,7 +1501,7 @@ function CategoryMoodPage({ onNext, onBack, onStepClick, completedUpTo }: { onNe
                       className="font-medium leading-[17px]"
                       style={{ fontSize: "clamp(10px, 2vw, 11px)", color: "rgba(255,255,255,0.45)" }}
                     >
-                      {cat.desc}
+                        {cat.description}
                     </p>
                   </button>
                 ))}
@@ -1459,7 +1542,7 @@ function CategoryMoodPage({ onNext, onBack, onStepClick, completedUpTo }: { onNe
                 </button>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-[12px]">
-                {DESIGN_MOODS.map((m) => (
+                {moods.map((m) => (
                   <button
                     key={m.label}
                     onClick={() => {
@@ -1473,7 +1556,7 @@ function CategoryMoodPage({ onNext, onBack, onStepClick, completedUpTo }: { onNe
                     }}
                   >
                     <p className="font-semibold text-[13px] sm:text-[15px] mb-[4px]" style={{ color: m.label === mood ? "#6fccdd" : "white" }}>{m.label}</p>
-                    <p className="font-medium text-[11px] sm:text-[13px] leading-[16px] sm:leading-[18px]" style={{ color: "rgba(255,255,255,0.4)" }}>{m.desc}</p>
+                    <p className="font-medium text-[11px] sm:text-[13px] leading-[16px] sm:leading-[18px]" style={{ color: "rgba(255,255,255,0.4)" }}>{m.description}</p>
                   </button>
                 ))}
               </div>
@@ -1486,7 +1569,7 @@ function CategoryMoodPage({ onNext, onBack, onStepClick, completedUpTo }: { onNe
 }
 
 // ─── PAGE 5: Colors & Fonts ───────────────────────────────────────────────────
-type PaletteEntry = { name: string; primary: string; secondary: string; background: string; text: string };
+type PaletteEntry = { id?: string; name: string; primary: string; secondary: string; background: string; text: string };
 const PALETTES: PaletteEntry[] = [
   { name: "Modern Blue",    primary: "#2563EB", secondary: "#60A5FA", background: "#F8FAFC", text: "#1E293B" },
   { name: "Nature Green",   primary: "#16A34A", secondary: "#86EFAC", background: "#F0FDF4", text: "#14532D" },
@@ -1497,7 +1580,7 @@ const PALETTES: PaletteEntry[] = [
   { name: "Soft Pink",      primary: "#EC4899", secondary: "#F9A8D4", background: "#FDF2F8", text: "#831843" },
 ];
 
-type FontPair = { name: string; heading: string; body: string };
+type FontPair = { id?: string; name: string; heading: string; body: string };
 const FONT_PAIRS: FontPair[] = [
   { name: "Modern Startup",    heading: "Poppins",           body: "Inter" },
   { name: "Elegant Editorial", heading: "Playfair Display",  body: "Source Sans 3" },
@@ -1514,24 +1597,65 @@ const GOOGLE_FONTS_LIST = [
 ];
 
 type CustomPalette = { primary: string; secondary: string; background: string; text: string };
-function ColorsFontsPage({ onNext, onBack, onStepClick, completedUpTo }: { onNext: () => void; onBack: () => void; onStepClick?: (step: number) => void; completedUpTo?: number }) {
-  const [selectedPalette, setSelectedPalette] = useState(0);
-  const [selectedFont, setSelectedFont] = useState(0);
+function ColorsFontsPage({ project, catalog, onSave, onBack, onStepClick, completedUpTo, busy }: {
+  project: ProjectView;
+  catalog: WizardCatalog;
+  onSave: (paletteId: string, customPalette: CustomPalette | null, fontId: string, customFonts: { heading: string; body: string } | null) => Promise<void>;
+  onBack: () => void;
+  onStepClick?: (step: number) => void;
+  completedUpTo?: number;
+  busy: boolean;
+}) {
+  const palettes: PaletteEntry[] = catalog.palettes
+    .filter((item) => item.colors)
+    .map((item) => ({ id: item.id, name: item.label, ...item.colors! }));
+  const fontPairs: FontPair[] = catalog.fontPairings
+    .filter((item) => item.fonts)
+    .map((item) => ({ id: item.id, name: item.label, ...item.fonts! }));
+  const [selectedPalette, setSelectedPalette] = useState(
+    project.design.paletteId === "custom"
+      ? palettes.length
+      : Math.max(0, palettes.findIndex((item) => item.id === project.design.paletteId)),
+  );
+  const [selectedFont, setSelectedFont] = useState(
+    project.design.fontPairingId === "custom"
+      ? fontPairs.length
+      : Math.max(0, fontPairs.findIndex((item) => item.id === project.design.fontPairingId)),
+  );
   const [customModalOpen, setCustomModalOpen] = useState(false);
   const [specificColors, setSpecificColors] = useState(false);
-  const [customPalette, setCustomPalette] = useState<CustomPalette | null>(null);
+  const [customPalette, setCustomPalette] = useState<CustomPalette | null>(project.design.customPalette);
   const [customDraft, setCustomDraft] = useState<CustomPalette>({ primary: "", secondary: "", background: "", text: "" });
   const [fontModalOpen, setFontModalOpen] = useState(false);
-  const [customFont, setCustomFont] = useState<FontPair | null>(null);
+  const [customFont, setCustomFont] = useState<FontPair | null>(
+    project.design.customFonts
+      ? { name: "Custom", ...project.design.customFonts }
+      : null,
+  );
   const [fontDraft, setFontDraft] = useState<{ heading: string; body: string }>({ heading: "", body: "" });
   const [headingSearch, setHeadingSearch] = useState("");
   const [bodySearch, setBodySearch] = useState("");
+
+  const continueColors = () => {
+    const paletteId = selectedPalette === palettes.length ? "custom" : palettes[selectedPalette]?.id;
+    const fontId = selectedFont === fontPairs.length ? "custom" : fontPairs[selectedFont]?.id;
+    if (paletteId && fontId) {
+      void onSave(
+        paletteId,
+        paletteId === "custom" ? customPalette : null,
+        fontId,
+        fontId === "custom" && customFont
+          ? { heading: customFont.heading, body: customFont.body }
+          : null,
+      );
+    }
+  };
 
   return (
     <ScaledPage
       designHeight={1200}
       scrollable
-      header={<><TopHeader /><SubNav activeStep={2} completedUpTo={completedUpTo} onBack={onBack} onNext={onNext} onStepClick={onStepClick} /></>}
+      header={<><TopHeader /><SubNav activeStep={2} completedUpTo={completedUpTo} onBack={onBack} onNext={busy ? undefined : continueColors} onStepClick={onStepClick} /></>}
     >
       <div
         className="w-full min-h-full flex flex-col"
@@ -1548,7 +1672,7 @@ function ColorsFontsPage({ onNext, onBack, onStepClick, completedUpTo }: { onNex
             </span>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
               {/* 7 preset palette cards */}
-              {PALETTES.map((palette, i) => {
+              {palettes.map((palette, i) => {
                 const colors = [palette.primary, palette.secondary, palette.background, palette.text];
                 const selected = selectedPalette === i;
                 return (
@@ -1594,7 +1718,7 @@ function ColorsFontsPage({ onNext, onBack, onStepClick, completedUpTo }: { onNex
 
               {/* Custom palette card */}
               {(() => {
-                const CUSTOM_IDX = PALETTES.length;
+                const CUSTOM_IDX = palettes.length;
                 const selected = selectedPalette === CUSTOM_IDX;
                 return (
                   <button
@@ -1819,7 +1943,7 @@ function ColorsFontsPage({ onNext, onBack, onStepClick, completedUpTo }: { onNex
                     <button
                       onClick={() => {
                         setCustomPalette({ ...customDraft });
-                        setSelectedPalette(PALETTES.length);
+                        setSelectedPalette(palettes.length);
                         setCustomModalOpen(false);
                       }}
                       className="flex-1 font-semibold text-[14px]"
@@ -1845,12 +1969,12 @@ function ColorsFontsPage({ onNext, onBack, onStepClick, completedUpTo }: { onNex
             {/* Unified responsive grid — 2 cols mobile, 3 tablet, 4 desktop. CSS decides the
                 column count (Tailwind breakpoints), not JS device detection. */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-              {FONT_PAIRS.map((pair, i) => (
+              {fontPairs.map((pair, i) => (
                 <FontCard key={i} pair={pair} selected={selectedFont === i} onClick={() => setSelectedFont(i)} />
               ))}
               {/* Custom font card */}
               {(() => {
-                const CUSTOM_FONT_IDX = FONT_PAIRS.length;
+                const CUSTOM_FONT_IDX = fontPairs.length;
                 const selected = selectedFont === CUSTOM_FONT_IDX;
                 return (
                   <button
@@ -1959,7 +2083,7 @@ function ColorsFontsPage({ onNext, onBack, onStepClick, completedUpTo }: { onNex
                         if (fontDraft.heading && fontDraft.body) {
                           const pair: FontPair = { name: "Custom", heading: fontDraft.heading, body: fontDraft.body };
                           setCustomFont(pair);
-                          setSelectedFont(FONT_PAIRS.length);
+                          setSelectedFont(fontPairs.length);
                           setFontModalOpen(false);
                         }
                       }}
@@ -2030,8 +2154,8 @@ function FontCard({
 }
 
 // ─── PAGE 6: Pick Pages ───────────────────────────────────────────────────────
-type Section = { id: string; name: string; locked?: boolean };
-type PageTemplate = { id: string; name: string; selected: boolean; sections: Section[] };
+type Section = { id: string; name: string; templateId?: string; locked?: boolean };
+type PageTemplate = { id: string; name: string; slug?: string; selected: boolean; sections: Section[] };
 
 let _sid = 0;
 const sid = () => `s${++_sid}`;
@@ -2128,15 +2252,66 @@ const PAGE_TEMPLATES: PageTemplate[] = [
   },
 ];
 
-function PickPagesPage({ onNext, onBack, onStepClick, completedUpTo }: { onNext: () => void; onBack: () => void; onStepClick?: (step: number) => void; completedUpTo?: number }) {
-  const [pages, setPages] = useState<PageTemplate[]>(() =>
-    PAGE_TEMPLATES.map((p) => ({ ...p, sections: p.sections.map((s) => ({ ...s })) }))
-  );
+function editorPages(project: ProjectView, catalog: WizardCatalog): PageTemplate[] {
+  const sectionCatalog = new Map(catalog.sectionTemplates.map((item) => [item.id, item]));
+  const saved = new Map(project.pageLayout.pages.map((page) => [page.templateId, page]));
+  return catalog.pageTemplates.map((template) => {
+    const page = saved.get(template.id);
+    const sections = page?.sections ?? template.sectionTemplateIds.map((templateId, index) => ({
+      id: `${template.id}:${templateId}:${index}`,
+      templateId,
+      name: sectionCatalog.get(templateId)?.label ?? templateId,
+      locked: sectionCatalog.get(templateId)?.locked ?? false,
+    }));
+    return {
+      id: template.id,
+      name: page?.name ?? template.label,
+      slug: page?.slug ?? template.slug,
+      selected: Boolean(page),
+      sections: sections.map((section) => ({
+        id: section.id,
+        name: section.name,
+        templateId: section.templateId,
+        locked: section.locked,
+      })),
+    };
+  });
+}
+
+function PickPagesPage({ project, catalog, onGenerate, onBack, onStepClick, completedUpTo, busy }: {
+  project: ProjectView;
+  catalog: WizardCatalog;
+  onGenerate: (layout: PageLayout) => Promise<void>;
+  onBack: () => void;
+  onStepClick?: (step: number) => void;
+  completedUpTo?: number;
+  busy: boolean;
+}) {
+  const [pages, setPages] = useState<PageTemplate[]>(() => editorPages(project, catalog));
   const [openMenu, setOpenMenu] = useState<{ pageId: string; sectionId: string } | null>(null);
   const [addModal, setAddModal] = useState<string | null>(null); // pageId
   const [renaming, setRenaming] = useState<{ pageId: string; sectionId: string; value: string } | null>(null);
   const [drag, setDrag] = useState<{ pageId: string; sectionId: string } | null>(null);
   const [dragOver, setDragOver] = useState<{ pageId: string; sectionId: string } | null>(null);
+
+  const unlockedSections = catalog.sectionTemplates.filter((section) => !section.locked);
+  const continueGeneration = () => {
+    const layout: PageLayout = {
+      pages: pages.filter((page) => page.selected).map((page) => ({
+        id: `page:${page.id}`,
+        templateId: page.id,
+        name: page.name,
+        slug: page.slug ?? page.id,
+        sections: page.sections.map((section) => ({
+          id: section.id,
+          templateId: section.templateId ?? unlockedSections.find((item) => item.label === section.name.replace(" (Copy)", ""))?.id ?? "features",
+          name: section.name,
+          locked: Boolean(section.locked),
+        })),
+      })),
+    };
+    void onGenerate(layout);
+  };
 
   const selectedPageCount = pages.filter((p) => p.selected).length;
   const totalContentSections = pages.filter((p) => p.selected).reduce((n, p) => n + p.sections.filter((s) => !s.locked).length, 0);
@@ -2165,7 +2340,11 @@ function PickPagesPage({ onNext, onBack, onStepClick, completedUpTo }: { onNext:
   const addSection = (pageId: string, name: string) => {
     updateSections(pageId, (s) => {
       const footerIdx = s.findIndex((sec) => sec.locked && sec.name === "Footer");
-      const newSec: Section = { id: sid(), name };
+      const newSec: Section = {
+        id: sid(),
+        name,
+        templateId: unlockedSections.find((item) => item.label === name)?.id,
+      };
       if (footerIdx >= 0) return [...s.slice(0, footerIdx), newSec, ...s.slice(footerIdx)];
       return [...s, newSec];
     });
@@ -2237,9 +2416,9 @@ function PickPagesPage({ onNext, onBack, onStepClick, completedUpTo }: { onNext:
             activeStep={3}
             completedUpTo={completedUpTo}
             onBack={onBack}
-            onNext={selectedPageCount > 0 && !hasInvalidPage && !atSectionLimit ? onNext : undefined}
+            onNext={selectedPageCount > 0 && !hasInvalidPage && !atSectionLimit && !busy ? continueGeneration : undefined}
             onStepClick={onStepClick}
-            nextLabel="Review &amp; Generate"
+            nextLabel="Review & Generate"
           />
         </>
       }
@@ -2492,10 +2671,10 @@ function PickPagesPage({ onNext, onBack, onStepClick, completedUpTo }: { onNext:
                               </p>
                             </div>
                             <div className="flex flex-col max-h-[200px] overflow-y-auto">
-                              {AVAILABLE_SECTIONS.filter((name) => !page.sections.some((s) => s.name === name)).map((name) => (
+                              {unlockedSections.filter((item) => !page.sections.some((s) => s.templateId === item.id)).map((item) => (
                                 <button
-                                  key={name}
-                                  onClick={() => addSection(page.id, name)}
+                                  key={item.id}
+                                  onClick={() => addSection(page.id, item.label)}
                                   className="flex items-center gap-[10px] px-[14px] py-[9px] font-medium text-[13px] text-left w-full"
                                   style={{ color: "rgba(255,255,255,0.8)", background: "transparent" }}
                                   onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(111,204,221,0.08)")}
@@ -2504,7 +2683,7 @@ function PickPagesPage({ onNext, onBack, onStepClick, completedUpTo }: { onNext:
                                   <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
                                     <path d="M6 2v8M2 6h8" stroke="#6fccdd" strokeWidth="1.5" strokeLinecap="round" />
                                   </svg>
-                                  {name}
+                                  {item.label}
                                 </button>
                               ))}
                             </div>
@@ -2556,7 +2735,7 @@ function PickPagesPage({ onNext, onBack, onStepClick, completedUpTo }: { onNext:
                   return (
                     <>
                       <button
-                        onClick={canGenerate ? onNext : undefined}
+                          onClick={canGenerate && !busy ? continueGeneration : undefined}
                         className="font-semibold text-[14px] uppercase px-[24px] py-[12px] rounded-[8px] w-full sm:w-auto"
                         style={{
                           background: canGenerate ? "#6fccdd" : "rgba(255,255,255,0.08)",
@@ -2565,7 +2744,7 @@ function PickPagesPage({ onNext, onBack, onStepClick, completedUpTo }: { onNext:
                           transition: "background 0.2s, color 0.2s",
                         }}
                       >
-                        Review &amp; Generate
+                         {busy ? "Saving..." : "Review & Generate"}
                       </button>
                       {!canGenerate && (
                         <p style={{ color: "rgba(248,113,113,0.8)", fontSize: 11, textAlign: "right", maxWidth: 240 }}>
@@ -2596,25 +2775,14 @@ const PHASES = [
   "Composing your website...",
 ];
 
-function GeneratingPage({ onNext }: { onNext: () => void }) {
-  const [progress, setProgress] = useState(0);
-  const [phaseIndex, setPhaseIndex] = useState(0);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setProgress((p) => {
-        const next = p + 1;
-        if (next >= 100) {
-          clearInterval(interval);
-          setTimeout(onNext, 400);
-          return 100;
-        }
-        setPhaseIndex(Math.floor((next / 100) * PHASES.length));
-        return next;
-      });
-    }, 40);
-    return () => clearInterval(interval);
-  }, [onNext]);
+function GeneratingPage({ operation, error, onRetry }: {
+  operation: OperationView | null;
+  error: string | null;
+  onRetry: () => void;
+}) {
+  const message = operation?.status === "running"
+    ? "Creating three design directions..."
+    : "Preparing your persisted project...";
 
   return (
     <ScaledPage designHeight={900} header={<TopHeader />}>
@@ -2641,29 +2809,19 @@ function GeneratingPage({ onNext }: { onNext: () => void }) {
               className="font-medium text-[14px]"
               style={{ color: "rgba(255,255,255,0.5)", minHeight: 20 }}
             >
-              {PHASES[Math.min(phaseIndex, PHASES.length - 1)]}
+              {error ?? message}
             </p>
           </div>
 
-          {/* Progress bar */}
-          <div className="flex flex-col items-center gap-[12px]" style={{ width: "min(100%, 360px)" }}>
-            <div
-              className="w-full rounded-full overflow-hidden"
-              style={{ height: 6, background: "rgba(255,255,255,0.08)" }}
+          {error && (
+            <button
+              onClick={onRetry}
+              className="font-semibold text-[14px] px-[24px] py-[12px] rounded-[8px]"
+              style={{ background: "#6fccdd", color: "#0b0b0b" }}
             >
-              <div
-                className="h-full rounded-full"
-                style={{
-                  width: `${progress}%`,
-                  background: "#6fccdd",
-                  transition: "width 0.04s linear",
-                }}
-              />
-            </div>
-            <span className="font-semibold text-[13px]" style={{ color: "rgba(255,255,255,0.5)" }}>
-              {progress}%
-            </span>
-          </div>
+              Try Again
+            </button>
+          )}
         </div>
       </div>
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
@@ -2678,8 +2836,21 @@ const VERSIONS = [
   { name: "Version 3", subtitle: "Simple and focused" },
 ];
 
-function PreviewPage({ onNext, onBack }: { onNext: () => void; onBack: () => void }) {
-  const [selected, setSelected] = useState(1);
+function PreviewPage({ mockups, selectedMockupId, onConfirm, onBack, busy }: {
+  mockups: MockupView[];
+  selectedMockupId: string | null;
+  onConfirm: (mockupId: string) => Promise<void>;
+  onBack: () => void;
+  busy: boolean;
+}) {
+  const [selected, setSelected] = useState(
+    selectedMockupId ?? mockups[0]?.id ?? "",
+  );
+
+  useEffect(() => {
+    if (selectedMockupId) setSelected(selectedMockupId);
+    else if (!mockups.some((mockup) => mockup.id === selected)) setSelected(mockups[0]?.id ?? "");
+  }, [mockups, selectedMockupId]);
 
   return (
     <ScaledPage
@@ -2746,35 +2917,36 @@ function PreviewPage({ onNext, onBack }: { onNext: () => void; onBack: () => voi
 
           {/* Version cards — 1 column on mobile (full width, scroll to reach all), 3 on tablet/desktop */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-[20px] w-full">
-            {VERSIONS.map((v, i) => (
+            {mockups.map((v, i) => (
               <button
-                key={i}
-                onClick={() => setSelected(i)}
+                key={v.id}
+                onClick={() => setSelected(v.id)}
                 className="flex flex-col gap-[16px] p-[20px] text-left"
                 style={{
                   backdropFilter: "blur(12px)",
                   background: "rgba(255,255,255,0.02)",
                   borderRadius: 8,
                   border:
-                    selected === i ? "1.5px solid #6fccdd" : "1px solid white",
+                    selected === v.id ? "1.5px solid #6fccdd" : "1px solid white",
                   minHeight: "clamp(360px, 55vh, 520px)",
                 }}
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="text-white font-semibold text-[13px] sm:text-[15px]">{v.name}</div>
-                    
+                    <div className="text-white font-semibold text-[13px] sm:text-[15px]">{v.label}</div>
+                    <div className="font-medium text-[11px] mt-[4px]" style={{ color: "rgba(255,255,255,0.45)" }}>{v.direction}</div>
+
                   </div>
                   <div
                     className="rounded-full flex items-center justify-center"
                     style={{
                       width: 20,
                       height: 20,
-                      border: selected === i ? "none" : "1.5px solid rgba(255,255,255,0.3)",
-                      background: selected === i ? "#6fccdd" : "transparent",
+                      border: selected === v.id ? "none" : "1.5px solid rgba(255,255,255,0.3)",
+                      background: selected === v.id ? "#6fccdd" : "transparent",
                     }}
                   >
-                    {selected === i && (
+                    {selected === v.id && (
                       <div
                         className="rounded-full"
                         style={{ width: 8, height: 8, background: "#0b0b0b" }}
@@ -2789,8 +2961,16 @@ function PreviewPage({ onNext, onBack }: { onNext: () => void; onBack: () => voi
                   style={{
                     background: i === 1 ? "#0a1a1a" : "#111",
                     border: i === 1 ? "1.5px solid #6fccdd" : "1px solid rgba(255,255,255,0.1)",
+                    position: "relative",
                   }}
                 >
+                  <iframe
+                    src={absoluteApiUrl(v.previewUrl) ?? undefined}
+                    title={`${v.label} preview`}
+                    sandbox="allow-scripts"
+                    className="absolute inset-0 w-full h-full border-0"
+                    style={{ background: "white", zIndex: 2 }}
+                  />
                   {/* Nav bar */}
                   <div
                     className="flex items-center gap-[8px] px-[12px]"
@@ -2845,7 +3025,8 @@ function PreviewPage({ onNext, onBack }: { onNext: () => void; onBack: () => voi
           {/* Confirm button */}
           <div className="flex justify-center w-full">
             <button
-              onClick={onNext}
+              onClick={() => selected && void onConfirm(selected)}
+              disabled={!selected || busy}
               className="font-semibold text-[18px] w-full sm:w-auto sm:min-w-[360px]"
               style={{
                 background: "#6fccdd",
@@ -2854,7 +3035,7 @@ function PreviewPage({ onNext, onBack }: { onNext: () => void; onBack: () => voi
                 padding: "16px 24px",
               }}
             >
-              Confirm Selection
+              {busy ? "Starting Build..." : "Confirm Selection"}
             </button>
           </div>
         </div>
@@ -2864,8 +3045,51 @@ function PreviewPage({ onNext, onBack }: { onNext: () => void; onBack: () => voi
 }
 
 // ─── PAGE 9: Download ─────────────────────────────────────────────────────────
-function DownloadPage({ onBack }: { onBack: () => void }) {
+function BuildingPage({ build, error, onBack }: {
+  build: BuildView | null;
+  error: string | null;
+  onBack: () => void;
+}) {
+  const terminalError = build && ["failed", "cancelled", "timed_out"].includes(build.status);
+  return (
+    <ScaledPage designHeight={900} header={<TopHeader />}>
+      <div className="w-full flex flex-col flex-1" style={{ background: "#0b0b0b", fontFamily: "'Montserrat', sans-serif" }}>
+        <div className="flex-1 flex flex-col items-center justify-center gap-[28px] px-4 text-center">
+          {!terminalError && !error && (
+            <div className="rounded-full" style={{ width: 72, height: 72, border: "4px solid rgba(111,204,221,0.2)", borderTop: "4px solid #6fccdd", animation: "spin 1s linear infinite" }} />
+          )}
+          <div className="flex flex-col items-center gap-[10px] max-w-[560px]">
+            <h2 className="text-white font-semibold" style={{ fontSize: "clamp(19px, 5vw, 24px)" }}>
+              {terminalError || error ? "Build needs attention" : "Building your website"}
+            </h2>
+            <p className="font-medium text-[14px]" style={{ color: "rgba(255,255,255,0.55)", lineHeight: 1.6 }}>
+              {error ?? build?.message ?? "Queuing the final build..."}
+            </p>
+            {build?.warnings.map((warning) => (
+              <p key={warning} className="font-medium text-[12px]" style={{ color: "rgba(248,180,113,0.9)", lineHeight: 1.5 }}>{warning}</p>
+            ))}
+          </div>
+          {(terminalError || error) && (
+            <button onClick={onBack} className="font-semibold text-[14px] px-[24px] py-[12px] rounded-[8px]" style={{ background: "#6fccdd", color: "#0b0b0b" }}>
+              Return to Designs
+            </button>
+          )}
+        </div>
+      </div>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </ScaledPage>
+  );
+}
+
+function DownloadPage({ build, deployment, onDeploy, onBack, busy }: {
+  build: BuildView;
+  deployment: DeploymentView | null;
+  onDeploy: () => Promise<void>;
+  onBack: () => void;
+  busy: boolean;
+}) {
   const p = svgPathsDl;
+  const [tip, setTip] = useState(false);
 
   return (
     <ScaledPage designHeight={1100} scrollable header={<TopHeader />}>
@@ -2947,7 +3171,7 @@ function DownloadPage({ onBack }: { onBack: () => void }) {
                     className="text-[11px] font-medium"
                     style={{ color: "rgba(255,255,255,0.3)" }}
                   >
-                    yourwebsite.com
+                    {build.webUrl ?? "Generated website"}
                   </span>
                 </div>
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
@@ -2962,7 +3186,15 @@ function DownloadPage({ onBack }: { onBack: () => void }) {
               </div>
 
               {/* Preview content */}
-              <div className="flex-1 flex flex-col" style={{ background: "#111" }}>
+              <div className="flex-1 flex flex-col relative" style={{ background: "#111" }}>
+                {build.previewUrl && (
+                  <iframe
+                    src={build.previewUrl}
+                    title="Generated website preview"
+                    className="absolute inset-0 w-full h-full border-0"
+                    style={{ background: "white", zIndex: 2 }}
+                  />
+                )}
                 {/* Hero gradient */}
                 <div
                   className="flex-1 flex flex-col items-center justify-center gap-[8px]"
@@ -3037,6 +3269,11 @@ function DownloadPage({ onBack }: { onBack: () => void }) {
                   </div>
                 </div>
                 <button
+                  onClick={() => {
+                    const url = absoluteApiUrl(build.downloadUrl);
+                    if (url) window.location.assign(url);
+                  }}
+                  disabled={!build.downloadUrl}
                   className="w-full font-semibold text-[13px] py-[10px] rounded-[8px]"
                   style={{ background: "#6fccdd", color: "#0b0b0b" }}
                 >
@@ -3055,19 +3292,18 @@ function DownloadPage({ onBack }: { onBack: () => void }) {
                 <div>
                   <div className="flex items-center gap-[6px]">
                     <span className="text-white font-semibold text-[14px]">Deploy to Domain</span>
-                    {(() => {
-                      const [tip, setTip] = useState(false);
-                      return (
+
                         <div style={{ position: "relative", display: "inline-flex" }}>
                           <button
                             onMouseEnter={() => setTip(true)}
                             onMouseLeave={() => setTip(false)}
                             onClick={() => setTip(v => !v)}
-                            style={{ background: "none", border: "none", padding: 0, cursor: "pointer", lineHeight: 1, color: "rgba(255,255,255,0.35)", fontSize: 14, display: "flex", alignItems: "center" }}
-                            aria-label="More information"
+                            style={{ background: "none", border: "none", padding: 0, cursor: "pointer", width: 16, height: 16, fontSize: 0 }}
+                            aria-label="Vercel deployment information"
                           >
                             ⓘ
                           </button>
+                          <CircleHelp size={16} aria-hidden="true" style={{ position: "absolute", inset: 0, color: "rgba(255,255,255,0.4)", pointerEvents: "none" }} />
                           {tip && (
                             <div
                               style={{
@@ -3100,18 +3336,25 @@ function DownloadPage({ onBack }: { onBack: () => void }) {
                             </div>
                           )}
                         </div>
-                      );
-                    })()}
+
                   </div>
                   <div className="font-medium text-[12px] mt-[4px]" style={{ color: "rgba(255,255,255,0.4)" }}>
                     Requires a connected domain
                   </div>
                 </div>
                 <button
+                  onClick={() => void onDeploy()}
+                  disabled={busy}
                   className="w-full font-semibold text-[13px] py-[10px] rounded-[8px] uppercase"
                   style={{ border: "1.5px solid #6fccdd", color: "#6fccdd", background: "transparent" }}
                 >
-                  Deploy Now
+                  {busy
+                    ? deployment?.message ?? "Deploying..."
+                    : deployment?.status === "ready_to_claim"
+                    ? "Open Vercel Claim"
+                    : deployment?.status === "failed" || deployment?.status === "cancelled"
+                    ? "Try Deployment Again"
+                    : "Deploy Now"}
                 </button>
               </div>
             </div>
@@ -3126,7 +3369,7 @@ function DownloadPage({ onBack }: { onBack: () => void }) {
 const LS_STEP_KEY = "ailk_maxReachedStep";
 const LS_PAGE_KEY = "ailk_page";
 
-export default function App() {
+function LegacyApp() {
   const [page, setPage] = useState<Page>(() => {
     const saved = localStorage.getItem(LS_PAGE_KEY) as Page | null;
     // Only restore wizard pages — not login/otp/generating
@@ -3228,13 +3471,296 @@ export default function App() {
       >
         {page === "login" && <LoginPage onNext={goNext} />}
         {page === "otp" && <OtpPage onNext={goNext} onBack={goBack} />}
-        {page === "questionnaire" && <QuestionnairePage onNext={goNext} onBack={goBack} onStepClick={goToStep} completedUpTo={completedUpTo} />}
-        {page === "category-mood" && <CategoryMoodPage onNext={goNext} onBack={goBack} onStepClick={goToStep} completedUpTo={completedUpTo} />}
-        {page === "colors" && <ColorsFontsPage onNext={goNext} onBack={goBack} onStepClick={goToStep} completedUpTo={completedUpTo} />}
-        {page === "pick-pages" && <PickPagesPage onNext={goNext} onBack={goBack} onStepClick={goToStep} completedUpTo={completedUpTo} />}
-        {page === "generating" && <GeneratingPage onNext={goNext} />}
-        {page === "preview" && <PreviewPage onNext={goNext} onBack={goBack} />}
-        {page === "download" && <DownloadPage onBack={() => go("login")} />}
+        {page === "questionnaire" && <QuestionnairePage {...({ onNext: goNext, onBack: goBack, onStepClick: goToStep, completedUpTo } as any)} />}
+        {page === "category-mood" && <CategoryMoodPage {...({ onNext: goNext, onBack: goBack, onStepClick: goToStep, completedUpTo } as any)} />}
+        {page === "colors" && <ColorsFontsPage {...({ onNext: goNext, onBack: goBack, onStepClick: goToStep, completedUpTo } as any)} />}
+        {page === "pick-pages" && <PickPagesPage {...({ onNext: goNext, onBack: goBack, onStepClick: goToStep, completedUpTo } as any)} />}
+        {page === "generating" && <GeneratingPage {...({ onNext: goNext } as any)} />}
+        {page === "preview" && <PreviewPage {...({ onNext: goNext, onBack: goBack } as any)} />}
+        {page === "download" && <DownloadPage {...({ onBack: () => go("login") } as any)} />}
+      </div>
+    </div>
+  );
+}
+
+const LS_PROJECT_KEY = "ailk_projectId";
+const LS_OPERATION_KEY = "ailk_operationId";
+const WIZARD_PAGES: Page[] = ["questionnaire", "category-mood", "colors", "pick-pages"];
+
+export default function App() {
+  const [page, setPage] = useState<Page>(() => {
+    const saved = localStorage.getItem(LS_PAGE_KEY) as Page | null;
+    const restorable: Page[] = [
+      ...WIZARD_PAGES, "generating", "preview", "building", "download",
+    ];
+    return saved && restorable.includes(saved) ? saved : "login";
+  });
+  const [maxReachedStep, setMaxReachedStep] = useState(() => {
+    const saved = localStorage.getItem(LS_STEP_KEY);
+    return saved === null ? -1 : Number.parseInt(saved, 10);
+  });
+  const [catalog, setCatalog] = useState<WizardCatalog | null>(null);
+  const [project, setProject] = useState<ProjectView | null>(null);
+  const [operation, setOperation] = useState<OperationView | null>(null);
+  const [mockups, setMockups] = useState<MockupView[]>([]);
+  const [build, setBuild] = useState<BuildView | null>(null);
+  const [deployment, setDeployment] = useState<DeploymentView | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [booting, setBooting] = useState(true);
+
+  const go = useCallback((next: Page) => {
+    setPage(next);
+    localStorage.setItem(LS_PAGE_KEY, next);
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem(LS_STEP_KEY, String(maxReachedStep));
+  }, [maxReachedStep]);
+
+  const refreshProject = async (projectId: string) => {
+    const refreshed = await launchKitApi.getProject(projectId);
+    setProject(refreshed);
+    return refreshed;
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    const boot = async () => {
+      try {
+        const loadedCatalog = await launchKitApi.getCatalog();
+        if (cancelled) return;
+        setCatalog(loadedCatalog);
+        const projectId = localStorage.getItem(LS_PROJECT_KEY);
+        if (!projectId) return;
+        const loadedProject = await launchKitApi.getProject(projectId);
+        if (cancelled) return;
+        setProject(loadedProject);
+        setMockups(await launchKitApi.getMockups(projectId));
+        if (loadedProject.latestBuildId) {
+          setBuild(await launchKitApi.getBuild(loadedProject.latestBuildId));
+        }
+        if (loadedProject.latestDeploymentId) {
+          setDeployment(await launchKitApi.getDeployment(loadedProject.latestDeploymentId));
+        }
+        const operationId = localStorage.getItem(LS_OPERATION_KEY);
+        if (operationId && page === "generating") {
+          const loadedOperation = await launchKitApi.getOperation(operationId);
+          setOperation(loadedOperation);
+          if (loadedOperation.status === "completed") {
+            setMockups(await launchKitApi.getMockups(projectId));
+            localStorage.removeItem(LS_OPERATION_KEY);
+            go("preview");
+          } else if (["queued", "running"].includes(loadedOperation.status)) {
+            await waitForOperation(operationId, setOperation);
+            setMockups(await launchKitApi.getMockups(projectId));
+            localStorage.removeItem(LS_OPERATION_KEY);
+            go("preview");
+          }
+        } else if (page === "generating") {
+          setError("Mockup generation was not started. Review your pages and try again.");
+          go("pick-pages");
+        }
+      } catch (cause) {
+        localStorage.removeItem(LS_PROJECT_KEY);
+        localStorage.removeItem(LS_OPERATION_KEY);
+        setProject(null);
+        go("login");
+        setError(cause instanceof Error ? cause.message : "The saved project could not be restored.");
+      } finally {
+        if (!cancelled) setBooting(false);
+      }
+    };
+    void boot();
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (!build) return;
+    if (build.status === "completed") {
+      if (page === "building") go("download");
+      return;
+    }
+    if (!["queued", "submitting", "running", "processing_result"].includes(build.status)) return;
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      try {
+        const next = await launchKitApi.getBuild(build.id);
+        if (!cancelled) setBuild(next);
+      } catch (cause) {
+        if (!cancelled) setError(cause instanceof Error ? cause.message : "Build status could not be refreshed.");
+      }
+    }, (build.retryAfterSeconds ?? 2) * 1000);
+    return () => { cancelled = true; window.clearTimeout(timer); };
+  }, [build?.id, build?.status, build?.message, page, go]);
+
+  const perform = async (action: () => Promise<void>) => {
+    setBusy(true);
+    setError(null);
+    try {
+      await action();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "The request could not be completed.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const ensureProject = async () => {
+    if (project) return project;
+    const created = await launchKitApi.createProject();
+    localStorage.setItem(LS_PROJECT_KEY, created.id);
+    setProject(created);
+    return created;
+  };
+
+  const enterWizard = () => perform(async () => {
+    await ensureProject();
+    setMaxReachedStep(Math.max(0, maxReachedStep));
+    go("questionnaire");
+  });
+
+  const saveBusiness = (form: QuestionnaireForm) => perform(async () => {
+    const current = await ensureProject();
+    const updated = await launchKitApi.patchProject(current.id, {
+      business: {
+        companyName: form.companyName,
+        uvp: form.uniqueness,
+        targetAudience: form.customers,
+        notes: form.anythingElse,
+      },
+      design: { tagline: form.tagline, cta: form.cta },
+    });
+    setProject(updated);
+    setMaxReachedStep(Math.max(1, maxReachedStep));
+    go("category-mood");
+  });
+
+  const uploadProfile = (file: File) => perform(async () => {
+    const current = await ensureProject();
+    const queued = await launchKitApi.uploadProfile(current.id, file);
+    setOperation(queued);
+    await waitForOperation(queued.id, setOperation);
+    await refreshProject(current.id);
+  });
+
+  const saveDesign = (categoryId: string, moodId: string, animationId: string) => perform(async () => {
+    const current = await ensureProject();
+    const updated = await launchKitApi.patchProject(current.id, {
+      business: { categoryId },
+      design: { moodId, animationId },
+    });
+    setProject(updated);
+    setMaxReachedStep(Math.max(2, maxReachedStep));
+    go("colors");
+  });
+
+  const saveColors = (
+    paletteId: string,
+    customPalette: CustomPalette | null,
+    fontPairingId: string,
+    customFonts: { heading: string; body: string } | null,
+  ) => perform(async () => {
+    const current = await ensureProject();
+    const updated = await launchKitApi.patchProject(current.id, {
+      design: { paletteId, customPalette, fontPairingId, customFonts },
+    });
+    setProject(updated);
+    setMaxReachedStep(Math.max(3, maxReachedStep));
+    go("pick-pages");
+  });
+
+  const generateMockups = (layout: PageLayout) => perform(async () => {
+    const current = await ensureProject();
+    const updated = await launchKitApi.patchProject(current.id, { pageLayout: layout });
+    setProject(updated);
+    go("generating");
+    const queued = await launchKitApi.createMockups(current.id, createIdempotencyKey("mockups"));
+    localStorage.setItem(LS_OPERATION_KEY, queued.id);
+    setOperation(queued);
+    await waitForOperation(queued.id, setOperation);
+    localStorage.removeItem(LS_OPERATION_KEY);
+    setMockups(await launchKitApi.getMockups(current.id));
+    await refreshProject(current.id);
+    go("preview");
+  });
+
+  const startBuild = (mockupId: string) => perform(async () => {
+    const current = await ensureProject();
+    await launchKitApi.selectMockup(current.id, mockupId);
+    const queued = await launchKitApi.createBuild(current.id, createIdempotencyKey("build"));
+    setProject({ ...current, selectedMockupId: mockupId, latestBuildId: queued.id });
+    setBuild(queued);
+    go("building");
+  });
+
+  const deploy = async () => {
+    if (!build) return;
+    if (deployment?.status === "ready_to_claim" && deployment.claimUrl) {
+      window.open(deployment.claimUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
+    await perform(async () => {
+      const queued = await launchKitApi.createDeployment(build.id, createIdempotencyKey("deployment"));
+      setDeployment(queued);
+      await waitForDeployment(queued.id, setDeployment);
+    });
+  };
+
+  const goBack = () => {
+    const order: Page[] = ["login", "otp", ...WIZARD_PAGES, "generating", "preview", "building", "download"];
+    const index = order.indexOf(page);
+    if (index > 0) go(order[index - 1]);
+  };
+
+  const goToStep = (step: number) => {
+    const target = WIZARD_PAGES[step];
+    if (!target) return;
+    if (WIZARD_PAGES.indexOf(target) <= WIZARD_PAGES.indexOf(page)) go(target);
+  };
+
+  const reset = () => {
+    [LS_PROJECT_KEY, LS_OPERATION_KEY, LS_STEP_KEY].forEach((key) => localStorage.removeItem(key));
+    setProject(null);
+    setOperation(null);
+    setMockups([]);
+    setBuild(null);
+    setDeployment(null);
+    setMaxReachedStep(-1);
+    go("login");
+  };
+
+  const currentStep = WIZARD_PAGES.indexOf(page);
+  const completedUpTo = Math.max(maxReachedStep, currentStep - 1);
+  const needsProject = !["login", "otp"].includes(page);
+
+  if (booting || !catalog || (needsProject && !project)) {
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center" style={{ background: "#0b0b0b" }}>
+        <div className="rounded-full" style={{ width: 48, height: 48, border: "3px solid rgba(111,204,221,0.2)", borderTop: "3px solid #6fccdd", animation: "spin 1s linear infinite" }} />
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ minHeight: "100vh", width: "100%", background: "#0b0b0b", display: "flex", justifyContent: "center", alignItems: "stretch" }}>
+      <div style={{ width: "100%", maxWidth: 1440, minHeight: "100vh", margin: "0 auto", display: "flex", flexDirection: "column" }}>
+        {page === "login" && <LoginPage onNext={() => go("otp")} />}
+        {page === "otp" && <OtpPage onNext={() => void enterWizard()} onBack={goBack} />}
+        {error && (
+          <div className="fixed top-[96px] left-1/2 -translate-x-1/2 z-[10000] max-w-[calc(100%-32px)] px-4 py-3 rounded-[8px] flex items-center gap-3" style={{ background: "#2b1717", border: "1px solid rgba(248,113,113,0.5)", color: "white", fontFamily: "'Montserrat', sans-serif" }}>
+            <span className="text-[13px] font-medium">{error}</span>
+            <button onClick={() => setError(null)} aria-label="Dismiss error" className="text-[18px] leading-none">×</button>
+          </div>
+        )}
+        {page === "questionnaire" && project && <QuestionnairePage project={project} onSave={saveBusiness} onUpload={uploadProfile} busy={busy} onBack={goBack} onStepClick={goToStep} completedUpTo={completedUpTo} />}
+        {page === "category-mood" && project && <CategoryMoodPage project={project} catalog={catalog} onSave={saveDesign} busy={busy} onBack={goBack} onStepClick={goToStep} completedUpTo={completedUpTo} />}
+        {page === "colors" && project && <ColorsFontsPage project={project} catalog={catalog} onSave={saveColors} busy={busy} onBack={goBack} onStepClick={goToStep} completedUpTo={completedUpTo} />}
+        {page === "pick-pages" && project && <PickPagesPage project={project} catalog={catalog} onGenerate={generateMockups} busy={busy} onBack={goBack} onStepClick={goToStep} completedUpTo={completedUpTo} />}
+        {page === "generating" && <GeneratingPage operation={operation} error={error} onRetry={() => project && void generateMockups(project.pageLayout)} />}
+        {page === "preview" && project && <PreviewPage mockups={mockups} selectedMockupId={project.selectedMockupId} onConfirm={startBuild} busy={busy} onBack={() => go("pick-pages")} />}
+        {page === "building" && <BuildingPage build={build} error={error} onBack={() => go("preview")} />}
+        {page === "download" && build?.status === "completed" && <DownloadPage build={build} deployment={deployment} onDeploy={deploy} busy={busy} onBack={reset} />}
       </div>
     </div>
   );
