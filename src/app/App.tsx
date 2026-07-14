@@ -2875,7 +2875,7 @@ function DownloadPage({ onBack }: { onBack: () => void }) {
       >
         <div className="flex-1 flex flex-col items-center px-[clamp(16px,5vw,80px)] py-[clamp(24px,5vw,48px)] gap-[clamp(16px,4vw,32px)]">
           {/* Success state */}
-          <div className="flex flex-col items-center gap-[16px]">
+          <div className="flex flex-col items-center gap-[16px] w-full text-center">
             <div
               className="flex items-center justify-center rounded-full"
               style={{ width: 56, height: 56, background: "#6fccdd" }}
@@ -2890,22 +2890,22 @@ function DownloadPage({ onBack }: { onBack: () => void }) {
                 />
               </svg>
             </div>
-            <h2 className="text-white font-semibold" style={{ fontSize: "clamp(19px, 5vw, 24px)" }}>Your website is ready!</h2>
-            <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 14, fontWeight: 500 }}>
+            <h2 className="text-white font-semibold px-2" style={{ fontSize: "clamp(19px, 5vw, 24px)" }}>Your website is ready!</h2>
+            <p className="px-2 max-w-[420px]" style={{ color: "rgba(255,255,255,0.5)", fontSize: "clamp(13px, 3.5vw, 14px)", fontWeight: 500, lineHeight: 1.6 }}>
               Your AI-generated website is complete and ready to deploy.
             </p>
           </div>
 
           {/* Website Preview */}
-          <div className="flex flex-col gap-[16px] w-full max-w-[680px] mx-auto">
+          <div className="flex flex-col gap-[16px] w-full max-w-[680px] mx-auto items-center sm:items-stretch">
             <span
-              className="font-semibold uppercase text-[12px]"
+              className="font-semibold uppercase text-[12px] text-center sm:text-left"
               style={{ color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em" }}
             >
               Website Preview
             </span>
             <div
-              className="flex flex-col overflow-hidden"
+              className="flex flex-col overflow-hidden w-full"
               style={{
                 height: "clamp(220px, 34vw, 240px)",
                 borderRadius: 16,
@@ -3016,15 +3016,15 @@ function DownloadPage({ onBack }: { onBack: () => void }) {
           {/* Next Actions */}
           <div className="flex flex-col gap-[16px] w-full max-w-[680px] mx-auto items-center">
             <span
-              className="font-semibold uppercase text-[12px]"
+              className="font-semibold uppercase text-[12px] text-center"
               style={{ color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em" }}
             >
               Next Actions
             </span>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center w-full">
+            <div className="flex flex-col sm:flex-row gap-4 justify-center w-full items-stretch">
               {/* Download HTML */}
               <div
-                className="flex flex-col gap-[16px] p-[24px] rounded-[16px] w-full sm:w-[280px]"
+                className="flex flex-col gap-[16px] p-[24px] rounded-[16px] w-full sm:w-[280px] mx-auto"
                 style={{ background: "rgba(111,204,221,0.13)", border: "1px solid rgba(111,204,221,0.2)", minHeight: "100%" }}
               >
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
@@ -3046,7 +3046,7 @@ function DownloadPage({ onBack }: { onBack: () => void }) {
 
               {/* Deploy */}
               <div
-                className="flex flex-col gap-[16px] p-[24px] rounded-[16px] w-full sm:w-[280px]"
+                className="flex flex-col gap-[16px] p-[24px] rounded-[16px] w-full sm:w-[280px] mx-auto"
                 style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.1)", minHeight: "100%" }}
               >
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
