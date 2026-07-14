@@ -1,4 +1,7 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, createContext, useContext } from "react";
+
+const MobileCtx = createContext(false);
+function useMobile() { return useContext(MobileCtx); }
 import svgPathsLogin from "@/imports/AiLaunchKitLoginPage/svg-8vlpvs8i0v";
 import svgPathsDl from "@/imports/AiLaunchKitDownloadingGeneratedWebsitesPage/svg-7argp47g3q";
 import svgPathsMerged from "@/imports/AiLaunchKitMainPageMergedFlow/svg-9l4sd51871";
@@ -32,26 +35,36 @@ function ScaledPage({
   scrollable?: boolean;
 }) {
   const [scale, setScale] = useState(1);
+  const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
-    const update = () => setScale(Math.min(1, window.innerWidth / 1440));
+    const update = () => {
+      const w = window.innerWidth;
+      const mobile = w < 768;
+      setIsMobile(mobile);
+      setScale(mobile ? 1 : Math.min(1, w / 1440));
+    };
     update();
     window.addEventListener("resize", update);
     return () => window.removeEventListener("resize", update);
   }, []);
 
   return (
-    <div
-      style={{
-        width: "100%",
-        overflowX: "hidden",
-        overflowY: scrollable ? "auto" : "hidden",
-        minHeight: scrollable ? "100vh" : undefined,
-      }}
-    >
-      <div style={{ width: 1440, zoom: scale }}>
-        {children}
+    <MobileCtx.Provider value={isMobile}>
+      <div
+        style={{
+          width: "100%",
+          overflowX: "hidden",
+          overflowY: scrollable ? "auto" : "hidden",
+          minHeight: "100vh",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        <div style={{ width: isMobile ? "100%" : 1440, zoom: scale, flex: scrollable ? undefined : 1, display: "flex", flexDirection: "column" }}>
+          {children}
+        </div>
       </div>
-    </div>
+    </MobileCtx.Provider>
   );
 }
 
@@ -137,11 +150,12 @@ function SubNav({
   activeStep: number;
   completedUpTo?: number;
   onBack: () => void;
-  onNext: () => void;
+  onNext?: () => void;
   onStepClick?: (step: number) => void;
   nextLabel?: string;
 }) {
   const completedUpTo = completedUpToProp ?? activeStep - 1;
+  const isMobile = useMobile();
   const n = svgPathsNav;
 
   // Colours per state matching the Figma design exactly:
@@ -231,6 +245,164 @@ function SubNav({
     return null;
   }
 
+  // ── Shared chevron connector ────────────────────────────────────────────
+  const Chevron = ({ small }: { small?: boolean }) => (
+    <svg
+      width={small ? 6 : 8}
+      height={small ? 6 : 8}
+      viewBox="0 0 4.5 7.5"
+      fill="none"
+      style={{ flexShrink: 0, opacity: 0.5 }}
+    >
+      <path d={n.pb873b80} stroke="#6FCCDD" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+
+  // ── Mobile / tablet two-row layout ──────────────────────────────────────
+  if (isMobile) {
+    return (
+      <div
+        style={{
+          background: "#0b0b0b",
+          borderBottom: "1px solid rgba(255,255,255,0.1)",
+          fontFamily: "'Montserrat', sans-serif",
+        }}
+      >
+        {/* ── Row 1: back arrow · title · Next button ── */}
+        <div
+          style={{
+            height: 48,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            paddingLeft: 16,
+            paddingRight: 16,
+            gap: 8,
+          }}
+        >
+          {/* Left: back arrow */}
+          <button
+            onClick={onBack}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+              padding: 4,
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d={n.p8122280} fill="white" />
+            </svg>
+          </button>
+
+          {/* Center: page title */}
+          <span
+            style={{
+              color: "white",
+              fontWeight: 600,
+              fontSize: 16,
+              whiteSpace: "nowrap",
+              flex: 1,
+              marginLeft: 8,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}
+          >
+            AI Launch Kit
+          </span>
+
+          {/* Right: Next button */}
+          <button
+            onClick={onNext}
+            disabled={!onNext}
+            style={{
+              flexShrink: 0,
+              fontWeight: 600,
+              fontSize: 12,
+              color: onNext ? "#0b0b0b" : "rgba(255,255,255,0.2)",
+              background: onNext ? "#6fccdd" : "rgba(255,255,255,0.06)",
+              border: "none",
+              borderRadius: 6,
+              padding: "8px 14px",
+              cursor: onNext ? "pointer" : "not-allowed",
+              whiteSpace: "nowrap",
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+            }}
+          >
+            {nextLabel}
+          </button>
+        </div>
+
+        {/* ── Row 2: step strip — icon-only except active step shows icon + label ── */}
+        <div
+          style={{
+            height: 40,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            paddingLeft: 16,
+            paddingRight: 16,
+            gap: 6,
+            overflowX: "auto",
+            overflowY: "hidden",
+            scrollbarWidth: "none",
+            borderTop: "1px solid rgba(255,255,255,0.06)",
+          }}
+        >
+          {STEPS.map((step, i) => {
+            const done = i <= completedUpTo;
+            const active = i === activeStep;
+            const clickable = done && onStepClick;
+            return (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                {/* Step chip */}
+                <div
+                  onClick={() => clickable && onStepClick(i)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: active ? 6 : 0,
+                    padding: active ? "4px 10px 4px 8px" : "4px",
+                    borderRadius: 6,
+                    background: active ? "rgba(111,204,221,0.10)" : "transparent",
+                    border: active ? "1px solid rgba(111,204,221,0.2)" : "1px solid transparent",
+                    cursor: clickable ? "pointer" : "default",
+                    flexShrink: 0,
+                    transition: "background 0.15s, border-color 0.15s",
+                  }}
+                >
+                  <StepIcon iconKey={step.iconKey} done={done && !active} active={active} />
+                  {active && (
+                    <span
+                      style={{
+                        fontWeight: 600,
+                        fontSize: 12,
+                        color: "rgba(255,255,255,1)",
+                        whiteSpace: "nowrap",
+                        lineHeight: 1,
+                      }}
+                    >
+                      {step.label}
+                    </span>
+                  )}
+                </div>
+
+                {/* Chevron connector between steps */}
+                {i < STEPS.length - 1 && <Chevron small />}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Desktop layout (pixel-for-pixel identical to original) ──────────────
   return (
     <div
       className="relative flex items-center"
@@ -241,7 +413,7 @@ function SubNav({
         fontFamily: "'Montserrat', sans-serif",
       }}
     >
-      {/* Left: Back + title */}
+      {/* Left: Back + separator + title */}
       <div className="flex items-center gap-[12px] pl-[24px]">
         <button onClick={onBack} className="flex items-center justify-center">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -252,7 +424,7 @@ function SubNav({
         <span className="text-white font-semibold text-[18px]">AI Launch Kit</span>
       </div>
 
-      {/* Center: step breadcrumb */}
+      {/* Center: full step breadcrumb, absolute-centered */}
       <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-[8px]">
         {STEPS.map((step, i) => {
           const done = i <= completedUpTo;
@@ -264,14 +436,13 @@ function SubNav({
                 onClick={() => clickable && onStepClick(i)}
                 className="flex items-center gap-[6px] px-[12px] py-[6px] rounded-[6px] transition-colors"
                 style={{
-                  // Active: white label. Completed: teal label. Pending: dimmed per Figma.
                   color: active
                     ? "rgba(255,255,255,1)"
                     : done
                     ? "#6FCCDD"
                     : step.iconKey === "widget"
-                    ? "rgba(128,128,128,0.55)"   // Design step pending — Figma exact
-                    : "rgba(255,255,255,0.4)",    // Colors & Pick Pages pending — Figma exact
+                    ? "rgba(128,128,128,0.55)"
+                    : "rgba(255,255,255,0.4)",
                   background: active ? "rgba(111,204,221,0.08)" : "transparent",
                   cursor: clickable ? "pointer" : "default",
                 }}
@@ -279,17 +450,7 @@ function SubNav({
                 <StepIcon iconKey={step.iconKey} done={done && !active} active={active} />
                 <span className="font-semibold text-[13px]">{step.label}</span>
               </div>
-              {i < STEPS.length - 1 && (
-                <svg width="8" height="8" viewBox="0 0 4.5 7.5" fill="none">
-                  <path
-                    d={n.pb873b80}
-                    stroke="#6FCCDD"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              )}
+              {i < STEPS.length - 1 && <Chevron />}
             </div>
           );
         })}
@@ -299,8 +460,13 @@ function SubNav({
       <div className="absolute right-[24px]">
         <button
           onClick={onNext}
-          className="font-semibold text-[14px] text-black uppercase px-[24px] py-[12px] rounded-[8px]"
-          style={{ background: "#6fccdd" }}
+          disabled={!onNext}
+          className="font-semibold text-[14px] uppercase px-[24px] py-[12px] rounded-[8px]"
+          style={{
+            background: onNext ? "#6fccdd" : "rgba(255,255,255,0.08)",
+            color: onNext ? "#0b0b0b" : "rgba(255,255,255,0.2)",
+            cursor: onNext ? "pointer" : "not-allowed",
+          }}
         >
           {nextLabel}
         </button>
@@ -312,6 +478,7 @@ function SubNav({
 // ─── PAGE 1: Login ────────────────────────────────────────────────────────────
 function LoginPage({ onNext }: { onNext: () => void }) {
   const [email, setEmail] = useState("");
+  const isMobile = useMobile();
   const p = svgPathsLogin;
 
   return (
@@ -335,14 +502,15 @@ function LoginPage({ onNext }: { onNext: () => void }) {
         </div>
 
         {/* Page body — card centered */}
-        <div className="flex flex-1 items-center justify-center" style={{ minHeight: "calc(100% - 84px)" }}>
+        <div className="flex flex-1 items-center justify-center" style={{ minHeight: "calc(100% - 84px)", padding: "24px 20px" }}>
           <div
             className="flex flex-col items-center gap-[28px]"
             style={{
-              width: 480,
-              backdropFilter: "blur(12px)",
-              background: "rgba(255,255,255,0.03)",
-              border: "1px solid rgba(255,255,255,0.15)",
+              width: isMobile ? "calc(100vw - 40px)" : 480,
+              maxWidth: isMobile ? 440 : undefined,
+              margin: "0 auto",
+              background: "#131313",
+              border: "1px solid rgba(255,255,255,0.1)",
               borderRadius: 20,
               padding: 48,
             }}
@@ -451,101 +619,210 @@ function LoginPage({ onNext }: { onNext: () => void }) {
 function OtpPage({ onNext, onBack }: { onNext: () => void; onBack: () => void }) {
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [focused, setFocused] = useState(0);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const isMobile = useMobile();
+
+  const inputRefs = useRef<Array<HTMLInputElement | null>>([]);
 
   useEffect(() => {
-    inputRef.current?.focus();
+    inputRefs.current[0]?.focus();
   }, []);
 
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === "Backspace") {
-        setOtp((prev) => {
-          const next = [...prev];
-          if (next[focused]) {
-            next[focused] = "";
-          } else if (focused > 0) {
-            next[focused - 1] = "";
-            setFocused((f) => Math.max(0, f - 1));
-          }
-          return next;
-        });
-      } else if (/^\d$/.test(e.key)) {
-        setOtp((prev) => {
-          const next = [...prev];
-          next[focused] = e.key;
-          return next;
-        });
-        setFocused((f) => Math.min(5, f + 1));
-      } else if (e.key === "ArrowLeft") {
-        setFocused((f) => Math.max(0, f - 1));
-      } else if (e.key === "ArrowRight") {
-        setFocused((f) => Math.min(5, f + 1));
-      } else if (e.key === "Enter" && otp.every((d) => d !== "")) {
-        onNext();
+  const handleChange = (value: string, index: number) => {
+    if (!/^\d?$/.test(value)) return;
+
+    const updated = [...otp];
+    updated[index] = value;
+    setOtp(updated);
+
+    if (value && index < 5) {
+      inputRefs.current[index + 1]?.focus();
+      setFocused(index + 1);
+    }
+
+    if (updated.every((digit) => digit !== "")) {
+      onNext();
+    }
+  };
+
+  const handleKeyDown = (
+    e: React.KeyboardEvent<HTMLInputElement>,
+    index: number
+  ) => {
+    if (e.key === "Backspace") {
+      if (otp[index]) {
+        const updated = [...otp];
+        updated[index] = "";
+        setOtp(updated);
+      } else if (index > 0) {
+        inputRefs.current[index - 1]?.focus();
+        setFocused(index - 1);
       }
-    },
-    [focused, otp, onNext]
-  );
+    }
+
+    if (e.key === "ArrowLeft" && index > 0) {
+      inputRefs.current[index - 1]?.focus();
+      setFocused(index - 1);
+    }
+
+    if (e.key === "ArrowRight" && index < 5) {
+      inputRefs.current[index + 1]?.focus();
+      setFocused(index + 1);
+    }
+  };
 
   return (
     <ScaledPage designHeight={900}>
       <div
-        className="w-full h-full flex flex-col"
-        style={{ background: "#0b0b0b", fontFamily: "'Montserrat', sans-serif" }}
+        className="w-full flex flex-col"
+        style={{
+          background: "#0b0b0b",
+          fontFamily: "'Montserrat', sans-serif",
+          minHeight: "100%",
+        }}
       >
-        <TopHeader showProfile={false} />
-        <div className="flex-1 flex items-center justify-center">
+
+        {/* Header */}
+        <div
+          className="flex items-center px-[40px]"
+          style={{
+            height: 84,
+            borderBottom: "1px solid rgba(255,255,255,0.1)",
+            backdropFilter: "blur(20px)",
+            flexShrink: 0,
+          }}
+        >
+          <LogoSvg />
+        </div>
+
+
+        {/* Body */}
+        <div
+          className="flex flex-1 items-center justify-center"
+          style={{
+            minHeight: "calc(100% - 84px)",
+            padding: "24px 20px",
+          }}
+        >
+
+          {/* Card */}
           <div
-            className="flex flex-col gap-[32px]"
+            className="flex flex-col items-center gap-[28px]"
             style={{
-              width: 480,
+              width: isMobile ? "calc(100vw - 32px)" : 480,
+              maxWidth: 480,
+              margin: "0 auto",
               background: "#131313",
               border: "1px solid rgba(255,255,255,0.1)",
               borderRadius: 20,
-              padding: 48,
+              padding: isMobile ? "28px 20px" : 48,
+              boxSizing: "border-box",
             }}
           >
-            <div>
-              <h2 className="text-white font-semibold text-[18px] mb-[8px]">Check your email</h2>
-              <p style={{ color: "rgba(255,255,255,0.6)", fontSize: 14, fontWeight: 500 }}>
-                We sent a 6-digit code to your email address
-              </p>
-            </div>
 
-            <div style={{ height: 1, background: "rgba(255,255,255,0.1)" }} />
+            {/* Header */}
+            <div className="flex flex-col items-center gap-[16px] w-full">
 
-            {/* OTP boxes */}
-            <div className="flex gap-[10px] justify-center" onClick={() => inputRef.current?.focus()}>
-              {otp.map((digit, i) => (
-                <div
-                  key={i}
-                  className="flex items-center justify-center rounded-[12px] text-white text-[20px] font-semibold cursor-text"
+              <div
+                className="flex items-center justify-center"
+                style={{
+                  width: 52,
+                  height: 52,
+                  background: "rgba(255,255,255,0.06)",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  borderRadius: 14,
+                }}
+              >
+                <svg width="28" height="28" viewBox="10 14 32 24" fill="none">
+                  <path d={svgPathsLogin.pdbfe710} fill="#5752A3" />
+                  <path d={svgPathsLogin.p389a4180} fill="#5752A3" />
+                </svg>
+              </div>
+
+
+              <div className="text-center">
+                <h2 className="text-white font-semibold text-[18px] mb-[8px]">
+                  Check your email
+                </h2>
+
+                <p
                   style={{
-                    width: 56,
-                    height: 56,
-                    background: "rgba(255,255,255,0.02)",
-                    border:
-                      i === focused
-                        ? "2px solid #6fccdd"
-                        : "1px solid rgba(255,255,255,0.1)",
-                    boxShadow: i === focused ? "0 0 12px rgba(14,207,207,0.4)" : "none",
+                    color: "rgba(255,255,255,0.6)",
+                    fontSize: 14,
+                    fontWeight: 500,
                   }}
                 >
-                  {digit ? "●" : ""}
-                </div>
-              ))}
-              {/* Hidden real input */}
-              <input
-                ref={inputRef}
-                className="absolute opacity-0 w-0 h-0"
-                onKeyDown={handleKeyDown}
-                readOnly
-                style={{ position: "absolute", opacity: 0, width: 0, height: 0 }}
-              />
+                  Enter the 6-digit code we sent to your email
+                </p>
+              </div>
+
             </div>
 
-            {/* Verify button */}
+
+            {/* Divider */}
+            <div
+              style={{
+                height: 1,
+                background: "rgba(255,255,255,0.1)",
+                width: "100%",
+              }}
+            />
+
+
+            {/* OTP Boxes */}
+            <div
+              className="flex justify-center items-center w-full"
+              style={{
+                gap: "clamp(5px, 2vw, 10px)",
+              }}
+            >
+
+              {otp.map((digit, index) => (
+
+                <input
+                  key={index}
+                  ref={(el) => {
+                    inputRefs.current[index] = el;
+                  }}
+                  value={digit}
+                  maxLength={1}
+                  inputMode="numeric"
+                  onFocus={() => setFocused(index)}
+                  onChange={(e) =>
+                    handleChange(e.target.value, index)
+                  }
+                  onKeyDown={(e) =>
+                    handleKeyDown(e, index)
+                  }
+                  className="text-center text-white font-semibold outline-none"
+                  style={{
+                    width: "clamp(34px, 9vw, 56px)",
+                    height: "clamp(44px, 12vw, 56px)",
+                    fontSize: "clamp(16px, 4vw, 20px)",
+
+                    background: "rgba(255,255,255,0.02)",
+
+                    border:
+                      focused === index
+                        ? "2px solid #6fccdd"
+                        : "1px solid rgba(255,255,255,0.1)",
+
+                    borderRadius: 10,
+
+                    boxShadow:
+                      focused === index
+                        ? "0 0 12px rgba(111,204,221,0.35)"
+                        : "none",
+
+                    flexShrink: 1,
+                  }}
+                />
+
+              ))}
+
+            </div>
+
+
+            {/* Verify Button */}
             <button
               onClick={onNext}
               className="w-full font-semibold text-[14px] uppercase"
@@ -559,28 +836,48 @@ function OtpPage({ onNext, onBack }: { onNext: () => void; onBack: () => void })
               Verify Code
             </button>
 
+
+            {/* Bottom Actions */}
             <div className="flex flex-col items-center gap-[12px]">
-              <p className="text-center font-medium text-[13px]" style={{ color: "rgba(255,255,255,0.5)" }}>
+
+              <p
+                className="text-center font-medium text-[13px]"
+                style={{
+                  color: "rgba(255,255,255,0.5)",
+                }}
+              >
                 Didn't receive a code?{" "}
-                <span className="cursor-pointer font-semibold" style={{ color: "#6fccdd" }}>
+                <span
+                  className="cursor-pointer font-semibold"
+                  style={{
+                    color: "#6fccdd",
+                  }}
+                >
                   Resend
                 </span>
               </p>
+
+
               <button
                 onClick={onBack}
                 className="font-medium text-[13px]"
-                style={{ color: "rgba(255,255,255,0.4)" }}
+                style={{
+                  color: "rgba(255,255,255,0.4)",
+                }}
               >
                 ← Back to email
               </button>
+
             </div>
+
           </div>
+
         </div>
+
       </div>
     </ScaledPage>
   );
 }
-
 // ─── PAGE 3: Questionnaire ────────────────────────────────────────────────────
 function QuestionnairePage({ onNext, onBack, onStepClick, completedUpTo }: { onNext: () => void; onBack: () => void; onStepClick?: (step: number) => void; completedUpTo?: number }) {
   const p = svgPathsMerged;
@@ -788,7 +1085,7 @@ function QuestionnairePage({ onNext, onBack, onStepClick, completedUpTo }: { onN
             </div>
 
             {fields.map((row, ri) => (
-              <div key={ri} className="grid grid-cols-2 gap-[24px]">
+              <div key={ri} className="ailk-form-grid grid grid-cols-2 gap-[24px]">
                 {row.map(({ key, label, placeholder }) => (
                   <div key={key} className="flex flex-col gap-[8px]">
                     <label
@@ -881,6 +1178,7 @@ function CategoryMoodPage({ onNext, onBack, onStepClick, completedUpTo }: { onNe
   const [animLevel, setAnimLevel] = useState(2);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showMoodModal, setShowMoodModal] = useState(false);
+  const isMobile = useMobile();
 
   return (
     <ScaledPage designHeight={1000} scrollable>
@@ -894,7 +1192,7 @@ function CategoryMoodPage({ onNext, onBack, onStepClick, completedUpTo }: { onNe
         <div className="px-[120px] py-[48px] flex flex-col gap-[48px]">
 
           {/* ── Cards row ─────────────────────────────────────────────────────── */}
-          <div className="flex gap-[12px]">
+          <div className="ailk-cat-row flex gap-[12px]">
             {/* Business Category card */}
             <div
               className="flex-1 flex flex-col gap-[20px] p-[26px]"
@@ -984,139 +1282,209 @@ function CategoryMoodPage({ onNext, onBack, onStepClick, completedUpTo }: { onNe
             </div>
           </div>
 
-          {/* ── Theme Mode ────────────────────────────────────────────────────── */}
-          <div className="flex flex-col gap-[24px]">
-            <p className="font-semibold uppercase text-[12px]" style={{ color: "rgba(255,255,255,0.5)", letterSpacing: "0.12em" }}>
-              Theme Mode
-            </p>
-            <div className="flex gap-[0px]">
-              {(["Light", "Dark", "Both"] as const).map((mode) => {
-                const isSelected = themeMode === mode;
-                const label = mode === "Both" ? "Light + Dark Mode" : `${mode} Mode`;
-                const isDark = mode === "Dark" || mode === "Both";
-                const barBg = isDark ? "rgba(255,255,255,0.05)" : "rgba(11,11,11,0.1)";
-                const sidebarBg = isDark ? "rgba(255,255,255,0.1)" : "rgba(11,11,11,0.1)";
-                return (
-                  <button
-                    key={mode}
-                    onClick={() => setThemeMode(mode)}
-                    className="flex-1 flex flex-col items-center gap-[16px]"
-                  >
-                    {/* Thumbnail row: mockup + indicator circle side by side */}
-                    <div className="flex items-center gap-[16px] w-full justify-center">
-                      {/* Browser mockup */}
-                      <div
-                        className="overflow-hidden relative"
-                        style={{
-                          width: 248,
-                          height: 90,
-                          borderRadius: 8,
-                          background: mode === "Light" ? "white" : "#050505",
-                          border: "1px solid rgba(255,255,255,0.1)",
-                          flexShrink: 0,
-                        }}
-                      >
-                        {/* Chrome bar with dots */}
-                        <div className="flex items-center gap-[4px] px-[5px]" style={{ height: 14, background: barBg }}>
-                          {[["#5752A3",1],["#6FCCDD",1],["white",1]].map(([c], di) => (
-                            <div key={di} style={{ width: 5, height: 5, borderRadius: "50%", background: c as string, opacity: 0.8 }} />
-                          ))}
-                        </div>
-                        {/* Content: sidebar + main panel */}
-                        <div className="flex" style={{ height: 76 }}>
-                          {/* Sidebar */}
-                          <div className="flex flex-col gap-[3px] p-[8px]" style={{ width: 45 }}>
-                            <div style={{ height: 4, width: 22, borderRadius: 100, background: sidebarBg }} />
-                            <div style={{ height: 8, borderRadius: 100, background: sidebarBg }} />
-                            <div style={{ height: 3, borderRadius: 100, background: sidebarBg }} />
-                            <div style={{ height: 3, borderRadius: 100, background: sidebarBg }} />
-                            <div style={{ height: 3, width: 30, borderRadius: 100, background: sidebarBg }} />
-                            <div className="flex gap-[2px] mt-[4px]">
-                              <div style={{ height: 8, flex: 1, borderRadius: 2, background: "#6fccdd" }} />
-                              <div style={{ height: 8, flex: 1, borderRadius: 2, border: `1px solid ${sidebarBg}` }} />
-                            </div>
-                          </div>
-                          {/* Right panel */}
-                          <div style={{ flex: 1, background: sidebarBg, borderRadius: 4, margin: "8px 8px 8px 0" }} />
-                        </div>
-                        {/* Light+Dark: overlay the right portion with white/light */}
-                        {mode === "Both" && (
-                          <div
-                            className="absolute top-0 right-0 h-full overflow-hidden"
-                            style={{ width: "45%", background: "white" }}
-                          >
-                            <div style={{ height: 14, background: "rgba(11,11,11,0.1)" }} />
-                            <div style={{ flex: 1, margin: "8px", background: "rgba(11,11,11,0.1)", borderRadius: 4, height: 54 }} />
-                          </div>
-                        )}
-                      </div>
-                      {/* Check/circle indicator — to the RIGHT of thumbnail */}
-                      {isSelected ? (
-                        <svg width="24" height="24" viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0 }}>
-                          <path d={svgPathsCatMood.p1e585400} fill="#6FCCDD" fillRule="evenodd" clipRule="evenodd" />
-                        </svg>
-                      ) : (
-                        <svg width="22" height="22" viewBox="0 0 22 22" fill="none" style={{ flexShrink: 0 }}>
-                          <circle cx="11" cy="11" r="10" stroke="rgba(255,255,255,0.2)" strokeWidth="1.5" />
-                        </svg>
-                      )}
-                    </div>
-                    {/* Label below */}
-                    <p
-                      className="font-semibold text-[18px] leading-[28px]"
-                      style={{ color: isSelected ? "#6fccdd" : "white" }}
-                    >
-                      {label}
-                    </p>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+{false && (
+  <>
+    {/* ── Theme Mode ────────────────────────────────────────────────────── */}
+    <div className="flex flex-col gap-[24px]">
+      <p className="font-semibold uppercase text-[12px]" style={{ color: "rgba(255,255,255,0.5)", letterSpacing: "0.12em" }}>
+        Theme Mode
+      </p>
+      <div className="ailk-carousel ailk-theme-carousel flex gap-[0px]">
+        {(["Light", "Dark", "Both"] as const).map((mode) => {
+          const isSelected = themeMode === mode;
+          const label = mode === "Both" ? "Light + Dark Mode" : `${mode} Mode`;
+          const isDark = mode === "Dark" || mode === "Both";
+          const barBg = isDark ? "rgba(255,255,255,0.05)" : "rgba(11,11,11,0.1)";
+          const sidebarBg = isDark ? "rgba(255,255,255,0.1)" : "rgba(11,11,11,0.1)";
+          const thumbW = isMobile ? Math.round((window.innerWidth - 80) / 3) : 248;
+          const thumbH = isMobile ? Math.round(thumbW * (90 / 248)) : 90;
 
+          return (
+            <button
+              key={mode}
+              onClick={() => setThemeMode(mode)}
+              className="flex-1 flex flex-col items-center gap-[16px]"
+            >
+              <div className="flex items-center gap-[16px] w-full justify-center">
+                {isSelected ? (
+                  <svg width="24" height="24" viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0 }}>
+                    <path d={svgPathsCatMood.p1e585400} fill="#6FCCDD" fillRule="evenodd" clipRule="evenodd" />
+                  </svg>
+                ) : (
+                  <svg width="22" height="22" viewBox="0 0 22 22" fill="none" style={{ flexShrink: 0 }}>
+                    <circle cx="11" cy="11" r="10" stroke="rgba(255,255,255,0.2)" strokeWidth="1.5" />
+                  </svg>
+                )}
+
+                <div
+                  className="overflow-hidden relative"
+                  style={{
+                    width: thumbW,
+                    height: thumbH,
+                    borderRadius: 8,
+                    background: mode === "Light" ? "white" : "#050505",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    flexShrink: 0,
+                  }}
+                >
+                  <div
+                    className="flex items-center gap-[4px] px-[5px]"
+                    style={{
+                      height: isMobile ? Math.round(thumbH * 14 / 90) : 14,
+                      background: barBg,
+                    }}
+                  >
+                    {[["#5752A3",1],["#6FCCDD",1],["white",1]].map(([c], di) => (
+                      <div
+                        key={di}
+                        style={{
+                          width: 5,
+                          height: 5,
+                          borderRadius: "50%",
+                          background: c as string,
+                          opacity: 0.8,
+                        }}
+                      />
+                    ))}
+                  </div>
+
+                  <div
+                    className="flex"
+                    style={{
+                      height: isMobile ? thumbH - Math.round(thumbH * 14 / 90) : 76,
+                    }}
+                  >
+                    <div
+                      className="flex flex-col gap-[3px] p-[8px]"
+                      style={{
+                        width: isMobile ? Math.round(thumbW * 45 / 248) : 45,
+                      }}
+                    >
+                      <div style={{ height: 4, width: 22, borderRadius: 100, background: sidebarBg }} />
+                      <div style={{ height: 8, borderRadius: 100, background: sidebarBg }} />
+                      <div style={{ height: 3, borderRadius: 100, background: sidebarBg }} />
+                      <div style={{ height: 3, borderRadius: 100, background: sidebarBg }} />
+                      <div style={{ height: 3, width: 30, borderRadius: 100, background: sidebarBg }} />
+
+                      <div className="flex gap-[2px] mt-[4px]">
+                        <div style={{ height: 8, flex: 1, borderRadius: 2, background: "#6fccdd" }} />
+                        <div style={{ height: 8, flex: 1, borderRadius: 2, border: `1px solid ${sidebarBg}` }} />
+                      </div>
+                    </div>
+
+                    <div
+                      style={{
+                        flex: 1,
+                        background: sidebarBg,
+                        borderRadius: 4,
+                        margin: "8px 8px 8px 0",
+                      }}
+                    />
+                  </div>
+
+                  {mode === "Both" && (
+                    <div
+                      className="absolute top-0 right-0 h-full overflow-hidden"
+                      style={{
+                        width: "45%",
+                        background: "white",
+                      }}
+                    >
+                      <div
+                        style={{
+                          height: isMobile ? Math.round(thumbH * 14 / 90) : 14,
+                          background: "rgba(11,11,11,0.1)",
+                        }}
+                      />
+
+                      <div
+                        style={{
+                          flex: 1,
+                          margin: "8px",
+                          background: "rgba(11,11,11,0.1)",
+                          borderRadius: 4,
+                          height: 54,
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <p
+                className="font-semibold text-[18px] leading-[28px]"
+                style={{ color: isSelected ? "#6fccdd" : "white" }}
+              >
+                {label}
+              </p>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  </>
+)}
           {/* ── Animation Level ───────────────────────────────────────────────── */}
           <div className="flex flex-col gap-[32px]">
             <p className="font-semibold uppercase text-[12px]" style={{ color: "rgba(255,255,255,0.5)", letterSpacing: "0.12em" }}>
               Animation Level
             </p>
-            {/*
-              Layout: a flex row where each node is [flex spacer] [node column] [flex spacer].
-              The node column has: text above, dot below — the dot sits on the track line.
-              The track line is drawn as a single absolute line behind the dots.
-            */}
-            <div className="relative flex items-end">
-              {/* Full-width track line, vertically centered on the dots (dots are 24px, so line at bottom+12px) */}
+            <div className="ailk-anim-row relative flex items-end">
+              {/* Track line — vertically centered on dots */}
               <div
                 className="absolute left-0 right-0"
-                style={{ bottom: 11, height: 2, background: "rgba(255,255,255,0.1)" }}
+                style={{ bottom: isMobile ? 8 : 11, height: 2, background: "rgba(255,255,255,0.1)" }}
               />
               {ANIMATION_LEVELS.map((lvl, i) => {
                 const isActive = i === animLevel;
+                const dotSize = isMobile ? 18 : 24;
                 return (
                   <button
                     key={lvl.label}
                     onClick={() => setAnimLevel(i)}
-                    className="flex-1 flex flex-col items-center gap-[12px] relative z-10"
+                    className="flex-1 flex flex-col items-center relative z-10"
+                    style={{ gap: isMobile ? 5 : 12, minWidth: 0, padding: isMobile ? "0 2px" : undefined }}
                   >
                     {/* Label + sub-label above */}
-                    <div className="flex flex-col gap-[2px] items-center text-center">
+                    <div className="flex flex-col gap-[2px] items-center text-center" style={{ width: "100%" }}>
                       <span
-                        className="font-semibold text-[16px] leading-[24px]"
-                        style={{ color: isActive ? "#6fccdd" : "white" }}
+                        style={{
+                          fontWeight: 600,
+                          fontSize: isMobile ? 10 : 16,
+                          lineHeight: isMobile ? "14px" : "24px",
+                          color: isActive ? "#6fccdd" : "white",
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          maxWidth: "100%",
+                          display: "block",
+                        }}
                       >
                         {lvl.label}
                       </span>
-                      <span className="font-medium text-[14px] leading-[20px]" style={{ color: "rgba(255,255,255,0.6)" }}>
+                      <span
+                        style={{
+                          fontWeight: 500,
+                          fontSize: isMobile ? 8 : 14,
+                          lineHeight: isMobile ? "12px" : "20px",
+                          color: "rgba(255,255,255,0.6)",
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          maxWidth: "100%",
+                          display: "block",
+                        }}
+                      >
                         {lvl.sub}
                       </span>
                     </div>
                     {/* Circle on the track */}
                     {isActive ? (
-                      <svg width="24" height="24" viewBox="0 0 20 20" fill="none">
+                      <svg width={dotSize} height={dotSize} viewBox="0 0 20 20" fill="none">
                         <path d={svgPathsCatMood.p1e585400} fill="#6FCCDD" fillRule="evenodd" clipRule="evenodd" />
                       </svg>
                     ) : (
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                      <svg width={dotSize} height={dotSize} viewBox="0 0 24 24" fill="none">
                         <circle cx="12" cy="12" r="8" fill="rgba(255,255,255,0.2)" />
                       </svg>
                     )}
@@ -1135,32 +1503,50 @@ function CategoryMoodPage({ onNext, onBack, onStepClick, completedUpTo }: { onNe
             onClick={() => setShowCategoryModal(false)}
           >
             <div
-              className="relative flex flex-col gap-[24px] p-[40px]"
+              className="relative flex flex-col"
               style={{
                 background: "#111",
                 border: "1px solid rgba(255,255,255,0.1)",
                 borderRadius: 20,
-                maxWidth: 720,
-                width: "90vw",
-                maxHeight: "80vh",
+                // Desktop: fixed wide modal · Mobile: full viewport with safe margins
+                maxWidth: isMobile ? "calc(100vw - 32px)" : 720,
+                width: isMobile ? "calc(100vw - 32px)" : "90vw",
+                maxHeight: isMobile ? "85vh" : "80vh",
                 overflowY: "auto",
+                gap: isMobile ? 20 : 24,
+                padding: isMobile ? "24px 20px" : 40,
               }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between">
-                <h3 className="text-white font-semibold text-[20px]">Choose Business Category</h3>
+              {/* Header */}
+              <div className="flex items-center justify-between" style={{ flexShrink: 0 }}>
+                <h3 className="text-white font-semibold" style={{ fontSize: isMobile ? 17 : 20 }}>
+                  Choose Business Category
+                </h3>
                 <button
                   onClick={() => setShowCategoryModal(false)}
-                  className="text-white font-bold text-[20px] w-[32px] h-[32px] flex items-center justify-center"
+                  className="text-white font-bold flex items-center justify-center"
                   style={{
+                    fontSize: 20,
+                    width: 32,
+                    height: 32,
                     background: "rgba(255,255,255,0.08)",
                     borderRadius: 8,
+                    flexShrink: 0,
                   }}
                 >
                   ×
                 </button>
               </div>
-              <div className="grid grid-cols-3 gap-[12px]">
+
+              {/* Category grid — 3 cols desktop / 1 col mobile */}
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: isMobile ? "1fr" : "repeat(3, 1fr)",
+                  gap: isMobile ? 12 : 12,
+                }}
+              >
                 {BUSINESS_CATEGORIES.map((cat) => (
                   <button
                     key={cat.label}
@@ -1168,14 +1554,27 @@ function CategoryMoodPage({ onNext, onBack, onStepClick, completedUpTo }: { onNe
                       setCategory(cat.label);
                       setShowCategoryModal(false);
                     }}
-                    className="p-[16px] text-left rounded-[12px] transition-all"
+                    className="text-left rounded-[12px] transition-all flex flex-col"
                     style={{
+                      padding: isMobile ? "16px 18px" : 16,
+                      gap: isMobile ? 8 : 6,
+                      height: isMobile ? "auto" : "100%",
                       background: cat.label === category ? "rgba(111,204,221,0.12)" : "rgba(255,255,255,0.04)",
                       border: cat.label === category ? "1px solid #6fccdd" : "1px solid rgba(255,255,255,0.1)",
                     }}
                   >
-                    <p className="font-semibold text-[14px] mb-[4px]" style={{ color: cat.label === category ? "#6fccdd" : "white" }}>{cat.label}</p>
-                    <p className="font-medium text-[12px] leading-[16px]" style={{ color: "rgba(255,255,255,0.4)" }}>{cat.desc}</p>
+                    <p
+                      className="font-semibold leading-[18px]"
+                      style={{ fontSize: isMobile ? 14 : 13, color: cat.label === category ? "#6fccdd" : "white" }}
+                    >
+                      {cat.label}
+                    </p>
+                    <p
+                      className="font-medium leading-[17px]"
+                      style={{ fontSize: isMobile ? 12 : 11, color: "rgba(255,255,255,0.45)" }}
+                    >
+                      {cat.desc}
+                    </p>
                   </button>
                 ))}
               </div>
@@ -1276,6 +1675,7 @@ function ColorsFontsPage({ onNext, onBack, onStepClick, completedUpTo }: { onNex
   const [selectedPalette, setSelectedPalette] = useState(0);
   const [selectedFont, setSelectedFont] = useState(0);
   const [customModalOpen, setCustomModalOpen] = useState(false);
+  const [specificColors, setSpecificColors] = useState(false);
   const [customPalette, setCustomPalette] = useState<CustomPalette | null>(null);
   const [customDraft, setCustomDraft] = useState<CustomPalette>({ primary: "", secondary: "", background: "", text: "" });
   const [fontModalOpen, setFontModalOpen] = useState(false);
@@ -1283,6 +1683,7 @@ function ColorsFontsPage({ onNext, onBack, onStepClick, completedUpTo }: { onNex
   const [fontDraft, setFontDraft] = useState<{ heading: string; body: string }>({ heading: "", body: "" });
   const [headingSearch, setHeadingSearch] = useState("");
   const [bodySearch, setBodySearch] = useState("");
+  const isMobile = useMobile();
 
   return (
     <ScaledPage designHeight={1200} scrollable>
@@ -1302,7 +1703,7 @@ function ColorsFontsPage({ onNext, onBack, onStepClick, completedUpTo }: { onNex
             >
               Theme Mode
             </span>
-            <div className="grid grid-cols-4 gap-[16px]">
+            <div className="ailk-carousel ailk-palette-carousel grid grid-cols-4 gap-[16px]">
               {/* 7 preset palette cards */}
               {PALETTES.map((palette, i) => {
                 const colors = [palette.primary, palette.secondary, palette.background, palette.text];
@@ -1417,7 +1818,7 @@ function ColorsFontsPage({ onNext, onBack, onStepClick, completedUpTo }: { onNex
               >
                 <div
                   className="flex flex-col gap-[24px] p-[40px]"
-                  style={{ background: "#111", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 20, width: 420, fontFamily: "'Montserrat',sans-serif" }}
+                  style={{ background: "#111", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 20, width: isMobile ? "calc(100vw - 40px)" : 420, maxWidth: isMobile ? 440 : undefined, fontFamily: "'Montserrat',sans-serif" }}
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div className="flex items-center justify-between">
@@ -1425,29 +1826,91 @@ function ColorsFontsPage({ onNext, onBack, onStepClick, completedUpTo }: { onNex
                     <button onClick={() => setCustomModalOpen(false)} style={{ color: "rgba(255,255,255,0.4)", fontSize: 22, background: "none", border: "none", cursor: "pointer", lineHeight: 1 }}>×</button>
                   </div>
 
+                  {/* Checkbox */}
+                  <label className="flex items-center gap-[10px]" style={{ cursor: "pointer" }}>
+                    <div
+                      onClick={() => {
+                        const next = !specificColors;
+                        setSpecificColors(next);
+                        if (!next) {
+                          // Regenerate derived colors from current primary
+                          const hex = customDraft.primary.replace("#", "");
+                          if (hex.length === 6) {
+                            const r = parseInt(hex.slice(0,2),16), g = parseInt(hex.slice(2,4),16), b = parseInt(hex.slice(4,6),16);
+                            const mix = (c: number, w: number) => Math.round(c+(255-c)*w);
+                            const toHex = (r: number,g: number,b: number) => "#"+[r,g,b].map(v=>v.toString(16).padStart(2,"0")).join("");
+                            setCustomDraft(d => ({
+                              ...d,
+                              secondary: toHex(mix(r,.5),mix(g,.5),mix(b,.5)),
+                              background: toHex(mix(r,.88),mix(g,.88),mix(b,.88)),
+                              text: (0.299*r+0.587*g+0.114*b)/255 > 0.45
+                                ? toHex(Math.round(r*.15),Math.round(g*.15),Math.round(b*.15))
+                                : toHex(mix(r,.92),mix(g,.92),mix(b,.92)),
+                            }));
+                          }
+                        }
+                      }}
+                      style={{
+                        width: 18, height: 18, borderRadius: 4, flexShrink: 0,
+                        background: specificColors ? "#6FCCDD" : "rgba(255,255,255,0.08)",
+                        border: `1.5px solid ${specificColors ? "#6FCCDD" : "rgba(255,255,255,0.25)"}`,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                      }}
+                    >
+                      {specificColors && (
+                        <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                          <path d="M2 5L4 7L8 3" stroke="#0b0b0b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      )}
+                    </div>
+                    <span style={{ fontSize: 13, color: "rgba(255,255,255,0.6)", fontWeight: 500 }}>Enter more specific colors</span>
+                  </label>
+
                   {(["primary","secondary","background","text"] as const).map((field) => {
                     const labels: Record<string, string> = { primary: "Primary", secondary: "Secondary", background: "Background", text: "Text" };
+                    const disabled = field !== "primary" && !specificColors;
                     return (
-                      <div key={field} className="flex items-center gap-[16px]">
+                      <div key={field} className="flex items-center gap-[16px]" style={{ opacity: disabled ? 0.35 : 1, transition: "opacity 0.2s" }}>
                         <div style={{ position: "relative", width: 36, height: 36, flexShrink: 0 }}>
                           <div
                             style={{
                               width: 36, height: 36, borderRadius: 8,
                               background: customDraft[field] || "#333",
                               border: "1px solid rgba(255,255,255,0.15)",
-                              cursor: "pointer",
+                              cursor: disabled ? "not-allowed" : "pointer",
                             }}
                           />
-                          <input
-                            type="color"
-                            value={customDraft[field] || "#333333"}
-                            onChange={(e) => setCustomDraft(d => ({ ...d, [field]: e.target.value }))}
-                            style={{
-                              position: "absolute", inset: 0, width: "100%", height: "100%",
-                              opacity: 0, cursor: "pointer", border: "none", padding: 0,
-                            }}
-                            title="Pick a color"
-                          />
+                          {!disabled && (
+                            <input
+                              type="color"
+                              value={customDraft[field] || "#333333"}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                if (field === "primary" && !specificColors) {
+                                  const hex = val.replace("#","");
+                                  const r = parseInt(hex.slice(0,2),16), g = parseInt(hex.slice(2,4),16), b = parseInt(hex.slice(4,6),16);
+                                  const mix = (c: number, w: number) => Math.round(c+(255-c)*w);
+                                  const toHex = (r: number,g: number,b: number) => "#"+[r,g,b].map(v=>v.toString(16).padStart(2,"0")).join("");
+                                  setCustomDraft(d => ({
+                                    ...d,
+                                    primary: val,
+                                    secondary: toHex(mix(r,.5),mix(g,.5),mix(b,.5)),
+                                    background: toHex(mix(r,.88),mix(g,.88),mix(b,.88)),
+                                    text: (0.299*r+0.587*g+0.114*b)/255 > 0.45
+                                      ? toHex(Math.round(r*.15),Math.round(g*.15),Math.round(b*.15))
+                                      : toHex(mix(r,.92),mix(g,.92),mix(b,.92)),
+                                  }));
+                                } else {
+                                  setCustomDraft(d => ({ ...d, [field]: val }));
+                                }
+                              }}
+                              style={{
+                                position: "absolute", inset: 0, width: "100%", height: "100%",
+                                opacity: 0, cursor: "pointer", border: "none", padding: 0,
+                              }}
+                              title="Pick a color"
+                            />
+                          )}
                         </div>
                         <div className="flex flex-col gap-[4px] flex-1">
                           <label style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>
@@ -1456,7 +1919,31 @@ function ColorsFontsPage({ onNext, onBack, onStepClick, completedUpTo }: { onNex
                           <input
                             type="text"
                             value={customDraft[field]}
-                            onChange={(e) => setCustomDraft(d => ({ ...d, [field]: e.target.value }))}
+                            disabled={disabled}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (field === "primary" && !specificColors) {
+                                const hex = val.replace("#","");
+                                if (hex.length === 6) {
+                                  const r = parseInt(hex.slice(0,2),16), g = parseInt(hex.slice(2,4),16), b = parseInt(hex.slice(4,6),16);
+                                  const mix = (c: number, w: number) => Math.round(c+(255-c)*w);
+                                  const toHex = (r: number,g: number,b: number) => "#"+[r,g,b].map(v=>v.toString(16).padStart(2,"0")).join("");
+                                  setCustomDraft(d => ({
+                                    ...d,
+                                    primary: val,
+                                    secondary: toHex(mix(r,.5),mix(g,.5),mix(b,.5)),
+                                    background: toHex(mix(r,.88),mix(g,.88),mix(b,.88)),
+                                    text: (0.299*r+0.587*g+0.114*b)/255 > 0.45
+                                      ? toHex(Math.round(r*.15),Math.round(g*.15),Math.round(b*.15))
+                                      : toHex(mix(r,.92),mix(g,.92),mix(b,.92)),
+                                  }));
+                                } else {
+                                  setCustomDraft(d => ({ ...d, primary: val }));
+                                }
+                              } else {
+                                setCustomDraft(d => ({ ...d, [field]: val }));
+                              }
+                            }}
                             placeholder="#000000"
                             maxLength={7}
                             style={{
@@ -1470,6 +1957,7 @@ function ColorsFontsPage({ onNext, onBack, onStepClick, completedUpTo }: { onNex
                               padding: "8px 12px",
                               outline: "none",
                               width: "100%",
+                              cursor: disabled ? "not-allowed" : "text",
                             }}
                           />
                         </div>
@@ -1511,18 +1999,65 @@ function ColorsFontsPage({ onNext, onBack, onStepClick, completedUpTo }: { onNex
               Font Pairings
             </span>
 
-            {/* Row 1: first 4 presets */}
-            <div className="grid grid-cols-4 gap-[16px]">
-              {FONT_PAIRS.slice(0, 4).map((pair, i) => (
-                <FontCard key={i} pair={pair} selected={selectedFont === i} onClick={() => setSelectedFont(i)} />
-              ))}
-            </div>
+            {isMobile ? (
+              /* ── Mobile: single unified 2-col grid, scrolls with the page ── */
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                {FONT_PAIRS.map((pair, i) => (
+                  <FontCard key={i} pair={pair} selected={selectedFont === i} onClick={() => setSelectedFont(i)} />
+                ))}
+                {/* Custom card in the mobile grid */}
+                {(() => {
+                  const CUSTOM_FONT_IDX = FONT_PAIRS.length;
+                  const selected = selectedFont === CUSTOM_FONT_IDX;
+                  return (
+                    <button
+                      onClick={() => {
+                        if (customFont) { setFontDraft({ heading: customFont.heading, body: customFont.body }); setHeadingSearch(customFont.heading); setBodySearch(customFont.body); }
+                        else { setFontDraft({ heading: "", body: "" }); setHeadingSearch(""); setBodySearch(""); }
+                        setFontModalOpen(true);
+                      }}
+                      className="flex flex-col gap-[10px] p-[16px] text-left"
+                      style={{
+                        backdropFilter: "blur(12px)",
+                        borderRadius: 16,
+                        border: selected ? "1px solid #6fccdd" : "1px solid white",
+                        background: selected ? "rgba(111,204,221,0.05)" : "rgba(255,255,255,0.02)",
+                      }}
+                    >
+                      <span className="font-semibold uppercase text-[10px]" style={{ color: "rgba(255,255,255,0.35)", letterSpacing: "0.08em" }}>Custom</span>
+                      {customFont ? (
+                        <>
+                          <p className="text-white font-bold text-[16px] leading-tight" style={{ fontFamily: `'${customFont.heading}', serif` }}>{customFont.heading}</p>
+                          <p className="text-[12px] leading-relaxed" style={{ color: "rgba(255,255,255,0.5)", fontFamily: `'${customFont.body}', sans-serif` }}>{customFont.body} — body text</p>
+                        </>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center flex-1 gap-[8px]" style={{ minHeight: 60 }}>
+                          <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+                            <path d="M4 7V4h16v3" stroke="rgba(255,255,255,0.35)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                            <path d="M12 4v16M9 20h6" stroke="rgba(255,255,255,0.35)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>Choose fonts</span>
+                        </div>
+                      )}
+                    </button>
+                  );
+                })()}
+              </div>
+            ) : (
+              /* ── Desktop: two 4-col carousel rows (unchanged) ── */
+              <>
+                {/* Row 1: first 4 presets */}
+                <div className="ailk-carousel ailk-font-carousel grid grid-cols-4 gap-[16px]">
+                  {FONT_PAIRS.slice(0, 4).map((pair, i) => (
+                    <FontCard key={i} pair={pair} selected={selectedFont === i} onClick={() => setSelectedFont(i)} />
+                  ))}
+                </div>
 
-            {/* Row 2: last 3 presets + Custom card */}
-            <div className="grid grid-cols-4 gap-[16px]">
-              {FONT_PAIRS.slice(4).map((pair, i) => (
-                <FontCard key={i + 4} pair={pair} selected={selectedFont === i + 4} onClick={() => setSelectedFont(i + 4)} />
-              ))}
+                {/* Row 2: last 3 presets + Custom card */}
+                <div className="ailk-carousel ailk-font-carousel grid grid-cols-4 gap-[16px]">
+                  {FONT_PAIRS.slice(4).map((pair, i) => (
+                    <FontCard key={i + 4} pair={pair} selected={selectedFont === i + 4} onClick={() => setSelectedFont(i + 4)} />
+                  ))}
 
               {/* Custom font card */}
               {(() => {
@@ -1562,7 +2097,9 @@ function ColorsFontsPage({ onNext, onBack, onStepClick, completedUpTo }: { onNex
                   </button>
                 );
               })()}
-            </div>
+                </div>
+              </>
+            )}
 
             {/* Custom font modal */}
             {fontModalOpen && (
@@ -1573,7 +2110,7 @@ function ColorsFontsPage({ onNext, onBack, onStepClick, completedUpTo }: { onNex
               >
                 <div
                   className="flex flex-col gap-[24px] p-[40px]"
-                  style={{ background: "#111", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 20, width: 480, fontFamily: "'Montserrat',sans-serif", maxHeight: "90vh", overflowY: "auto" }}
+                  style={{ background: "#111", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 20, width: isMobile ? "calc(100vw - 40px)" : 480, maxWidth: isMobile ? 440 : undefined, fontFamily: "'Montserrat',sans-serif", maxHeight: "90vh", overflowY: "auto" }}
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div className="flex items-center justify-between">
@@ -1782,6 +2319,26 @@ const PAGE_TEMPLATES: PageTemplate[] = [
       { id: sid(), name: "Footer", locked: true },
     ],
   },
+  {
+    id: "landing", name: "Landing Page", selected: false,
+    sections: [
+      { id: sid(), name: "Navigation", locked: true },
+      { id: sid(), name: "Hero Section" },
+      { id: sid(), name: "Features" },
+      { id: sid(), name: "CTA" },
+      { id: sid(), name: "Footer", locked: true },
+    ],
+  },
+  {
+    id: "pricing", name: "Pricing", selected: false,
+    sections: [
+      { id: sid(), name: "Navigation", locked: true },
+      { id: sid(), name: "Pricing Hero" },
+      { id: sid(), name: "Pricing" },
+      { id: sid(), name: "FAQ" },
+      { id: sid(), name: "Footer", locked: true },
+    ],
+  },
 ];
 
 function PickPagesPage({ onNext, onBack, onStepClick, completedUpTo }: { onNext: () => void; onBack: () => void; onStepClick?: (step: number) => void; completedUpTo?: number }) {
@@ -1793,6 +2350,13 @@ function PickPagesPage({ onNext, onBack, onStepClick, completedUpTo }: { onNext:
   const [renaming, setRenaming] = useState<{ pageId: string; sectionId: string; value: string } | null>(null);
   const [drag, setDrag] = useState<{ pageId: string; sectionId: string } | null>(null);
   const [dragOver, setDragOver] = useState<{ pageId: string; sectionId: string } | null>(null);
+
+  const selectedPageCount = pages.filter((p) => p.selected).length;
+  const totalContentSections = pages.filter((p) => p.selected).reduce((n, p) => n + p.sections.filter((s) => !s.locked).length, 0);
+  const atPageLimit = selectedPageCount >= 6;
+  const atSectionLimit = totalContentSections >= 24;
+  const hasInvalidPage = pages.filter((p) => p.selected).some((p) => !p.sections.some((s) => !s.locked));
+  const atLimit = atPageLimit || atSectionLimit;
 
   const togglePage = (pageId: string) =>
     setPages((prev) => prev.map((p) => p.id === pageId ? { ...p, selected: !p.selected } : p));
@@ -1834,17 +2398,43 @@ function PickPagesPage({ onNext, onBack, onStepClick, completedUpTo }: { onNext:
   const onDragEnter = (pageId: string, sectionId: string) => setDragOver({ pageId, sectionId });
 
   const onDrop = (targetPageId: string, targetSectionId: string) => {
-    if (!drag || drag.pageId !== targetPageId) { setDrag(null); setDragOver(null); return; }
-    updateSections(targetPageId, (s) => {
-      const fromIdx = s.findIndex((sec) => sec.id === drag.sectionId);
-      const toIdx = s.findIndex((sec) => sec.id === targetSectionId);
-      if (fromIdx < 0 || toIdx < 0 || fromIdx === toIdx) return s;
-      const item = s[fromIdx];
-      const next = [...s];
-      next.splice(fromIdx, 1);
-      next.splice(toIdx, 0, item);
-      return next;
-    });
+    if (!drag) { setDrag(null); setDragOver(null); return; }
+    const isCrossPage = drag.pageId !== targetPageId;
+    if (isCrossPage) {
+      // Move section from source page to target page, inserting before the drop target
+      setPages((prev) => {
+        const srcPage = prev.find((p) => p.id === drag.pageId);
+        if (!srcPage) return prev;
+        const movingSec = srcPage.sections.find((s) => s.id === drag.sectionId);
+        if (!movingSec || movingSec.locked) return prev;
+        return prev.map((p) => {
+          if (p.id === drag.pageId) {
+            return { ...p, sections: p.sections.filter((s) => s.id !== drag.sectionId) };
+          }
+          if (p.id === targetPageId) {
+            const toIdx = p.sections.findIndex((s) => s.id === targetSectionId);
+            const insertAt = toIdx >= 0 ? toIdx : p.sections.length - 1; // before footer
+            const next = [...p.sections];
+            next.splice(insertAt, 0, movingSec);
+            return { ...p, sections: next };
+          }
+          return p;
+        });
+      });
+    } else {
+      updateSections(targetPageId, (s) => {
+        const fromIdx = s.findIndex((sec) => sec.id === drag.sectionId);
+        const toIdx = s.findIndex((sec) => sec.id === targetSectionId);
+        if (fromIdx < 0 || toIdx < 0 || fromIdx === toIdx) return s;
+        // Prevent moving locked sections or dropping onto locked sections
+        if (s[fromIdx].locked || s[toIdx].locked) return s;
+        const item = s[fromIdx];
+        const next = [...s];
+        next.splice(fromIdx, 1);
+        next.splice(toIdx, 0, item);
+        return next;
+      });
+    }
     setDrag(null);
     setDragOver(null);
   };
@@ -1856,7 +2446,14 @@ function PickPagesPage({ onNext, onBack, onStepClick, completedUpTo }: { onNext:
         style={{ background: "#0b0b0b", fontFamily: "'Montserrat', sans-serif" }}
       >
         <TopHeader />
-        <SubNav activeStep={3} completedUpTo={completedUpTo} onBack={onBack} onNext={onNext} onStepClick={onStepClick} nextLabel="Review &amp; Generate" />
+        <SubNav
+          activeStep={3}
+          completedUpTo={completedUpTo}
+          onBack={onBack}
+          onNext={selectedPageCount > 0 && !hasInvalidPage && !atSectionLimit ? onNext : undefined}
+          onStepClick={onStepClick}
+          nextLabel="Review &amp; Generate"
+        />
 
         {/* Close menus on outside click */}
         <div
@@ -1865,33 +2462,58 @@ function PickPagesPage({ onNext, onBack, onStepClick, completedUpTo }: { onNext:
         >
           <div className="px-[80px] py-[48px] flex flex-col gap-[32px]">
             {/* Header */}
-            <div className="flex items-end justify-between">
-              <div>
-                <h2 className="text-white font-semibold text-[24px] mb-[8px]">Pick your pages</h2>
-                <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 14, fontWeight: 500 }}>
-                  Select pages and drag sections to reorder them
-                </p>
+            <div className="flex flex-col gap-[16px]">
+              {atLimit && (
+                <div style={{ background: "rgba(239,68,68,0.07)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 12, padding: "14px 18px", display: "flex", gap: 12, alignItems: "flex-start" }}>
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0, marginTop: 1 }}>
+                    <path d="M8 2L1.5 13.5h13L8 2z" stroke="#f87171" strokeWidth="1.5" strokeLinejoin="round" fill="none"/>
+                    <path d="M8 6.5v3" stroke="#f87171" strokeWidth="1.5" strokeLinecap="round"/>
+                    <circle cx="8" cy="11.5" r="0.75" fill="#f87171"/>
+                  </svg>
+                  <div>
+                    <p style={{ color: "#f87171", fontWeight: 700, fontSize: 13, marginBottom: 4 }}>Maximum selection reached</p>
+                    <p style={{ color: "rgba(248,113,113,0.7)", fontSize: 12, lineHeight: 1.6 }}>
+                      You have reached the maximum of 6 pages and 24 content sections. Remove existing pages or sections before adding more.
+                    </p>
+                  </div>
+                </div>
+              )}
+              <div className="flex items-end justify-between">
+                <div>
+                  <h2 className="text-white font-semibold text-[24px] mb-[8px]">Pick your pages</h2>
+                  <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 14, fontWeight: 500 }}>
+                    Select pages and drag sections to reorder them
+                  </p>
+                </div>
+                <span className="font-semibold text-[13px]" style={{ color: "#6fccdd" }}>
+                  {pages.filter((p) => p.selected).length} of 6 pages selected
+                </span>
               </div>
-              <span className="font-semibold text-[13px]" style={{ color: "#6fccdd" }}>
-                {pages.filter((p) => p.selected).length} of {pages.length} pages selected
-              </span>
             </div>
 
             {/* Page cards grid */}
-            <div className="grid grid-cols-3 gap-[20px]">
+            <div className="ailk-carousel ailk-pages-carousel grid grid-cols-3 gap-[20px]">
               {pages.map((page) => (
                 <div
                   key={page.id}
                   className="flex flex-col gap-[16px] p-[20px]"
-                  onClick={() => togglePage(page.id)}
+                  onClick={() => {
+                    const hasContent = page.sections.some((s) => !s.locked);
+                    if (!hasContent || (!page.selected && atPageLimit)) return;
+                    togglePage(page.id);
+                  }}
                   style={{
                     backdropFilter: "blur(12px)",
                     background: page.selected ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.01)",
                     borderRadius: 16,
                     border: page.selected ? "1px solid white" : "1px solid rgba(255,255,255,0.15)",
-                    opacity: page.selected ? 1 : 0.5,
+                    opacity: page.selected ? 1 : (
+                      !page.sections.some((s) => !s.locked) ? 0.4
+                      : atPageLimit ? 0.25
+                      : 0.5
+                    ),
                     transition: "opacity 0.2s, border 0.2s",
-                    cursor: "pointer",
+                    cursor: (!page.sections.some((s) => !s.locked) || (!page.selected && atPageLimit)) ? "not-allowed" : "pointer",
                   }}
                 >
                   {/* Card header */}
@@ -1900,11 +2522,7 @@ function PickPagesPage({ onNext, onBack, onStepClick, completedUpTo }: { onNext:
                     style={{ borderBottom: "1px solid rgba(255,255,255,0.1)" }}
                   >
                     <span className="text-white font-semibold text-[18px] leading-[28px]">{page.name}</span>
-                    {/* stopPropagation: card onClick already handles the toggle */}
-                    <button
-                      onClick={(e) => e.stopPropagation()}
-                      className="shrink-0"
-                    >
+                    <button onClick={(e) => e.stopPropagation()} className="shrink-0">
                       {page.selected ? (
                         <svg width="22" height="22" viewBox="0 0 20 20" fill="none">
                           <path d={svgPathsCatMood.p1e585400} fill="#6FCCDD" fillRule="evenodd" clipRule="evenodd" />
@@ -1917,13 +2535,20 @@ function PickPagesPage({ onNext, onBack, onStepClick, completedUpTo }: { onNext:
                     </button>
                   </div>
 
+                  {/* No-content warning */}
+                  {!page.sections.some((s) => !s.locked) && (
+                    <p style={{ color: "rgba(248,113,113,0.85)", fontSize: 12, lineHeight: 1.55, marginTop: -4 }}>
+                      A page requires at least one content section.
+                    </p>
+                  )}
+
                   {/* Sections list — drag-and-drop */}
                   <div className="flex flex-col gap-[4px]">
                     {page.sections.map((section) => {
                       const isMenuOpen = openMenu?.pageId === page.id && openMenu?.sectionId === section.id;
                       const isDragging = drag?.pageId === page.id && drag?.sectionId === section.id;
                       const isOver = dragOver?.pageId === page.id && dragOver?.sectionId === section.id;
-                      const isRenaming = renaming?.pageId === page.id && renaming?.sectionId === section.id;
+                      const isLastContent = !section.locked && page.sections.filter((s) => !s.locked).length <= 1;
 
                       return (
                         <div
@@ -1937,23 +2562,15 @@ function PickPagesPage({ onNext, onBack, onStepClick, completedUpTo }: { onNext:
                           onDragEnd={() => { setDrag(null); setDragOver(null); }}
                           className="flex items-center gap-[10px] px-[12px] py-[10px] rounded-[8px] relative"
                           style={{
-                            background: isOver
-                              ? "rgba(111,204,221,0.1)"
-                              : "rgba(255,255,255,0.04)",
-                            border: isOver
-                              ? "1px solid rgba(111,204,221,0.4)"
-                              : "1px solid rgba(255,255,255,0.06)",
+                            background: isOver ? "rgba(111,204,221,0.1)" : "rgba(255,255,255,0.04)",
+                            border: isOver ? "1px solid rgba(111,204,221,0.4)" : "1px solid rgba(255,255,255,0.06)",
                             opacity: isDragging ? 0.4 : 1,
                             cursor: section.locked ? "default" : "grab",
                             transition: "background 0.15s, border 0.15s, opacity 0.15s",
                           }}
                         >
-                          {/* Drag handle */}
-                          {section.locked ? (
-                            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ opacity: 0.25, flexShrink: 0 }}>
-                              <path d="M4.5 6V4a2.5 2.5 0 015 0v2M2 6h10a.5.5 0 01.5.5v5a.5.5 0 01-.5.5H2a.5.5 0 01-.5-.5v-5A.5.5 0 012 6z" stroke="white" strokeWidth="1.2" strokeLinecap="round" />
-                            </svg>
-                          ) : (
+                          {/* Drag handle — hidden for locked sections */}
+                          {!section.locked && (
                             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ flexShrink: 0, opacity: 0.4 }}>
                               {[2, 6, 10].map((x) => [3, 7, 11].map((y) => (
                                 <circle key={`${x}-${y}`} cx={x} cy={y} r={1} fill="white" />
@@ -1961,26 +2578,13 @@ function PickPagesPage({ onNext, onBack, onStepClick, completedUpTo }: { onNext:
                             </svg>
                           )}
 
-                          {/* Section name — editable inline */}
-                          {isRenaming ? (
-                            <input
-                              autoFocus
-                              value={renaming.value}
-                              onChange={(e) => setRenaming({ ...renaming, value: e.target.value })}
-                              onBlur={commitRename}
-                              onKeyDown={(e) => { if (e.key === "Enter") commitRename(); if (e.key === "Escape") setRenaming(null); }}
-                              className="flex-1 bg-transparent outline-none font-medium text-[13px] text-white"
-                              style={{ border: "none", padding: 0 }}
-                              onClick={(e) => e.stopPropagation()}
-                            />
-                          ) : (
-                            <span
-                              className="flex-1 font-medium text-[13px] truncate"
-                              style={{ color: section.locked ? "rgba(255,255,255,0.4)" : "rgba(255,255,255,0.85)" }}
-                            >
-                              {section.name}
-                            </span>
-                          )}
+                          {/* Section name */}
+                          <span
+                            className="flex-1 font-medium text-[13px] truncate"
+                            style={{ color: section.locked ? "rgba(255,255,255,0.4)" : "rgba(255,255,255,0.85)" }}
+                          >
+                            {section.name}
+                          </span>
 
                           {/* Lock badge */}
                           {section.locked && (
@@ -1992,7 +2596,7 @@ function PickPagesPage({ onNext, onBack, onStepClick, completedUpTo }: { onNext:
                             </span>
                           )}
 
-                          {/* 3-dot menu */}
+                          {/* 3-dot menu — content sections only, Delete only */}
                           {!section.locked && (
                             <div className="relative shrink-0">
                               <button
@@ -2015,7 +2619,7 @@ function PickPagesPage({ onNext, onBack, onStepClick, completedUpTo }: { onNext:
                                   className="absolute right-0 flex flex-col overflow-hidden z-50"
                                   style={{
                                     top: 24,
-                                    width: 160,
+                                    width: 200,
                                     background: "#1a1a1a",
                                     border: "1px solid rgba(255,255,255,0.12)",
                                     borderRadius: 10,
@@ -2023,41 +2627,26 @@ function PickPagesPage({ onNext, onBack, onStepClick, completedUpTo }: { onNext:
                                   }}
                                   onClick={(e) => e.stopPropagation()}
                                 >
-                                  {[
-                                    {
-                                      label: "Rename",
-                                      icon: "M11 2L13 4L5 12H3V10L11 2Z",
-                                      action: () => { setRenaming({ pageId: page.id, sectionId: section.id, value: section.name }); setOpenMenu(null); },
-                                    },
-                                    {
-                                      label: "Duplicate",
-                                      icon: "M6 2H4a1 1 0 00-1 1v9a1 1 0 001 1h6a1 1 0 001-1v-2M8 2h2a1 1 0 011 1v9a1 1 0 01-1 1H8",
-                                      action: () => { duplicateSection(page.id, section.id); setOpenMenu(null); },
-                                    },
-                                    {
-                                      label: "Delete",
-                                      icon: "M3 4h9M5 4V3a1 1 0 011-1h3a1 1 0 011 1v1M10 7v5M7 7v5M4 4l.6 8.1A1 1 0 005.6 13h3.8a1 1 0 001-.9L11 4",
-                                      danger: true,
-                                      action: () => { deleteSection(page.id, section.id); setOpenMenu(null); },
-                                    },
-                                  ].map(({ label, icon, action, danger }) => (
+                                  {isLastContent ? (
+                                    <div style={{ padding: "12px 14px" }}>
+                                      <p style={{ color: "rgba(248,113,113,0.85)", fontSize: 12, lineHeight: 1.55 }}>
+                                        A page must contain at least one content section. Add another section or remove this page.
+                                      </p>
+                                    </div>
+                                  ) : (
                                     <button
-                                      key={label}
-                                      onClick={action}
+                                      onClick={() => { deleteSection(page.id, section.id); setOpenMenu(null); }}
                                       className="flex items-center gap-[10px] px-[14px] py-[10px] font-medium text-[13px] text-left w-full"
-                                      style={{
-                                        color: danger ? "#f87171" : "rgba(255,255,255,0.8)",
-                                        background: "transparent",
-                                      }}
-                                      onMouseEnter={(e) => (e.currentTarget.style.background = danger ? "rgba(248,113,113,0.08)" : "rgba(255,255,255,0.06)")}
+                                      style={{ color: "#f87171", background: "transparent" }}
+                                      onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(248,113,113,0.08)")}
                                       onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                                     >
                                       <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
-                                        <path d={icon} stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+                                        <path d="M3 4h9M5 4V3a1 1 0 011-1h3a1 1 0 011 1v1M10 7v5M7 7v5M4 4l.6 8.1A1 1 0 005.6 13h3.8a1 1 0 001-.9L11 4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
                                       </svg>
-                                      {label}
+                                      Delete section
                                     </button>
-                                  ))}
+                                  )}
                                 </div>
                               )}
                             </div>
@@ -2067,88 +2656,137 @@ function PickPagesPage({ onNext, onBack, onStepClick, completedUpTo }: { onNext:
                     })}
                   </div>
 
-                  {/* Add section button */}
-                  <div className="relative">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setAddModal(addModal === page.id ? null : page.id); }}
-                      className="flex items-center justify-center gap-[8px] py-[10px] rounded-[8px] font-semibold text-[13px] w-full transition-colors"
-                      style={{
-                        border: "1px dashed rgba(255,255,255,0.2)",
-                        color: "rgba(255,255,255,0.4)",
-                      }}
-                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "#6fccdd"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(111,204,221,0.4)"; }}
-                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.4)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.2)"; }}
-                    >
-                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                        <path d="M7 2v10M2 7h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                      </svg>
-                      Add section
-                    </button>
+                  {/* Add section button — 24 content-section global limit */}
+                  {(() => {
+                    const totalContent = pages.filter((p) => p.selected).reduce((n, p) => n + p.sections.filter((s) => !s.locked).length, 0);
+                    const atContentLimit = totalContent >= 24;
+                    return (
+                      <div className="relative">
+                        <button
+                          disabled={atContentLimit}
+                          onClick={(e) => { e.stopPropagation(); if (!atContentLimit) setAddModal(addModal === page.id ? null : page.id); }}
+                          className="flex items-center justify-center gap-[8px] py-[10px] rounded-[8px] font-semibold text-[13px] w-full transition-colors"
+                          style={{
+                            border: atContentLimit ? "1px dashed rgba(255,255,255,0.08)" : "1px dashed rgba(255,255,255,0.2)",
+                            color: atContentLimit ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.4)",
+                            cursor: atContentLimit ? "not-allowed" : "pointer",
+                          }}
+                          onMouseEnter={(e) => { if (!atContentLimit) { (e.currentTarget as HTMLElement).style.color = "#6fccdd"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(111,204,221,0.4)"; } }}
+                          onMouseLeave={(e) => { if (!atContentLimit) { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.4)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.2)"; } }}
+                        >
+                          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                            <path d="M7 2v10M2 7h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                          </svg>
+                          Add section
+                        </button>
 
-                    {/* Add section dropdown */}
-                    {addModal === page.id && (
-                      <div
-                        className="absolute left-0 right-0 z-50 overflow-hidden"
-                        style={{
-                          bottom: "calc(100% + 8px)",
-                          background: "#1a1a1a",
-                          border: "1px solid rgba(255,255,255,0.12)",
-                          borderRadius: 12,
-                          boxShadow: "0 -8px 24px rgba(0,0,0,0.5)",
-                        }}
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <div className="px-[14px] py-[10px]" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-                          <p className="font-semibold text-[11px] uppercase" style={{ color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em" }}>
-                            Add section
-                          </p>
-                        </div>
-                        <div className="flex flex-col max-h-[200px] overflow-y-auto">
-                          {AVAILABLE_SECTIONS.filter(
-                            (name) => !page.sections.some((s) => s.name === name)
-                          ).map((name) => (
-                            <button
-                              key={name}
-                              onClick={() => addSection(page.id, name)}
-                              className="flex items-center gap-[10px] px-[14px] py-[9px] font-medium text-[13px] text-left w-full"
-                              style={{ color: "rgba(255,255,255,0.8)", background: "transparent" }}
-                              onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(111,204,221,0.08)")}
-                              onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                            >
-                              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                                <path d="M6 2v8M2 6h8" stroke="#6fccdd" strokeWidth="1.5" strokeLinecap="round" />
-                              </svg>
-                              {name}
-                            </button>
-                          ))}
-                        </div>
+                        {/* Add section dropdown */}
+                        {!atContentLimit && addModal === page.id && (
+                          <div
+                            className="absolute left-0 right-0 z-50 overflow-hidden"
+                            style={{
+                              bottom: "calc(100% + 8px)",
+                              background: "#1a1a1a",
+                              border: "1px solid rgba(255,255,255,0.12)",
+                              borderRadius: 12,
+                              boxShadow: "0 -8px 24px rgba(0,0,0,0.5)",
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="px-[14px] py-[10px]" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+                              <p className="font-semibold text-[11px] uppercase" style={{ color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em" }}>
+                                Add section
+                              </p>
+                            </div>
+                            <div className="flex flex-col max-h-[200px] overflow-y-auto">
+                              {AVAILABLE_SECTIONS.filter((name) => !page.sections.some((s) => s.name === name)).map((name) => (
+                                <button
+                                  key={name}
+                                  onClick={() => addSection(page.id, name)}
+                                  className="flex items-center gap-[10px] px-[14px] py-[9px] font-medium text-[13px] text-left w-full"
+                                  style={{ color: "rgba(255,255,255,0.8)", background: "transparent" }}
+                                  onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(111,204,221,0.08)")}
+                                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                                >
+                                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                                    <path d="M6 2v8M2 6h8" stroke="#6fccdd" strokeWidth="1.5" strokeLinecap="round" />
+                                  </svg>
+                                  {name}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Section limit tooltip */}
+                        {atContentLimit && addModal === page.id && (
+                          <div
+                            className="absolute left-0 right-0 z-50"
+                            style={{
+                              bottom: "calc(100% + 8px)",
+                              background: "#1a1a1a",
+                              border: "1px solid rgba(248,113,113,0.25)",
+                              borderRadius: 10,
+                              padding: "12px 14px",
+                              boxShadow: "0 -8px 24px rgba(0,0,0,0.5)",
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <p style={{ color: "rgba(248,113,113,0.85)", fontSize: 12, lineHeight: 1.55 }}>
+                              Section limit reached. Remove a section from another page before adding a new one.
+                            </p>
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
+                    );
+                  })()}
                 </div>
               ))}
             </div>
 
             {/* JSON summary strip */}
             <div
-              className="flex items-center justify-between px-[20px] py-[14px] rounded-[12px]"
+              className="ailk-sum-bar flex items-center justify-between px-[20px] py-[14px] rounded-[12px]"
               style={{ background: "rgba(111,204,221,0.05)", border: "1px solid rgba(111,204,221,0.15)" }}
             >
               <div>
                 <p className="text-white font-semibold text-[14px]">
-                  {pages.filter((p) => p.selected).length} pages · {pages.filter((p) => p.selected).reduce((n, p) => n + p.sections.length, 0)} sections
+                  {pages.filter((p) => p.selected).length} pages · {totalContentSections} content sections
                 </p>
                 <p className="font-medium text-[12px] mt-[2px]" style={{ color: "rgba(255,255,255,0.4)" }}>
                   {pages.filter((p) => p.selected).map((p) => p.name).join(", ")}
                 </p>
               </div>
-              <button
-                onClick={onNext}
-                className="font-semibold text-[14px] uppercase px-[24px] py-[12px] rounded-[8px]"
-                style={{ background: "#6fccdd", color: "#0b0b0b" }}
-              >
-                Review &amp; Generate
-              </button>
+              <div className="flex flex-col items-end gap-[6px]">
+                {(() => {
+                  const canGenerate = selectedPageCount > 0 && !hasInvalidPage && !atSectionLimit;
+                  return (
+                    <>
+                      <button
+                        onClick={canGenerate ? onNext : undefined}
+                        className="font-semibold text-[14px] uppercase px-[24px] py-[12px] rounded-[8px]"
+                        style={{
+                          background: canGenerate ? "#6fccdd" : "rgba(255,255,255,0.08)",
+                          color: canGenerate ? "#0b0b0b" : "rgba(255,255,255,0.25)",
+                          cursor: canGenerate ? "pointer" : "not-allowed",
+                          transition: "background 0.2s, color 0.2s",
+                        }}
+                      >
+                        Review &amp; Generate
+                      </button>
+                      {!canGenerate && (
+                        <p style={{ color: "rgba(248,113,113,0.8)", fontSize: 11, textAlign: "right", maxWidth: 240 }}>
+                          {selectedPageCount === 0
+                            ? "Select at least one page to continue."
+                            : hasInvalidPage
+                            ? "Fix page configuration issues before continuing."
+                            : "Remove sections to stay within the 24-section limit."}
+                        </p>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
             </div>
           </div>
         </div>
@@ -2188,8 +2826,8 @@ function GeneratingPage({ onNext }: { onNext: () => void }) {
   return (
     <ScaledPage designHeight={900}>
       <div
-        className="w-full h-full flex flex-col"
-        style={{ background: "#0b0b0b", fontFamily: "'Montserrat', sans-serif" }}
+        className="w-full flex flex-col flex-1"
+        style={{ background: "#0b0b0b", fontFamily: "'Montserrat', sans-serif", minHeight: "100%" }}
       >
         <TopHeader />
         <div className="flex-1 flex flex-col items-center justify-center gap-[32px]">
@@ -2250,6 +2888,7 @@ const VERSIONS = [
 
 function PreviewPage({ onNext, onBack }: { onNext: () => void; onBack: () => void }) {
   const [selected, setSelected] = useState(1);
+  const isMobile = useMobile();
 
   return (
     <ScaledPage designHeight={900} scrollable>
@@ -2310,7 +2949,7 @@ function PreviewPage({ onNext, onBack }: { onNext: () => void; onBack: () => voi
           </div>
 
           {/* Version cards */}
-          <div className="grid grid-cols-3 gap-[20px]">
+          <div className="ailk-carousel ailk-preview-carousel grid grid-cols-3 gap-[20px]">
             {VERSIONS.map((v, i) => (
               <button
                 key={i}
@@ -2408,7 +3047,7 @@ function PreviewPage({ onNext, onBack }: { onNext: () => void; onBack: () => voi
           </div>
 
           {/* Confirm button */}
-          <div className="flex justify-center">
+          <div className="ailk-confirm-wrap flex justify-center">
             <button
               onClick={onNext}
               className="font-semibold text-[18px]"
@@ -2417,7 +3056,7 @@ function PreviewPage({ onNext, onBack }: { onNext: () => void; onBack: () => voi
                 color: "#090909",
                 borderRadius: 8,
                 padding: "16px 0",
-                width: 360,
+                width: isMobile ? "100%" : 360,
               }}
             >
               Confirm Selection
@@ -2589,7 +3228,7 @@ function DownloadPage({ onBack }: { onBack: () => void }) {
             >
               Next Actions
             </span>
-            <div className="flex gap-[16px] justify-center">
+            <div className="ailk-action-cards flex gap-[16px] justify-center">
               {/* Download HTML */}
               <div
                 className="flex flex-col gap-[16px] p-[24px] rounded-[16px]"
@@ -2621,7 +3260,56 @@ function DownloadPage({ onBack }: { onBack: () => void }) {
                   <path d={p.p3d0d0400} stroke="#6fccdd" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
                 <div>
-                  <div className="text-white font-semibold text-[14px]">Deploy to Domain</div>
+                  <div className="flex items-center gap-[6px]">
+                    <span className="text-white font-semibold text-[14px]">Deploy to Domain</span>
+                    {(() => {
+                      const [tip, setTip] = useState(false);
+                      return (
+                        <div style={{ position: "relative", display: "inline-flex" }}>
+                          <button
+                            onMouseEnter={() => setTip(true)}
+                            onMouseLeave={() => setTip(false)}
+                            onClick={() => setTip(v => !v)}
+                            style={{ background: "none", border: "none", padding: 0, cursor: "pointer", lineHeight: 1, color: "rgba(255,255,255,0.35)", fontSize: 14, display: "flex", alignItems: "center" }}
+                            aria-label="More information"
+                          >
+                            ⓘ
+                          </button>
+                          {tip && (
+                            <div
+                              style={{
+                                position: "absolute",
+                                bottom: "calc(100% + 8px)",
+                                left: "50%",
+                                transform: "translateX(-50%)",
+                                width: 240,
+                                background: "#1e1e1e",
+                                border: "1px solid rgba(255,255,255,0.12)",
+                                borderRadius: 12,
+                                padding: "12px 14px",
+                                boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
+                                fontSize: 12,
+                                fontWeight: 500,
+                                color: "rgba(255,255,255,0.7)",
+                                lineHeight: 1.6,
+                                zIndex: 100,
+                                pointerEvents: "none",
+                              }}
+                            >
+                              Deploying your website uses Vercel. Clicking 'Deploy Now' will redirect you to Vercel, where you can sign in with your email or create a new account to publish your website.
+                              <div style={{
+                                position: "absolute", bottom: -5, left: "50%", transform: "translateX(-50%)",
+                                width: 10, height: 10, background: "#1e1e1e",
+                                border: "1px solid rgba(255,255,255,0.12)",
+                                borderTop: "none", borderLeft: "none",
+                                rotate: "45deg",
+                              }} />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
                   <div className="font-medium text-[12px] mt-[4px]" style={{ color: "rgba(255,255,255,0.4)" }}>
                     Requires a connected domain
                   </div>
