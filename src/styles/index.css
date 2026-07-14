@@ -1,3 +1,32 @@
 @import './fonts.css';
 @import './tailwind.css';
 @import './theme.css';
+
+html,
+body,
+#root {
+  width: 100%;
+  min-height: 100%;
+  margin: 0;
+}
+
+html {
+  background: #0b0b0b;
+}
+
+body {
+  overflow-x: hidden;
+  background: #0b0b0b;
+  color: #fff;
+  display: block;
+}
+
+#root {
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+}
+
+* {
+  box-sizing: border-box;
+}

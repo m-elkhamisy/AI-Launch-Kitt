@@ -1,7 +1,5 @@
-import { useState, useRef, useEffect, useCallback, createContext, useContext } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 
-const MobileCtx = createContext(false);
-function useMobile() { return useContext(MobileCtx); }
 import svgPathsLogin from "@/imports/AiLaunchKitLoginPage/svg-8vlpvs8i0v";
 import svgPathsDl from "@/imports/AiLaunchKitDownloadingGeneratedWebsitesPage/svg-7argp47g3q";
 import svgPathsMerged from "@/imports/AiLaunchKitMainPageMergedFlow/svg-9l4sd51871";
@@ -22,49 +20,57 @@ type Page =
   | "preview"
   | "download";
 
-// ─── Scaled Page Wrapper ──────────────────────────────────────────────────────
-// Uses CSS `zoom` (not transform: scale) so pointer events, input focus, and
-// scroll coordinates all stay correctly aligned with the visible layout.
+// ─── Page Wrapper ─────────────────────────────────────────────────────────────
+// Fluid container (w-full, capped at a max design width) — content reflows
+// at every viewport size instead of being locked to a fixed-width canvas.
 function ScaledPage({
   children,
+  header,
   designHeight: _designHeight = 900,
   scrollable = false,
 }: {
   children: React.ReactNode;
+  header?: React.ReactNode;
   designHeight?: number;
   scrollable?: boolean;
 }) {
-  const [scale, setScale] = useState(1);
-  const [isMobile, setIsMobile] = useState(false);
-  useEffect(() => {
-    const update = () => {
-      const w = window.innerWidth;
-      const mobile = w < 768;
-      setIsMobile(mobile);
-      setScale(mobile ? 1 : Math.min(1, w / 1440));
-    };
-    update();
-    window.addEventListener("resize", update);
-    return () => window.removeEventListener("resize", update);
-  }, []);
-
   return (
-    <MobileCtx.Provider value={isMobile}>
+    <div
+      style={{
+        width: "100%",
+        overflowX: "hidden",
+        overflowY: scrollable ? "auto" : "hidden",
+        minHeight: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        boxSizing: "border-box",
+        alignItems: "stretch",
+      }}
+    >
+      {/* Header/nav renders at native size, full viewport width. */}
+      {header && <div className="w-full flex-shrink-0">{header}</div>}
+      {/* Body content is a genuinely fluid container — no fixed-width/zoom canvas — so it
+          reflows at every viewport width instead of leaving dead space around a locked 1440px design. */}
       <div
+        className="w-full mx-auto"
         style={{
           width: "100%",
-          overflowX: "hidden",
-          overflowY: scrollable ? "auto" : "hidden",
-          minHeight: "100vh",
+          maxWidth: 1440,
+          padding: "0 clamp(16px, 3vw, 32px)",
+          boxSizing: "border-box",
+          // Always grow to fill the remaining viewport height — otherwise short pages leave
+          // dead space below instead of the content/background filling the screen.
+          // minHeight:100vh on the outer wrapper has no cap, so tall content still grows
+          // past one viewport and scrolls normally.
+          flex: 1,
           display: "flex",
           flexDirection: "column",
+          margin: "0 auto",
         }}
       >
-        <div style={{ width: isMobile ? "100%" : 1440, zoom: scale, flex: scrollable ? undefined : 1, display: "flex", flexDirection: "column" }}>
-          {children}
-        </div>
+        {children}
       </div>
-    </MobileCtx.Provider>
+    </div>
   );
 }
 
@@ -118,10 +124,13 @@ function TopHeader({ showProfile = true }: { showProfile?: boolean }) {
         backdropFilter: "blur(20px)",
         borderBottom: "1px solid rgba(255,255,255,0.1)",
         fontFamily: "'Montserrat', sans-serif",
+        padding: "0 clamp(16px, 4vw, 32px)",
+        display: "flex",
+        alignItems: "center",
       }}
     >
       {/* Logo */}
-      <div className="absolute" style={{ left: 32, top: 24 }}>
+      <div style={{ display: "flex", alignItems: "center" }}>
         <LogoSvg />
       </div>
 
@@ -155,7 +164,6 @@ function SubNav({
   nextLabel?: string;
 }) {
   const completedUpTo = completedUpToProp ?? activeStep - 1;
-  const isMobile = useMobile();
   const n = svgPathsNav;
 
   // Colours per state matching the Figma design exactly:
@@ -258,10 +266,15 @@ function SubNav({
     </svg>
   );
 
-  // ── Mobile / tablet two-row layout ──────────────────────────────────────
-  if (isMobile) {
-    return (
+  // Both layouts render together; Tailwind's `md:` breakpoint (CSS media query, not JS)
+  // decides which is visible — no isMobile JS branching.
+  return (
+    <>
+      {/* ── Compact layout (below lg) — two-row strip. The full breadcrumb below
+          needs ~700px for its longest label ("Design Category & Mood"), so it only
+          switches in once there's room to avoid overlapping the back/next buttons. ── */}
       <div
+        className="flex lg:hidden flex-col"
         style={{
           background: "#0b0b0b",
           borderBottom: "1px solid rgba(255,255,255,0.1)",
@@ -338,7 +351,9 @@ function SubNav({
           </button>
         </div>
 
-        {/* ── Row 2: step strip — icon-only except active step shows icon + label ── */}
+        {/* ── Row 2: step strip — icon-only except active step shows icon + label.
+            The active label is width-capped with ellipsis so this row always fits without
+            ever needing to scroll horizontally, down to a 320px viewport. ── */}
         <div
           style={{
             height: 40,
@@ -348,9 +363,8 @@ function SubNav({
             paddingLeft: 16,
             paddingRight: 16,
             gap: 6,
-            overflowX: "auto",
+            overflowX: "hidden",
             overflowY: "hidden",
-            scrollbarWidth: "none",
             borderTop: "1px solid rgba(255,255,255,0.06)",
           }}
         >
@@ -384,6 +398,9 @@ function SubNav({
                         fontSize: 12,
                         color: "rgba(255,255,255,1)",
                         whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        maxWidth: "clamp(50px, 20vw, 140px)",
                         lineHeight: 1,
                       }}
                     >
@@ -399,20 +416,17 @@ function SubNav({
           })}
         </div>
       </div>
-    );
-  }
 
-  // ── Desktop layout (pixel-for-pixel identical to original) ──────────────
-  return (
-    <div
-      className="relative flex items-center"
-      style={{
-        height: 52,
-        background: "#0b0b0b",
-        borderBottom: "1px solid rgba(255,255,255,0.1)",
-        fontFamily: "'Montserrat', sans-serif",
-      }}
-    >
+      {/* ── Full layout (lg and up) — breadcrumb + back/next ──────────────── */}
+      <div
+        className="hidden lg:flex relative items-center"
+        style={{
+          height: 52,
+          background: "#0b0b0b",
+          borderBottom: "1px solid rgba(255,255,255,0.1)",
+          fontFamily: "'Montserrat', sans-serif",
+        }}
+      >
       {/* Left: Back + separator + title */}
       <div className="flex items-center gap-[12px] pl-[24px]">
         <button onClick={onBack} className="flex items-center justify-center">
@@ -471,48 +485,46 @@ function SubNav({
           {nextLabel}
         </button>
       </div>
-    </div>
+      </div>
+    </>
   );
 }
 
 // ─── PAGE 1: Login ────────────────────────────────────────────────────────────
 function LoginPage({ onNext }: { onNext: () => void }) {
   const [email, setEmail] = useState("");
-  const isMobile = useMobile();
   const p = svgPathsLogin;
 
   return (
-    <ScaledPage designHeight={900}>
-      <div
-        className="w-full flex flex-col"
-        style={{ background: "#0b0b0b", fontFamily: "'Montserrat', sans-serif", minHeight: "100%" }}
-      >
-        {/* Header bar — logo top left */}
+    <ScaledPage
+      designHeight={900}
+      header={
         <div
-          className="flex items-center px-[40px]"
+          className="flex items-center px-4 sm:px-[40px]"
           style={{
             height: 84,
             borderBottom: "1px solid rgba(255,255,255,0.1)",
             backdropFilter: "blur(20px)",
-            flexShrink: 0,
+            background: "#0b0b0b",
           }}
         >
           {/* Innovation City logo mark + wordmark */}
           <LogoSvg />
         </div>
-
+      }
+    >
+      <div
+        className="w-full flex flex-col flex-1"
+        style={{ background: "#0b0b0b", fontFamily: "'Montserrat', sans-serif", minHeight: "100%" }}
+      >
         {/* Page body — card centered */}
-        <div className="flex flex-1 items-center justify-center" style={{ minHeight: "calc(100% - 84px)", padding: "24px 20px" }}>
+        <div className="flex flex-1 items-center justify-center p-5 sm:p-6">
           <div
-            className="flex flex-col items-center gap-[28px]"
+            className="flex flex-col items-center gap-[28px] w-full max-w-[480px] p-6 sm:p-12"
             style={{
-              width: isMobile ? "calc(100vw - 40px)" : 480,
-              maxWidth: isMobile ? 440 : undefined,
-              margin: "0 auto",
               background: "#131313",
               border: "1px solid rgba(255,255,255,0.1)",
               borderRadius: 20,
-              padding: 48,
             }}
           >
             {/* Card header — logo mark + text centered */}
@@ -619,7 +631,6 @@ function LoginPage({ onNext }: { onNext: () => void }) {
 function OtpPage({ onNext, onBack }: { onNext: () => void; onBack: () => void }) {
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [focused, setFocused] = useState(0);
-  const isMobile = useMobile();
 
   const inputRefs = useRef<Array<HTMLInputElement | null>>([]);
 
@@ -671,9 +682,24 @@ function OtpPage({ onNext, onBack }: { onNext: () => void; onBack: () => void })
   };
 
   return (
-    <ScaledPage designHeight={900}>
+    <ScaledPage
+      designHeight={900}
+      header={
+        <div
+          className="flex items-center px-4 sm:px-[40px]"
+          style={{
+            height: 84,
+            borderBottom: "1px solid rgba(255,255,255,0.1)",
+            backdropFilter: "blur(20px)",
+            background: "#0b0b0b",
+          }}
+        >
+          <LogoSvg />
+        </div>
+      }
+    >
       <div
-        className="w-full flex flex-col"
+        className="w-full flex flex-col flex-1"
         style={{
           background: "#0b0b0b",
           fontFamily: "'Montserrat', sans-serif",
@@ -681,40 +707,18 @@ function OtpPage({ onNext, onBack }: { onNext: () => void; onBack: () => void })
         }}
       >
 
-        {/* Header */}
-        <div
-          className="flex items-center px-[40px]"
-          style={{
-            height: 84,
-            borderBottom: "1px solid rgba(255,255,255,0.1)",
-            backdropFilter: "blur(20px)",
-            flexShrink: 0,
-          }}
-        >
-          <LogoSvg />
-        </div>
-
-
         {/* Body */}
         <div
-          className="flex flex-1 items-center justify-center"
-          style={{
-            minHeight: "calc(100% - 84px)",
-            padding: "24px 20px",
-          }}
+          className="flex flex-1 items-center justify-center p-5 sm:p-6"
         >
 
           {/* Card */}
           <div
-            className="flex flex-col items-center gap-[28px]"
+            className="flex flex-col items-center gap-[28px] w-full max-w-[480px] p-5 sm:p-12"
             style={{
-              width: isMobile ? "calc(100vw - 32px)" : 480,
-              maxWidth: 480,
-              margin: "0 auto",
               background: "#131313",
               border: "1px solid rgba(255,255,255,0.1)",
               borderRadius: 20,
-              padding: isMobile ? "28px 20px" : 48,
               boxSizing: "border-box",
             }}
           >
@@ -922,15 +926,16 @@ function QuestionnairePage({ onNext, onBack, onStepClick, completedUpTo }: { onN
   ];
 
   return (
-    <ScaledPage designHeight={1100} scrollable>
+    <ScaledPage
+      designHeight={1100}
+      scrollable
+      header={<><TopHeader /><SubNav activeStep={0} completedUpTo={completedUpTo} onBack={onBack} onNext={onNext} onStepClick={onStepClick} /></>}
+    >
       <div
         className="w-full min-h-full flex flex-col"
         style={{ background: "#0b0b0b", fontFamily: "'Montserrat', sans-serif" }}
       >
-        <TopHeader />
-        <SubNav activeStep={0} completedUpTo={completedUpTo} onBack={onBack} onNext={onNext} onStepClick={onStepClick} />
-
-        <div className="flex-1 px-[80px] py-[48px] flex flex-col gap-[24px]">
+        <div className="flex-1 px-[clamp(16px,5vw,80px)] py-[clamp(24px,5vw,48px)] flex flex-col gap-[clamp(12px,3vw,24px)]">
           {/* Upload banner */}
           <div
             className="flex items-center justify-between px-[24px] py-[18px]"
@@ -973,12 +978,11 @@ function QuestionnairePage({ onNext, onBack, onStepClick, completedUpTo }: { onN
               onClick={() => setUploadOpen(false)}
             >
               <div
-                className="flex flex-col items-center gap-[24px] p-[48px]"
+                className="flex flex-col items-center gap-[24px] p-5 sm:p-12 w-[calc(100%-32px)] sm:w-[520px] max-h-[90vh] overflow-y-auto"
                 style={{
                   background: "#111",
                   border: "1px solid rgba(255,255,255,0.15)",
                   borderRadius: 20,
-                  width: 520,
                   fontFamily: "'Montserrat', sans-serif",
                 }}
                 onClick={(e) => e.stopPropagation()}
@@ -1057,7 +1061,7 @@ function QuestionnairePage({ onNext, onBack, onStepClick, completedUpTo }: { onN
 
           {/* Main form panel */}
           <div
-            className="relative flex flex-col gap-[40px] p-[56px]"
+            className="relative flex flex-col gap-[clamp(20px,4vw,40px)] p-[clamp(20px,6vw,56px)]"
             style={{
               background: "#0b0b0b",
               border: "1px solid rgba(255,255,255,0.1)",
@@ -1080,12 +1084,12 @@ function QuestionnairePage({ onNext, onBack, onStepClick, completedUpTo }: { onN
             </svg>
 
             <div className="flex items-center gap-[10px] relative">
-              <h2 className="text-white font-semibold text-[24px]">Tell us about your brand</h2>
+              <h2 className="text-white font-semibold" style={{ fontSize: "clamp(19px, 5vw, 24px)" }}>Tell us about your brand</h2>
               <div className="w-[8px] h-[8px] rounded-full" style={{ background: "#6fccdd" }} />
             </div>
 
             {fields.map((row, ri) => (
-              <div key={ri} className="ailk-form-grid grid grid-cols-2 gap-[24px]">
+              <div key={ri} className="grid grid-cols-1 sm:grid-cols-2 gap-[24px]">
                 {row.map(({ key, label, placeholder }) => (
                   <div key={key} className="flex flex-col gap-[8px]">
                     <label
@@ -1174,25 +1178,24 @@ const ANIMATION_LEVELS = [
 function CategoryMoodPage({ onNext, onBack, onStepClick, completedUpTo }: { onNext: () => void; onBack: () => void; onStepClick?: (step: number) => void; completedUpTo?: number }) {
   const [category, setCategory] = useState("Tech / SaaS");
   const [mood, setMood] = useState("Dark & Modern");
-  const [themeMode, setThemeMode] = useState("Dark");
   const [animLevel, setAnimLevel] = useState(2);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showMoodModal, setShowMoodModal] = useState(false);
-  const isMobile = useMobile();
 
   return (
-    <ScaledPage designHeight={1000} scrollable>
+    <ScaledPage
+      designHeight={1000}
+      scrollable
+      header={<><TopHeader /><SubNav activeStep={1} completedUpTo={completedUpTo} onBack={onBack} onNext={onNext} onStepClick={onStepClick} /></>}
+    >
       <div
         className="w-full min-h-full flex flex-col"
         style={{ background: "#0b0b0b", fontFamily: "'Montserrat', sans-serif" }}
       >
-        <TopHeader />
-        <SubNav activeStep={1} completedUpTo={completedUpTo} onBack={onBack} onNext={onNext} onStepClick={onStepClick} />
-
-        <div className="px-[120px] py-[48px] flex flex-col gap-[48px]">
+        <div className="px-[clamp(16px,7vw,120px)] py-[clamp(24px,5vw,48px)] flex flex-col gap-[clamp(24px,5vw,48px)]">
 
           {/* ── Cards row ─────────────────────────────────────────────────────── */}
-          <div className="ailk-cat-row flex gap-[12px]">
+          <div className="flex flex-col sm:flex-row gap-3 w-full">
             {/* Business Category card */}
             <div
               className="flex-1 flex flex-col gap-[20px] p-[26px]"
@@ -1205,8 +1208,8 @@ function CategoryMoodPage({ onNext, onBack, onStepClick, completedUpTo }: { onNe
                     Business Category
                   </p>
                   <div className="flex flex-col gap-[6px]">
-                    <h3 className="text-white font-semibold text-[18px] leading-[28px]">{category}</h3>
-                    <p className="font-medium text-[14px] leading-[20px]" style={{ color: "rgba(255,255,255,0.6)", maxWidth: 360 }}>
+                    <h3 className="text-white font-semibold text-[16px] sm:text-[18px] leading-[24px] sm:leading-[28px]">{category}</h3>
+                    <p className="font-medium text-[13px] sm:text-[14px] leading-[18px] sm:leading-[20px]" style={{ color: "rgba(255,255,255,0.6)", maxWidth: 360 }}>
                       {BUSINESS_CATEGORIES.find((c) => c.label === category)?.desc ?? ""}
                     </p>
                   </div>
@@ -1229,7 +1232,7 @@ function CategoryMoodPage({ onNext, onBack, onStepClick, completedUpTo }: { onNe
                 <div style={{ height: 1, background: "rgba(255,255,255,0.1)", marginBottom: 12 }} />
                 <button
                   onClick={() => setShowCategoryModal(true)}
-                  className="flex items-center gap-[8px] font-medium text-[14px] leading-[20px] w-fit"
+                  className="flex items-center gap-[8px] font-medium text-[13px] sm:text-[14px] leading-[18px] sm:leading-[20px] w-fit"
                   style={{ color: "#6fccdd" }}
                 >
                   Choose a different category
@@ -1251,8 +1254,8 @@ function CategoryMoodPage({ onNext, onBack, onStepClick, completedUpTo }: { onNe
                     Design Mood
                   </p>
                   <div className="flex flex-col gap-[6px]">
-                    <h3 className="text-white font-semibold text-[18px] leading-[28px]">{mood}</h3>
-                    <p className="font-medium text-[14px] leading-[20px]" style={{ color: "rgba(255,255,255,0.6)", maxWidth: 360 }}>
+                    <h3 className="text-white font-semibold text-[16px] sm:text-[18px] leading-[24px] sm:leading-[28px]">{mood}</h3>
+                    <p className="font-medium text-[13px] sm:text-[14px] leading-[18px] sm:leading-[20px]" style={{ color: "rgba(255,255,255,0.6)", maxWidth: 360 }}>
                       {DESIGN_MOODS.find((m) => m.label === mood)?.desc ?? ""}
                     </p>
                   </div>
@@ -1270,7 +1273,7 @@ function CategoryMoodPage({ onNext, onBack, onStepClick, completedUpTo }: { onNe
                 <div style={{ height: 1, background: "rgba(255,255,255,0.1)", marginBottom: 12 }} />
                 <button
                   onClick={() => setShowMoodModal(true)}
-                  className="flex items-center gap-[8px] font-medium text-[14px] leading-[20px] w-fit"
+                  className="flex items-center gap-[8px] font-medium text-[13px] sm:text-[14px] leading-[18px] sm:leading-[20px] w-fit"
                   style={{ color: "#6fccdd" }}
                 >
                   Choose a different category
@@ -1282,180 +1285,37 @@ function CategoryMoodPage({ onNext, onBack, onStepClick, completedUpTo }: { onNe
             </div>
           </div>
 
-{false && (
-  <>
-    {/* ── Theme Mode ────────────────────────────────────────────────────── */}
-    <div className="flex flex-col gap-[24px]">
-      <p className="font-semibold uppercase text-[12px]" style={{ color: "rgba(255,255,255,0.5)", letterSpacing: "0.12em" }}>
-        Theme Mode
-      </p>
-      <div className="ailk-carousel ailk-theme-carousel flex gap-[0px]">
-        {(["Light", "Dark", "Both"] as const).map((mode) => {
-          const isSelected = themeMode === mode;
-          const label = mode === "Both" ? "Light + Dark Mode" : `${mode} Mode`;
-          const isDark = mode === "Dark" || mode === "Both";
-          const barBg = isDark ? "rgba(255,255,255,0.05)" : "rgba(11,11,11,0.1)";
-          const sidebarBg = isDark ? "rgba(255,255,255,0.1)" : "rgba(11,11,11,0.1)";
-          const thumbW = isMobile ? Math.round((window.innerWidth - 80) / 3) : 248;
-          const thumbH = isMobile ? Math.round(thumbW * (90 / 248)) : 90;
-
-          return (
-            <button
-              key={mode}
-              onClick={() => setThemeMode(mode)}
-              className="flex-1 flex flex-col items-center gap-[16px]"
-            >
-              <div className="flex items-center gap-[16px] w-full justify-center">
-                {isSelected ? (
-                  <svg width="24" height="24" viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0 }}>
-                    <path d={svgPathsCatMood.p1e585400} fill="#6FCCDD" fillRule="evenodd" clipRule="evenodd" />
-                  </svg>
-                ) : (
-                  <svg width="22" height="22" viewBox="0 0 22 22" fill="none" style={{ flexShrink: 0 }}>
-                    <circle cx="11" cy="11" r="10" stroke="rgba(255,255,255,0.2)" strokeWidth="1.5" />
-                  </svg>
-                )}
-
-                <div
-                  className="overflow-hidden relative"
-                  style={{
-                    width: thumbW,
-                    height: thumbH,
-                    borderRadius: 8,
-                    background: mode === "Light" ? "white" : "#050505",
-                    border: "1px solid rgba(255,255,255,0.1)",
-                    flexShrink: 0,
-                  }}
-                >
-                  <div
-                    className="flex items-center gap-[4px] px-[5px]"
-                    style={{
-                      height: isMobile ? Math.round(thumbH * 14 / 90) : 14,
-                      background: barBg,
-                    }}
-                  >
-                    {[["#5752A3",1],["#6FCCDD",1],["white",1]].map(([c], di) => (
-                      <div
-                        key={di}
-                        style={{
-                          width: 5,
-                          height: 5,
-                          borderRadius: "50%",
-                          background: c as string,
-                          opacity: 0.8,
-                        }}
-                      />
-                    ))}
-                  </div>
-
-                  <div
-                    className="flex"
-                    style={{
-                      height: isMobile ? thumbH - Math.round(thumbH * 14 / 90) : 76,
-                    }}
-                  >
-                    <div
-                      className="flex flex-col gap-[3px] p-[8px]"
-                      style={{
-                        width: isMobile ? Math.round(thumbW * 45 / 248) : 45,
-                      }}
-                    >
-                      <div style={{ height: 4, width: 22, borderRadius: 100, background: sidebarBg }} />
-                      <div style={{ height: 8, borderRadius: 100, background: sidebarBg }} />
-                      <div style={{ height: 3, borderRadius: 100, background: sidebarBg }} />
-                      <div style={{ height: 3, borderRadius: 100, background: sidebarBg }} />
-                      <div style={{ height: 3, width: 30, borderRadius: 100, background: sidebarBg }} />
-
-                      <div className="flex gap-[2px] mt-[4px]">
-                        <div style={{ height: 8, flex: 1, borderRadius: 2, background: "#6fccdd" }} />
-                        <div style={{ height: 8, flex: 1, borderRadius: 2, border: `1px solid ${sidebarBg}` }} />
-                      </div>
-                    </div>
-
-                    <div
-                      style={{
-                        flex: 1,
-                        background: sidebarBg,
-                        borderRadius: 4,
-                        margin: "8px 8px 8px 0",
-                      }}
-                    />
-                  </div>
-
-                  {mode === "Both" && (
-                    <div
-                      className="absolute top-0 right-0 h-full overflow-hidden"
-                      style={{
-                        width: "45%",
-                        background: "white",
-                      }}
-                    >
-                      <div
-                        style={{
-                          height: isMobile ? Math.round(thumbH * 14 / 90) : 14,
-                          background: "rgba(11,11,11,0.1)",
-                        }}
-                      />
-
-                      <div
-                        style={{
-                          flex: 1,
-                          margin: "8px",
-                          background: "rgba(11,11,11,0.1)",
-                          borderRadius: 4,
-                          height: 54,
-                        }}
-                      />
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <p
-                className="font-semibold text-[18px] leading-[28px]"
-                style={{ color: isSelected ? "#6fccdd" : "white" }}
-              >
-                {label}
-              </p>
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  </>
-)}
           {/* ── Animation Level ───────────────────────────────────────────────── */}
-          <div className="flex flex-col gap-[32px]">
+          <div className="flex flex-col gap-[32px] w-full">
             <p className="font-semibold uppercase text-[12px]" style={{ color: "rgba(255,255,255,0.5)", letterSpacing: "0.12em" }}>
               Animation Level
             </p>
-            <div className="ailk-anim-row relative flex items-end">
-              {/* Track line — vertically centered on dots */}
+            <div className="relative flex items-end w-full overflow-x-hidden">
+              {/* Track line — vertically centered on dots, spans the full row */}
               <div
-                className="absolute left-0 right-0"
-                style={{ bottom: isMobile ? 8 : 11, height: 2, background: "rgba(255,255,255,0.1)" }}
+                className="absolute left-0 right-0 w-full"
+                style={{ bottom: "clamp(8px, 2vw, 11px)", height: 2, background: "rgba(255,255,255,0.1)" }}
               />
               {ANIMATION_LEVELS.map((lvl, i) => {
                 const isActive = i === animLevel;
-                const dotSize = isMobile ? 18 : 24;
+                const dotSize = "clamp(18px, 4vw, 24px)";
                 return (
                   <button
                     key={lvl.label}
                     onClick={() => setAnimLevel(i)}
                     className="flex-1 flex flex-col items-center relative z-10"
-                    style={{ gap: isMobile ? 5 : 12, minWidth: 0, padding: isMobile ? "0 2px" : undefined }}
+                    style={{ gap: "clamp(5px, 2vw, 12px)", minWidth: 0, padding: "0 2px" }}
                   >
-                    {/* Label + sub-label above */}
+                    {/* Label + sub-label above — clamp() sizing + wrapping so text never gets clipped */}
                     <div className="flex flex-col gap-[2px] items-center text-center" style={{ width: "100%" }}>
                       <span
                         style={{
                           fontWeight: 600,
-                          fontSize: isMobile ? 10 : 16,
-                          lineHeight: isMobile ? "14px" : "24px",
+                          fontSize: "clamp(10px, 3vw, 16px)",
+                          lineHeight: 1.3,
                           color: isActive ? "#6fccdd" : "white",
-                          whiteSpace: "nowrap",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
+                          whiteSpace: "normal",
+                          overflowWrap: "break-word",
                           maxWidth: "100%",
                           display: "block",
                         }}
@@ -1465,12 +1325,11 @@ function CategoryMoodPage({ onNext, onBack, onStepClick, completedUpTo }: { onNe
                       <span
                         style={{
                           fontWeight: 500,
-                          fontSize: isMobile ? 8 : 14,
-                          lineHeight: isMobile ? "12px" : "20px",
+                          fontSize: "clamp(8px, 2.4vw, 14px)",
+                          lineHeight: 1.3,
                           color: "rgba(255,255,255,0.6)",
-                          whiteSpace: "nowrap",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
+                          whiteSpace: "normal",
+                          overflowWrap: "break-word",
                           maxWidth: "100%",
                           display: "block",
                         }}
@@ -1503,24 +1362,19 @@ function CategoryMoodPage({ onNext, onBack, onStepClick, completedUpTo }: { onNe
             onClick={() => setShowCategoryModal(false)}
           >
             <div
-              className="relative flex flex-col"
+              className="relative flex flex-col w-[calc(100%-32px)] sm:w-[90vw] max-w-[720px] gap-5 sm:gap-6 p-5 sm:p-10"
               style={{
                 background: "#111",
                 border: "1px solid rgba(255,255,255,0.1)",
                 borderRadius: 20,
-                // Desktop: fixed wide modal · Mobile: full viewport with safe margins
-                maxWidth: isMobile ? "calc(100vw - 32px)" : 720,
-                width: isMobile ? "calc(100vw - 32px)" : "90vw",
-                maxHeight: isMobile ? "85vh" : "80vh",
+                maxHeight: "85vh",
                 overflowY: "auto",
-                gap: isMobile ? 20 : 24,
-                padding: isMobile ? "24px 20px" : 40,
               }}
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header */}
               <div className="flex items-center justify-between" style={{ flexShrink: 0 }}>
-                <h3 className="text-white font-semibold" style={{ fontSize: isMobile ? 17 : 20 }}>
+                <h3 className="text-white font-semibold" style={{ fontSize: "clamp(17px, 4vw, 20px)" }}>
                   Choose Business Category
                 </h3>
                 <button
@@ -1539,14 +1393,8 @@ function CategoryMoodPage({ onNext, onBack, onStepClick, completedUpTo }: { onNe
                 </button>
               </div>
 
-              {/* Category grid — 3 cols desktop / 1 col mobile */}
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: isMobile ? "1fr" : "repeat(3, 1fr)",
-                  gap: isMobile ? 12 : 12,
-                }}
-              >
+              {/* Category grid — 1 col mobile, 3 cols tablet/desktop */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {BUSINESS_CATEGORIES.map((cat) => (
                   <button
                     key={cat.label}
@@ -1554,24 +1402,21 @@ function CategoryMoodPage({ onNext, onBack, onStepClick, completedUpTo }: { onNe
                       setCategory(cat.label);
                       setShowCategoryModal(false);
                     }}
-                    className="text-left rounded-[12px] transition-all flex flex-col"
+                    className="text-left rounded-[12px] transition-all flex flex-col gap-[6px] p-4"
                     style={{
-                      padding: isMobile ? "16px 18px" : 16,
-                      gap: isMobile ? 8 : 6,
-                      height: isMobile ? "auto" : "100%",
                       background: cat.label === category ? "rgba(111,204,221,0.12)" : "rgba(255,255,255,0.04)",
                       border: cat.label === category ? "1px solid #6fccdd" : "1px solid rgba(255,255,255,0.1)",
                     }}
                   >
                     <p
                       className="font-semibold leading-[18px]"
-                      style={{ fontSize: isMobile ? 14 : 13, color: cat.label === category ? "#6fccdd" : "white" }}
+                      style={{ fontSize: "clamp(12px, 2.4vw, 13px)", color: cat.label === category ? "#6fccdd" : "white" }}
                     >
                       {cat.label}
                     </p>
                     <p
                       className="font-medium leading-[17px]"
-                      style={{ fontSize: isMobile ? 12 : 11, color: "rgba(255,255,255,0.45)" }}
+                      style={{ fontSize: "clamp(10px, 2vw, 11px)", color: "rgba(255,255,255,0.45)" }}
                     >
                       {cat.desc}
                     </p>
@@ -1590,20 +1435,18 @@ function CategoryMoodPage({ onNext, onBack, onStepClick, completedUpTo }: { onNe
             onClick={() => setShowMoodModal(false)}
           >
             <div
-              className="relative flex flex-col gap-[24px] p-[40px]"
+              className="relative flex flex-col gap-5 sm:gap-6 p-5 sm:p-10 w-[calc(100%-32px)] sm:w-[90vw] max-w-[720px]"
               style={{
                 background: "#111",
                 border: "1px solid rgba(255,255,255,0.1)",
                 borderRadius: 20,
-                maxWidth: 720,
-                width: "90vw",
                 maxHeight: "80vh",
                 overflowY: "auto",
               }}
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between">
-                <h3 className="text-white font-semibold text-[20px]">Choose Design Mood</h3>
+                <h3 className="text-white font-semibold" style={{ fontSize: "clamp(17px, 4vw, 20px)" }}>Choose Design Mood</h3>
                 <button
                   onClick={() => setShowMoodModal(false)}
                   className="text-white font-bold text-[20px] w-[32px] h-[32px] flex items-center justify-center"
@@ -1615,7 +1458,7 @@ function CategoryMoodPage({ onNext, onBack, onStepClick, completedUpTo }: { onNe
                   ×
                 </button>
               </div>
-              <div className="grid grid-cols-2 gap-[12px]">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-[12px]">
                 {DESIGN_MOODS.map((m) => (
                   <button
                     key={m.label}
@@ -1629,8 +1472,8 @@ function CategoryMoodPage({ onNext, onBack, onStepClick, completedUpTo }: { onNe
                       border: m.label === mood ? "1px solid #6fccdd" : "1px solid rgba(255,255,255,0.1)",
                     }}
                   >
-                    <p className="font-semibold text-[15px] mb-[4px]" style={{ color: m.label === mood ? "#6fccdd" : "white" }}>{m.label}</p>
-                    <p className="font-medium text-[13px] leading-[18px]" style={{ color: "rgba(255,255,255,0.4)" }}>{m.desc}</p>
+                    <p className="font-semibold text-[13px] sm:text-[15px] mb-[4px]" style={{ color: m.label === mood ? "#6fccdd" : "white" }}>{m.label}</p>
+                    <p className="font-medium text-[11px] sm:text-[13px] leading-[16px] sm:leading-[18px]" style={{ color: "rgba(255,255,255,0.4)" }}>{m.desc}</p>
                   </button>
                 ))}
               </div>
@@ -1683,18 +1526,18 @@ function ColorsFontsPage({ onNext, onBack, onStepClick, completedUpTo }: { onNex
   const [fontDraft, setFontDraft] = useState<{ heading: string; body: string }>({ heading: "", body: "" });
   const [headingSearch, setHeadingSearch] = useState("");
   const [bodySearch, setBodySearch] = useState("");
-  const isMobile = useMobile();
 
   return (
-    <ScaledPage designHeight={1200} scrollable>
+    <ScaledPage
+      designHeight={1200}
+      scrollable
+      header={<><TopHeader /><SubNav activeStep={2} completedUpTo={completedUpTo} onBack={onBack} onNext={onNext} onStepClick={onStepClick} /></>}
+    >
       <div
         className="w-full min-h-full flex flex-col"
         style={{ background: "#0b0b0b", fontFamily: "'Montserrat', sans-serif" }}
       >
-        <TopHeader />
-        <SubNav activeStep={2} completedUpTo={completedUpTo} onBack={onBack} onNext={onNext} onStepClick={onStepClick} />
-
-        <div className="px-[80px] py-[48px] flex flex-col gap-[40px]">
+        <div className="px-[clamp(16px,5vw,80px)] py-[clamp(24px,5vw,48px)] flex flex-col gap-[clamp(20px,4vw,40px)]">
           {/* Palettes section */}
           <div className="flex flex-col gap-[20px]">
             <span
@@ -1703,7 +1546,7 @@ function ColorsFontsPage({ onNext, onBack, onStepClick, completedUpTo }: { onNex
             >
               Theme Mode
             </span>
-            <div className="ailk-carousel ailk-palette-carousel grid grid-cols-4 gap-[16px]">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
               {/* 7 preset palette cards */}
               {PALETTES.map((palette, i) => {
                 const colors = [palette.primary, palette.secondary, palette.background, palette.text];
@@ -1817,8 +1660,8 @@ function ColorsFontsPage({ onNext, onBack, onStepClick, completedUpTo }: { onNex
                 onClick={() => setCustomModalOpen(false)}
               >
                 <div
-                  className="flex flex-col gap-[24px] p-[40px]"
-                  style={{ background: "#111", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 20, width: isMobile ? "calc(100vw - 40px)" : 420, maxWidth: isMobile ? 440 : undefined, fontFamily: "'Montserrat',sans-serif" }}
+                  className="flex flex-col gap-[24px] p-5 sm:p-10 w-[calc(100%-32px)] sm:w-[420px] max-h-[90vh] overflow-y-auto"
+                  style={{ background: "#111", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 20, fontFamily: "'Montserrat',sans-serif" }}
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div className="flex items-center justify-between">
@@ -1999,66 +1842,12 @@ function ColorsFontsPage({ onNext, onBack, onStepClick, completedUpTo }: { onNex
               Font Pairings
             </span>
 
-            {isMobile ? (
-              /* ── Mobile: single unified 2-col grid, scrolls with the page ── */
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                {FONT_PAIRS.map((pair, i) => (
-                  <FontCard key={i} pair={pair} selected={selectedFont === i} onClick={() => setSelectedFont(i)} />
-                ))}
-                {/* Custom card in the mobile grid */}
-                {(() => {
-                  const CUSTOM_FONT_IDX = FONT_PAIRS.length;
-                  const selected = selectedFont === CUSTOM_FONT_IDX;
-                  return (
-                    <button
-                      onClick={() => {
-                        if (customFont) { setFontDraft({ heading: customFont.heading, body: customFont.body }); setHeadingSearch(customFont.heading); setBodySearch(customFont.body); }
-                        else { setFontDraft({ heading: "", body: "" }); setHeadingSearch(""); setBodySearch(""); }
-                        setFontModalOpen(true);
-                      }}
-                      className="flex flex-col gap-[10px] p-[16px] text-left"
-                      style={{
-                        backdropFilter: "blur(12px)",
-                        borderRadius: 16,
-                        border: selected ? "1px solid #6fccdd" : "1px solid white",
-                        background: selected ? "rgba(111,204,221,0.05)" : "rgba(255,255,255,0.02)",
-                      }}
-                    >
-                      <span className="font-semibold uppercase text-[10px]" style={{ color: "rgba(255,255,255,0.35)", letterSpacing: "0.08em" }}>Custom</span>
-                      {customFont ? (
-                        <>
-                          <p className="text-white font-bold text-[16px] leading-tight" style={{ fontFamily: `'${customFont.heading}', serif` }}>{customFont.heading}</p>
-                          <p className="text-[12px] leading-relaxed" style={{ color: "rgba(255,255,255,0.5)", fontFamily: `'${customFont.body}', sans-serif` }}>{customFont.body} — body text</p>
-                        </>
-                      ) : (
-                        <div className="flex flex-col items-center justify-center flex-1 gap-[8px]" style={{ minHeight: 60 }}>
-                          <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
-                            <path d="M4 7V4h16v3" stroke="rgba(255,255,255,0.35)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                            <path d="M12 4v16M9 20h6" stroke="rgba(255,255,255,0.35)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
-                          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>Choose fonts</span>
-                        </div>
-                      )}
-                    </button>
-                  );
-                })()}
-              </div>
-            ) : (
-              /* ── Desktop: two 4-col carousel rows (unchanged) ── */
-              <>
-                {/* Row 1: first 4 presets */}
-                <div className="ailk-carousel ailk-font-carousel grid grid-cols-4 gap-[16px]">
-                  {FONT_PAIRS.slice(0, 4).map((pair, i) => (
-                    <FontCard key={i} pair={pair} selected={selectedFont === i} onClick={() => setSelectedFont(i)} />
-                  ))}
-                </div>
-
-                {/* Row 2: last 3 presets + Custom card */}
-                <div className="ailk-carousel ailk-font-carousel grid grid-cols-4 gap-[16px]">
-                  {FONT_PAIRS.slice(4).map((pair, i) => (
-                    <FontCard key={i + 4} pair={pair} selected={selectedFont === i + 4} onClick={() => setSelectedFont(i + 4)} />
-                  ))}
-
+            {/* Unified responsive grid — 2 cols mobile, 3 tablet, 4 desktop. CSS decides the
+                column count (Tailwind breakpoints), not JS device detection. */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+              {FONT_PAIRS.map((pair, i) => (
+                <FontCard key={i} pair={pair} selected={selectedFont === i} onClick={() => setSelectedFont(i)} />
+              ))}
               {/* Custom font card */}
               {(() => {
                 const CUSTOM_FONT_IDX = FONT_PAIRS.length;
@@ -2078,11 +1867,11 @@ function ColorsFontsPage({ onNext, onBack, onStepClick, completedUpTo }: { onNex
                       background: selected ? "rgba(111,204,221,0.05)" : "rgba(255,255,255,0.02)",
                     }}
                   >
-                    <span className="font-semibold uppercase text-[10px]" style={{ color: "rgba(255,255,255,0.35)", letterSpacing: "0.08em" }}>Custom</span>
+                    <span className="font-semibold uppercase text-[9px] sm:text-[10px]" style={{ color: "rgba(255,255,255,0.35)", letterSpacing: "0.08em" }}>Custom</span>
                     {customFont ? (
                       <>
-                        <p className="text-white font-bold text-[16px] leading-tight" style={{ fontFamily: `'${customFont.heading}', serif` }}>{customFont.heading}</p>
-                        <p className="text-[12px] leading-relaxed" style={{ color: "rgba(255,255,255,0.5)", fontFamily: `'${customFont.body}', sans-serif` }}>{customFont.body} — body text</p>
+                        <p className="text-white font-bold text-[14px] sm:text-[16px] leading-tight" style={{ fontFamily: `'${customFont.heading}', serif` }}>{customFont.heading}</p>
+                        <p className="text-[11px] sm:text-[12px] leading-relaxed" style={{ color: "rgba(255,255,255,0.5)", fontFamily: `'${customFont.body}', sans-serif` }}>{customFont.body} — body text</p>
                       </>
                     ) : (
                       <div className="flex flex-col items-center justify-center flex-1 gap-[8px]" style={{ minHeight: 60 }}>
@@ -2097,9 +1886,7 @@ function ColorsFontsPage({ onNext, onBack, onStepClick, completedUpTo }: { onNex
                   </button>
                 );
               })()}
-                </div>
-              </>
-            )}
+            </div>
 
             {/* Custom font modal */}
             {fontModalOpen && (
@@ -2109,8 +1896,8 @@ function ColorsFontsPage({ onNext, onBack, onStepClick, completedUpTo }: { onNex
                 onClick={() => setFontModalOpen(false)}
               >
                 <div
-                  className="flex flex-col gap-[24px] p-[40px]"
-                  style={{ background: "#111", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 20, width: isMobile ? "calc(100vw - 40px)" : 480, maxWidth: isMobile ? 440 : undefined, fontFamily: "'Montserrat',sans-serif", maxHeight: "90vh", overflowY: "auto" }}
+                  className="flex flex-col gap-[24px] p-5 sm:p-10 w-[calc(100%-32px)] sm:w-[480px] max-h-[90vh] overflow-y-auto"
+                  style={{ background: "#111", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 20, fontFamily: "'Montserrat',sans-serif" }}
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div className="flex items-center justify-between">
@@ -2232,10 +2019,10 @@ function FontCard({
       >
         {pair.name}
       </span>
-      <p className="text-white font-bold text-[16px] leading-tight" style={{ fontFamily: `'${pair.heading}', serif` }}>
+      <p className="text-white font-bold text-[14px] sm:text-[16px] leading-tight" style={{ fontFamily: `'${pair.heading}', serif` }}>
         {pair.heading}
       </p>
-      <p className="text-[12px] leading-relaxed" style={{ color: "rgba(255,255,255,0.5)", fontFamily: `'${pair.body}', sans-serif` }}>
+      <p className="text-[11px] sm:text-[12px] leading-relaxed" style={{ color: "rgba(255,255,255,0.5)", fontFamily: `'${pair.body}', sans-serif` }}>
         {pair.body} — body text
       </p>
     </button>
@@ -2440,27 +2227,33 @@ function PickPagesPage({ onNext, onBack, onStepClick, completedUpTo }: { onNext:
   };
 
   return (
-    <ScaledPage designHeight={1200} scrollable>
+    <ScaledPage
+      designHeight={1200}
+      scrollable
+      header={
+        <>
+          <TopHeader />
+          <SubNav
+            activeStep={3}
+            completedUpTo={completedUpTo}
+            onBack={onBack}
+            onNext={selectedPageCount > 0 && !hasInvalidPage && !atSectionLimit ? onNext : undefined}
+            onStepClick={onStepClick}
+            nextLabel="Review &amp; Generate"
+          />
+        </>
+      }
+    >
       <div
         className="w-full min-h-full flex flex-col"
         style={{ background: "#0b0b0b", fontFamily: "'Montserrat', sans-serif" }}
       >
-        <TopHeader />
-        <SubNav
-          activeStep={3}
-          completedUpTo={completedUpTo}
-          onBack={onBack}
-          onNext={selectedPageCount > 0 && !hasInvalidPage && !atSectionLimit ? onNext : undefined}
-          onStepClick={onStepClick}
-          nextLabel="Review &amp; Generate"
-        />
-
         {/* Close menus on outside click */}
         <div
           className="flex-1 overflow-y-auto"
           onClick={() => { setOpenMenu(null); }}
         >
-          <div className="px-[80px] py-[48px] flex flex-col gap-[32px]">
+          <div className="px-[clamp(16px,5vw,80px)] py-[clamp(24px,5vw,48px)] flex flex-col gap-[clamp(16px,4vw,32px)]">
             {/* Header */}
             <div className="flex flex-col gap-[16px]">
               {atLimit && (
@@ -2480,7 +2273,7 @@ function PickPagesPage({ onNext, onBack, onStepClick, completedUpTo }: { onNext:
               )}
               <div className="flex items-end justify-between">
                 <div>
-                  <h2 className="text-white font-semibold text-[24px] mb-[8px]">Pick your pages</h2>
+                  <h2 className="text-white font-semibold mb-[8px]" style={{ fontSize: "clamp(19px, 5vw, 24px)" }}>Pick your pages</h2>
                   <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 14, fontWeight: 500 }}>
                     Select pages and drag sections to reorder them
                   </p>
@@ -2491,8 +2284,8 @@ function PickPagesPage({ onNext, onBack, onStepClick, completedUpTo }: { onNext:
               </div>
             </div>
 
-            {/* Page cards grid */}
-            <div className="ailk-carousel ailk-pages-carousel grid grid-cols-3 gap-[20px]">
+            {/* Page cards grid — 1 col mobile, 2 tablet, 3 desktop */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
               {pages.map((page) => (
                 <div
                   key={page.id}
@@ -2580,7 +2373,7 @@ function PickPagesPage({ onNext, onBack, onStepClick, completedUpTo }: { onNext:
 
                           {/* Section name */}
                           <span
-                            className="flex-1 font-medium text-[13px] truncate"
+                            className="flex-1 font-medium text-[12px] sm:text-[13px] truncate"
                             style={{ color: section.locked ? "rgba(255,255,255,0.4)" : "rgba(255,255,255,0.85)" }}
                           >
                             {section.name}
@@ -2589,7 +2382,7 @@ function PickPagesPage({ onNext, onBack, onStepClick, completedUpTo }: { onNext:
                           {/* Lock badge */}
                           {section.locked && (
                             <span
-                              className="font-semibold text-[10px] uppercase"
+                              className="font-semibold text-[9px] sm:text-[10px] uppercase"
                               style={{ color: "#6fccdd", letterSpacing: "0.08em", flexShrink: 0 }}
                             >
                               locked
@@ -2746,7 +2539,7 @@ function PickPagesPage({ onNext, onBack, onStepClick, completedUpTo }: { onNext:
 
             {/* JSON summary strip */}
             <div
-              className="ailk-sum-bar flex items-center justify-between px-[20px] py-[14px] rounded-[12px]"
+              className="flex flex-col sm:flex-row sm:items-center items-stretch justify-between gap-3 px-[20px] py-[14px] rounded-[12px]"
               style={{ background: "rgba(111,204,221,0.05)", border: "1px solid rgba(111,204,221,0.15)" }}
             >
               <div>
@@ -2757,14 +2550,14 @@ function PickPagesPage({ onNext, onBack, onStepClick, completedUpTo }: { onNext:
                   {pages.filter((p) => p.selected).map((p) => p.name).join(", ")}
                 </p>
               </div>
-              <div className="flex flex-col items-end gap-[6px]">
+              <div className="flex flex-col items-stretch sm:items-end gap-[6px]">
                 {(() => {
                   const canGenerate = selectedPageCount > 0 && !hasInvalidPage && !atSectionLimit;
                   return (
                     <>
                       <button
                         onClick={canGenerate ? onNext : undefined}
-                        className="font-semibold text-[14px] uppercase px-[24px] py-[12px] rounded-[8px]"
+                        className="font-semibold text-[14px] uppercase px-[24px] py-[12px] rounded-[8px] w-full sm:w-auto"
                         style={{
                           background: canGenerate ? "#6fccdd" : "rgba(255,255,255,0.08)",
                           color: canGenerate ? "#0b0b0b" : "rgba(255,255,255,0.25)",
@@ -2824,12 +2617,11 @@ function GeneratingPage({ onNext }: { onNext: () => void }) {
   }, [onNext]);
 
   return (
-    <ScaledPage designHeight={900}>
+    <ScaledPage designHeight={900} header={<TopHeader />}>
       <div
         className="w-full flex flex-col flex-1"
         style={{ background: "#0b0b0b", fontFamily: "'Montserrat', sans-serif", minHeight: "100%" }}
       >
-        <TopHeader />
         <div className="flex-1 flex flex-col items-center justify-center gap-[32px]">
           {/* Spinner */}
           <div
@@ -2844,7 +2636,7 @@ function GeneratingPage({ onNext }: { onNext: () => void }) {
           />
 
           <div className="flex flex-col items-center gap-[12px]">
-            <h2 className="text-white font-semibold text-[24px]">Building your website</h2>
+            <h2 className="text-white font-semibold" style={{ fontSize: "clamp(19px, 5vw, 24px)" }}>Building your website</h2>
             <p
               className="font-medium text-[14px]"
               style={{ color: "rgba(255,255,255,0.5)", minHeight: 20 }}
@@ -2854,7 +2646,7 @@ function GeneratingPage({ onNext }: { onNext: () => void }) {
           </div>
 
           {/* Progress bar */}
-          <div className="flex flex-col items-center gap-[12px]" style={{ width: 360 }}>
+          <div className="flex flex-col items-center gap-[12px]" style={{ width: "min(100%, 360px)" }}>
             <div
               className="w-full rounded-full overflow-hidden"
               style={{ height: 6, background: "rgba(255,255,255,0.08)" }}
@@ -2888,68 +2680,72 @@ const VERSIONS = [
 
 function PreviewPage({ onNext, onBack }: { onNext: () => void; onBack: () => void }) {
   const [selected, setSelected] = useState(1);
-  const isMobile = useMobile();
 
   return (
-    <ScaledPage designHeight={900} scrollable>
+    <ScaledPage
+      designHeight={900}
+      scrollable
+      header={
+        <>
+          <TopHeader />
+          {/* Completed steps bar — full-bleed border, stepper content stays centered with its own padding */}
+          <div
+            className="w-full flex flex-wrap items-center justify-center gap-x-[clamp(8px,2vw,16px)] gap-y-2 px-[clamp(12px,4vw,32px)] py-2"
+            style={{
+              minHeight: 52,
+              borderBottom: "1px solid rgba(255,255,255,0.1)",
+              background: "#0b0b0b",
+            }}
+          >
+            {["Business", "Design Category", "Colors & Fonts", "Pick Pages"].map((step) => (
+              <div key={step} className="flex items-center gap-[8px]">
+                <div
+                  className="flex items-center justify-center rounded-full"
+                  style={{ width: 18, height: 18, background: "#6fccdd" }}
+                >
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                    <path
+                      d="M2 5L4 7L8 3"
+                      stroke="#0b0b0b"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </div>
+                <span className="font-semibold text-[12px]" style={{ color: "#6fccdd" }}>
+                  {step}
+                </span>
+                {step !== "Pick Pages" && (
+                  <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+                    <path
+                      d={svgPathsMerged.pb873b80}
+                      stroke="rgba(255,255,255,0.3)"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                )}
+              </div>
+            ))}
+          </div>
+        </>
+      }
+    >
       <div
         className="w-full min-h-full flex flex-col"
         style={{ background: "#0b0b0b", fontFamily: "'Montserrat', sans-serif" }}
       >
-        <TopHeader />
-
-        {/* Completed steps bar */}
-        <div
-          className="flex items-center justify-center gap-[16px] px-[32px]"
-          style={{
-            height: 52,
-            borderBottom: "1px solid rgba(255,255,255,0.1)",
-            background: "#0b0b0b",
-          }}
-        >
-          {["Business", "Design Category", "Colors & Fonts", "Pick Pages"].map((step) => (
-            <div key={step} className="flex items-center gap-[8px]">
-              <div
-                className="flex items-center justify-center rounded-full"
-                style={{ width: 18, height: 18, background: "#6fccdd" }}
-              >
-                <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                  <path
-                    d="M2 5L4 7L8 3"
-                    stroke="#0b0b0b"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </div>
-              <span className="font-semibold text-[12px]" style={{ color: "#6fccdd" }}>
-                {step}
-              </span>
-              {step !== "Pick Pages" && (
-                <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
-                  <path
-                    d={svgPathsMerged.pb873b80}
-                    stroke="rgba(255,255,255,0.3)"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              )}
-            </div>
-          ))}
-        </div>
-
-        <div className="flex-1 px-[80px] py-[48px] flex flex-col gap-[32px]">
+        <div className="flex-1 px-[clamp(16px,5vw,80px)] py-[clamp(24px,5vw,48px)] flex flex-col gap-[clamp(16px,4vw,32px)]">
           <div className="flex flex-col items-center gap-[8px] text-center">
-            <h2 className="text-white font-semibold text-[28px]">Choose Your Design</h2>
+            <h2 className="text-white font-semibold" style={{ fontSize: "clamp(20px, 5.5vw, 28px)" }}>Choose Your Design</h2>
             <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 15, fontWeight: 500 }}>
               Select the version that best fits your vision
             </p>
           </div>
 
-          {/* Version cards */}
-          <div className="ailk-carousel ailk-preview-carousel grid grid-cols-3 gap-[20px]">
+          {/* Version cards — 1 column on mobile (full width, scroll to reach all), 3 on tablet/desktop */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-[20px] w-full">
             {VERSIONS.map((v, i) => (
               <button
                 key={i}
@@ -2961,12 +2757,12 @@ function PreviewPage({ onNext, onBack }: { onNext: () => void; onBack: () => voi
                   borderRadius: 8,
                   border:
                     selected === i ? "1.5px solid #6fccdd" : "1px solid white",
-                  height: 520,
+                  minHeight: "clamp(360px, 55vh, 520px)",
                 }}
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="text-white font-semibold text-[15px]">{v.name}</div>
+                    <div className="text-white font-semibold text-[13px] sm:text-[15px]">{v.name}</div>
                     
                   </div>
                   <div
@@ -3047,16 +2843,15 @@ function PreviewPage({ onNext, onBack }: { onNext: () => void; onBack: () => voi
           </div>
 
           {/* Confirm button */}
-          <div className="ailk-confirm-wrap flex justify-center">
+          <div className="flex justify-center w-full">
             <button
               onClick={onNext}
-              className="font-semibold text-[18px]"
+              className="font-semibold text-[18px] w-full sm:w-auto sm:min-w-[360px]"
               style={{
                 background: "#6fccdd",
                 color: "#090909",
                 borderRadius: 8,
-                padding: "16px 0",
-                width: isMobile ? "100%" : 360,
+                padding: "16px 24px",
               }}
             >
               Confirm Selection
@@ -3073,14 +2868,12 @@ function DownloadPage({ onBack }: { onBack: () => void }) {
   const p = svgPathsDl;
 
   return (
-    <ScaledPage designHeight={1100} scrollable>
+    <ScaledPage designHeight={1100} scrollable header={<TopHeader />}>
       <div
         className="w-full min-h-full flex flex-col"
         style={{ background: "#0b0b0b", fontFamily: "'Montserrat', sans-serif" }}
       >
-        <TopHeader />
-
-        <div className="flex-1 flex flex-col items-center px-[80px] py-[48px] gap-[32px]">
+        <div className="flex-1 flex flex-col items-center px-[clamp(16px,5vw,80px)] py-[clamp(24px,5vw,48px)] gap-[clamp(16px,4vw,32px)]">
           {/* Success state */}
           <div className="flex flex-col items-center gap-[16px]">
             <div
@@ -3097,14 +2890,14 @@ function DownloadPage({ onBack }: { onBack: () => void }) {
                 />
               </svg>
             </div>
-            <h2 className="text-white font-semibold text-[24px]">Your website is ready!</h2>
+            <h2 className="text-white font-semibold" style={{ fontSize: "clamp(19px, 5vw, 24px)" }}>Your website is ready!</h2>
             <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 14, fontWeight: 500 }}>
               Your AI-generated website is complete and ready to deploy.
             </p>
           </div>
 
           {/* Website Preview */}
-          <div className="flex flex-col gap-[16px] w-full max-w-[680px]">
+          <div className="flex flex-col gap-[16px] w-full max-w-[680px] mx-auto">
             <span
               className="font-semibold uppercase text-[12px]"
               style={{ color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em" }}
@@ -3114,7 +2907,7 @@ function DownloadPage({ onBack }: { onBack: () => void }) {
             <div
               className="flex flex-col overflow-hidden"
               style={{
-                height: 240,
+                height: "clamp(220px, 34vw, 240px)",
                 borderRadius: 16,
                 border: "1px solid rgba(255,255,255,0.1)",
               }}
@@ -3228,11 +3021,11 @@ function DownloadPage({ onBack }: { onBack: () => void }) {
             >
               Next Actions
             </span>
-            <div className="ailk-action-cards flex gap-[16px] justify-center">
+            <div className="flex flex-col sm:flex-row gap-4 justify-center w-full">
               {/* Download HTML */}
               <div
-                className="flex flex-col gap-[16px] p-[24px] rounded-[16px]"
-                style={{ width: 280, background: "rgba(111,204,221,0.13)", border: "1px solid rgba(111,204,221,0.2)" }}
+                className="flex flex-col gap-[16px] p-[24px] rounded-[16px] w-full sm:w-[280px]"
+                style={{ background: "rgba(111,204,221,0.13)", border: "1px solid rgba(111,204,221,0.2)", minHeight: "100%" }}
               >
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
                   <path d={p.pdba8e90} stroke="#6fccdd" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -3253,8 +3046,8 @@ function DownloadPage({ onBack }: { onBack: () => void }) {
 
               {/* Deploy */}
               <div
-                className="flex flex-col gap-[16px] p-[24px] rounded-[16px]"
-                style={{ width: 280, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.1)" }}
+                className="flex flex-col gap-[16px] p-[24px] rounded-[16px] w-full sm:w-[280px]"
+                style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.1)", minHeight: "100%" }}
               >
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
                   <path d={p.p3d0d0400} stroke="#6fccdd" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -3413,16 +3206,36 @@ export default function App() {
   const completedUpTo = Math.max(maxReachedStep, currentStep - 1);
 
   return (
-    <div style={{ minHeight: "100vh", background: "#0b0b0b" }}>
-      {page === "login" && <LoginPage onNext={goNext} />}
-      {page === "otp" && <OtpPage onNext={goNext} onBack={goBack} />}
-      {page === "questionnaire" && <QuestionnairePage onNext={goNext} onBack={goBack} onStepClick={goToStep} completedUpTo={completedUpTo} />}
-      {page === "category-mood" && <CategoryMoodPage onNext={goNext} onBack={goBack} onStepClick={goToStep} completedUpTo={completedUpTo} />}
-      {page === "colors" && <ColorsFontsPage onNext={goNext} onBack={goBack} onStepClick={goToStep} completedUpTo={completedUpTo} />}
-      {page === "pick-pages" && <PickPagesPage onNext={goNext} onBack={goBack} onStepClick={goToStep} completedUpTo={completedUpTo} />}
-      {page === "generating" && <GeneratingPage onNext={goNext} />}
-      {page === "preview" && <PreviewPage onNext={goNext} onBack={goBack} />}
-      {page === "download" && <DownloadPage onBack={() => go("login")} />}
+    <div
+      style={{
+        minHeight: "100vh",
+        width: "100%",
+        background: "#0b0b0b",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "stretch",
+      }}
+    >
+      <div
+        style={{
+          width: "100%",
+          maxWidth: 1440,
+          minHeight: "100vh",
+          margin: "0 auto",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        {page === "login" && <LoginPage onNext={goNext} />}
+        {page === "otp" && <OtpPage onNext={goNext} onBack={goBack} />}
+        {page === "questionnaire" && <QuestionnairePage onNext={goNext} onBack={goBack} onStepClick={goToStep} completedUpTo={completedUpTo} />}
+        {page === "category-mood" && <CategoryMoodPage onNext={goNext} onBack={goBack} onStepClick={goToStep} completedUpTo={completedUpTo} />}
+        {page === "colors" && <ColorsFontsPage onNext={goNext} onBack={goBack} onStepClick={goToStep} completedUpTo={completedUpTo} />}
+        {page === "pick-pages" && <PickPagesPage onNext={goNext} onBack={goBack} onStepClick={goToStep} completedUpTo={completedUpTo} />}
+        {page === "generating" && <GeneratingPage onNext={goNext} />}
+        {page === "preview" && <PreviewPage onNext={goNext} onBack={goBack} />}
+        {page === "download" && <DownloadPage onBack={() => go("login")} />}
+      </div>
     </div>
   );
 }
