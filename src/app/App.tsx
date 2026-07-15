@@ -14,6 +14,7 @@ import {
   MockupView,
   OperationView,
   PageLayout,
+  ProjectSummaryView,
   ProjectView,
   setAccessToken,
   waitForDeployment,
@@ -53,6 +54,7 @@ import svgPathsNav from "@/imports/Frame1410068676/svg-96pcbqyjjo";
 type Page =
   | "login"
   | "otp"
+  | "projects"
   | "questionnaire"
   | "category-mood"
   | "colors"
@@ -3583,6 +3585,166 @@ function DownloadPage({ build, deployment, onDeploy, onBack, busy }: {
   );
 }
 
+function formatProjectUpdatedAt(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function ProjectsPage({
+  projects,
+  loading,
+  busy,
+  onCreate,
+  onOpen,
+  onRefresh,
+  onSignOut,
+}: {
+  projects: ProjectSummaryView[];
+  loading: boolean;
+  busy: boolean;
+  onCreate: () => Promise<void>;
+  onOpen: (projectId: string) => Promise<void>;
+  onRefresh: () => Promise<void>;
+  onSignOut: () => void;
+}) {
+  return (
+    <ScaledPage designHeight={900} scrollable header={<TopHeader showProfile={false} />}>
+      <div
+        className="w-full min-h-full flex flex-col"
+        style={{ background: "#0b0b0b", fontFamily: "'Montserrat', sans-serif" }}
+      >
+        <div className="flex-1 flex flex-col px-[clamp(16px,5vw,80px)] py-[clamp(24px,5vw,48px)] gap-[24px] max-w-[880px] mx-auto w-full">
+          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-[16px]">
+            <div className="flex flex-col gap-[8px]">
+              <h1 className="text-white font-semibold" style={{ fontSize: "clamp(22px, 5vw, 28px)" }}>
+                Your websites
+              </h1>
+              <p className="font-medium text-[14px]" style={{ color: "rgba(255,255,255,0.5)", lineHeight: 1.5 }}>
+                Open a previous generation or create a new website.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-[10px]">
+              <button
+                type="button"
+                onClick={() => { void onRefresh(); }}
+                disabled={busy || loading}
+                className="font-semibold text-[13px] px-[14px] py-[10px] rounded-[8px] disabled:opacity-50"
+                style={{
+                  background: "rgba(255,255,255,0.06)",
+                  color: "rgba(255,255,255,0.8)",
+                  border: "1px solid rgba(255,255,255,0.12)",
+                }}
+              >
+                Refresh
+              </button>
+              <button
+                type="button"
+                onClick={() => { void onCreate(); }}
+                disabled={busy || loading}
+                className="font-semibold text-[13px] px-[16px] py-[10px] rounded-[8px] disabled:opacity-50"
+                style={{ background: "#6fccdd", color: "#0b0b0b" }}
+              >
+                {busy ? "Working…" : "Create new website"}
+              </button>
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="flex items-center justify-center py-[64px]">
+              <div
+                className="rounded-full"
+                style={{
+                  width: 40,
+                  height: 40,
+                  border: "3px solid rgba(111,204,221,0.2)",
+                  borderTop: "3px solid #6fccdd",
+                  animation: "spin 1s linear infinite",
+                }}
+              />
+            </div>
+          ) : projects.length === 0 ? (
+            <div
+              className="rounded-[16px] px-[24px] py-[40px] text-center"
+              style={{ border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.03)" }}
+            >
+              <p className="text-white font-semibold text-[15px]">No websites yet</p>
+              <p className="font-medium text-[13px] mt-[8px]" style={{ color: "rgba(255,255,255,0.45)" }}>
+                Create your first site to start the wizard.
+              </p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-[12px]">
+              {projects.map((item) => {
+                const title = item.companyName.trim() || "Untitled website";
+                const buildLabel = item.latestBuildStatus
+                  ? `Build: ${item.latestBuildStatus}`
+                  : "No build yet";
+                return (
+                  <div
+                    key={item.id}
+                    className="flex flex-col sm:flex-row sm:items-center gap-[16px] p-[20px] rounded-[16px]"
+                    style={{
+                      background: "rgba(255,255,255,0.03)",
+                      border: "1px solid rgba(255,255,255,0.1)",
+                    }}
+                  >
+                    <div className="flex-1 min-w-0 flex flex-col gap-[6px]">
+                      <div className="text-white font-semibold text-[15px] truncate">{title}</div>
+                      <div className="font-medium text-[12px]" style={{ color: "rgba(255,255,255,0.45)" }}>
+                        Project: {item.status} · {buildLabel} · Updated {formatProjectUpdatedAt(item.updatedAt)}
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-[8px] shrink-0">
+                      {item.previewUrl && (
+                        <button
+                          type="button"
+                          onClick={() => window.open(item.previewUrl!, "_blank", "noopener,noreferrer")}
+                          className="font-semibold text-[12px] px-[12px] py-[8px] rounded-[8px]"
+                          style={{
+                            background: "rgba(111,204,221,0.12)",
+                            color: "#6fccdd",
+                            border: "1px solid rgba(111,204,221,0.25)",
+                          }}
+                        >
+                          Preview
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => { void onOpen(item.id); }}
+                        disabled={busy}
+                        className="font-semibold text-[12px] px-[14px] py-[8px] rounded-[8px] disabled:opacity-50"
+                        style={{ background: "#6fccdd", color: "#0b0b0b" }}
+                      >
+                        Open
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={onSignOut}
+            className="self-start font-medium text-[12px] mt-[8px]"
+            style={{ color: "rgba(255,255,255,0.4)" }}
+          >
+            Sign out
+          </button>
+        </div>
+      </div>
+    </ScaledPage>
+  );
+}
+
 // ─── App Root ─────────────────────────────────────────────────────────────────
 const LS_STEP_KEY = "ailk_maxReachedStep";
 const LS_PAGE_KEY = "ailk_page";
@@ -3711,21 +3873,41 @@ const ACTIVE_BUILD_STATUSES: BuildView["status"][] = [
   "processing_result",
 ];
 
+function clearProjectSessionState() {
+  [LS_PROJECT_KEY, LS_OPERATION_KEY, LS_STEP_KEY].forEach((key) => localStorage.removeItem(key));
+}
+
+function resumePageForProject(
+  project: ProjectView,
+  build: BuildView | null,
+  mockups: MockupView[],
+): { page: Page; maxReachedStep: number } {
+  if (build?.status === "completed") {
+    return { page: "download", maxReachedStep: WIZARD_PAGES.length - 1 };
+  }
+  if (build && ACTIVE_BUILD_STATUSES.includes(build.status)) {
+    return { page: "building", maxReachedStep: WIZARD_PAGES.length - 1 };
+  }
+  if (mockups.length > 0 || project.selectedMockupId) {
+    return { page: "preview", maxReachedStep: WIZARD_PAGES.length - 1 };
+  }
+  const hasCompany = Boolean(project.business.companyName.trim());
+  if (!hasCompany) {
+    return { page: "questionnaire", maxReachedStep: -1 };
+  }
+  return { page: "questionnaire", maxReachedStep: 0 };
+}
+
 export default function App() {
-  const [page, setPage] = useState<Page>(() => {
-    if (!hasAccessToken()) return "login";
-    const saved = localStorage.getItem(LS_PAGE_KEY) as Page | null;
-    const restorable: Page[] = [
-      ...WIZARD_PAGES, "generating", "preview", "building", "download",
-    ];
-    return saved && restorable.includes(saved) ? saved : "login";
-  });
+  const [page, setPage] = useState<Page>(() => (hasAccessToken() ? "projects" : "login"));
   const [maxReachedStep, setMaxReachedStep] = useState(() => {
     const saved = localStorage.getItem(LS_STEP_KEY);
     return saved === null ? -1 : Number.parseInt(saved, 10);
   });
   const [catalog, setCatalog] = useState<WizardCatalog | null>(null);
   const [project, setProject] = useState<ProjectView | null>(null);
+  const [projects, setProjects] = useState<ProjectSummaryView[]>([]);
+  const [projectsLoading, setProjectsLoading] = useState(false);
   const [operation, setOperation] = useState<OperationView | null>(null);
   const [mockups, setMockups] = useState<MockupView[]>([]);
   const [build, setBuild] = useState<BuildView | null>(null);
@@ -3750,11 +3932,28 @@ export default function App() {
     return refreshed;
   };
 
+  const refreshProjects = async () => {
+    setProjectsLoading(true);
+    try {
+      setProjects(await launchKitApi.listProjects());
+    } finally {
+      setProjectsLoading(false);
+    }
+  };
+
+  const clearActiveProject = () => {
+    clearProjectSessionState();
+    setProject(null);
+    setOperation(null);
+    setMockups([]);
+    setBuild(null);
+    setDeployment(null);
+    setMaxReachedStep(-1);
+  };
+
   useEffect(() => {
     let cancelled = false;
     const boot = async () => {
-      // Unauthenticated users should see login immediately — do not block the
-      // homepage on catalog/API reachability (CORS, network, etc.).
       if (!hasAccessToken()) {
         setPage("login");
         if (!cancelled) setBooting(false);
@@ -3771,36 +3970,8 @@ export default function App() {
         const loadedCatalog = await launchKitApi.getCatalog();
         if (cancelled) return;
         setCatalog(loadedCatalog);
-        const projectId = localStorage.getItem(LS_PROJECT_KEY);
-        if (!projectId) return;
-        const loadedProject = await launchKitApi.getProject(projectId);
-        if (cancelled) return;
-        setProject(loadedProject);
-        setMockups(await launchKitApi.getMockups(projectId));
-        if (loadedProject.latestBuildId) {
-          setBuild(await launchKitApi.getBuild(loadedProject.latestBuildId));
-        }
-        if (loadedProject.latestDeploymentId) {
-          setDeployment(await launchKitApi.getDeployment(loadedProject.latestDeploymentId));
-        }
-        const operationId = localStorage.getItem(LS_OPERATION_KEY);
-        if (operationId && page === "generating") {
-          const loadedOperation = await launchKitApi.getOperation(operationId);
-          setOperation(loadedOperation);
-          if (loadedOperation.status === "completed") {
-            setMockups(await launchKitApi.getMockups(projectId));
-            localStorage.removeItem(LS_OPERATION_KEY);
-            go("preview");
-          } else if (["queued", "running"].includes(loadedOperation.status)) {
-            await waitForOperation(operationId, setOperation);
-            setMockups(await launchKitApi.getMockups(projectId));
-            localStorage.removeItem(LS_OPERATION_KEY);
-            go("preview");
-          }
-        } else if (page === "generating") {
-          setError("Mockup generation was not started. Review your pages and try again.");
-          go("pick-pages");
-        }
+        go("projects");
+        setProjects(await launchKitApi.listProjects());
       } catch (cause) {
         if (cause instanceof LaunchKitApiError && cause.status === 401) {
           clearAccessToken();
@@ -3808,18 +3979,15 @@ export default function App() {
           setError("Your staging session expired. Sign in again to continue.");
           return;
         }
-        localStorage.removeItem(LS_PROJECT_KEY);
-        localStorage.removeItem(LS_OPERATION_KEY);
-        setProject(null);
-        go("login");
-        setError(cause instanceof Error ? cause.message : "The saved project could not be restored.");
+        setError(cause instanceof Error ? cause.message : "Could not load your projects.");
+        go("projects");
       } finally {
         if (!cancelled) setBooting(false);
       }
     };
     void boot();
     return () => { cancelled = true; };
-  }, []);
+  }, [go]);
 
   useEffect(() => {
     if (build?.status === "completed" && page === "building") go("download");
@@ -3877,10 +4045,11 @@ export default function App() {
         localStorage.removeItem(LS_PROJECT_KEY);
       }
     }
-    const created = await launchKitApi.createProject();
-    localStorage.setItem(LS_PROJECT_KEY, created.id);
-    setProject(created);
-    return created;
+    throw new LaunchKitApiError(
+      "Create or open a website from your projects list first.",
+      400,
+      "project_required",
+    );
   };
 
   const requestAccessCode = (email: string) => perform(async () => {
@@ -3892,10 +4061,58 @@ export default function App() {
   const verifyAccessCode = (code: string) => perform(async () => {
     const session = await launchKitApi.verifyAccessCode(loginEmail, code);
     setAccessToken(session.accessToken);
-    await ensureProject();
-    setMaxReachedStep(Math.max(0, maxReachedStep));
+    clearActiveProject();
+    await refreshProjects();
+    go("projects");
+  });
+
+  const createWebsite = () => perform(async () => {
+    clearActiveProject();
+    const created = await launchKitApi.createProject();
+    localStorage.setItem(LS_PROJECT_KEY, created.id);
+    setProject(created);
+    setMaxReachedStep(-1);
     go("questionnaire");
   });
+
+  const openProject = (projectId: string) => perform(async () => {
+    const loadedProject = await launchKitApi.getProject(projectId);
+    localStorage.setItem(LS_PROJECT_KEY, loadedProject.id);
+    localStorage.removeItem(LS_OPERATION_KEY);
+    setProject(loadedProject);
+    setOperation(null);
+    const loadedMockups = await launchKitApi.getMockups(projectId);
+    setMockups(loadedMockups);
+    let loadedBuild: BuildView | null = null;
+    if (loadedProject.latestBuildId) {
+      loadedBuild = await launchKitApi.getBuild(loadedProject.latestBuildId);
+      setBuild(loadedBuild);
+    } else {
+      setBuild(null);
+    }
+    if (loadedProject.latestDeploymentId) {
+      setDeployment(await launchKitApi.getDeployment(loadedProject.latestDeploymentId));
+    } else {
+      setDeployment(null);
+    }
+    const resume = resumePageForProject(loadedProject, loadedBuild, loadedMockups);
+    setMaxReachedStep(resume.maxReachedStep);
+    go(resume.page);
+  });
+
+  const returnToProjects = () => perform(async () => {
+    clearActiveProject();
+    await refreshProjects();
+    go("projects");
+  });
+
+  const signOut = () => {
+    clearAccessToken();
+    clearActiveProject();
+    setProjects([]);
+    setError(null);
+    go("login");
+  };
 
   const saveBusiness = (form: QuestionnaireForm) => perform(async () => {
     const current = await ensureProject();
@@ -3985,7 +4202,11 @@ export default function App() {
   };
 
   const goBack = () => {
-    const order: Page[] = ["login", "otp", ...WIZARD_PAGES, "generating", "preview", "building", "download"];
+    if (page === "questionnaire") {
+      void returnToProjects();
+      return;
+    }
+    const order: Page[] = ["login", "otp", "projects", ...WIZARD_PAGES, "generating", "preview", "building", "download"];
     const index = order.indexOf(page);
     if (index > 0) go(order[index - 1]);
   };
@@ -3996,25 +4217,14 @@ export default function App() {
     if (WIZARD_PAGES.indexOf(target) <= WIZARD_PAGES.indexOf(page)) go(target);
   };
 
-  const reset = () => {
-    [LS_PROJECT_KEY, LS_OPERATION_KEY, LS_STEP_KEY].forEach((key) => localStorage.removeItem(key));
-    setProject(null);
-    setOperation(null);
-    setMockups([]);
-    setBuild(null);
-    setDeployment(null);
-    setMaxReachedStep(-1);
-    go("login");
-  };
-
   const currentStep = WIZARD_PAGES.indexOf(page);
   const completedUpTo = Math.max(maxReachedStep, currentStep - 1);
   const isAuthPage = page === "login" || page === "otp";
-  const needsProject = !isAuthPage;
+  const isHubPage = page === "projects";
+  const needsProject = !isAuthPage && !isHubPage;
+  const needsCatalog = needsProject;
 
-  // Login/OTP must render even when the API/catalog is unreachable. Wizard screens
-  // still wait for catalog + project so they never mount with empty data.
-  if (!isAuthPage && (booting || !catalog || (needsProject && !project))) {
+  if (!isAuthPage && !isHubPage && (booting || (needsCatalog && !catalog) || (needsProject && !project))) {
     return (
       <div className="min-h-screen w-full flex items-center justify-center" style={{ background: "#0b0b0b" }}>
         <div className="rounded-full" style={{ width: 48, height: 48, border: "3px solid rgba(111,204,221,0.2)", borderTop: "3px solid #6fccdd", animation: "spin 1s linear infinite" }} />
@@ -4033,14 +4243,25 @@ export default function App() {
             <button onClick={() => setError(null)} aria-label="Dismiss error" className="text-[18px] leading-none">×</button>
           </div>
         )}
+        {page === "projects" && (
+          <ProjectsPage
+            projects={projects}
+            loading={projectsLoading || booting}
+            busy={busy}
+            onCreate={createWebsite}
+            onOpen={openProject}
+            onRefresh={refreshProjects}
+            onSignOut={signOut}
+          />
+        )}
         {page === "questionnaire" && project && <QuestionnairePage project={project} onSave={saveBusiness} onUpload={uploadProfile} busy={busy} onBack={goBack} onStepClick={goToStep} completedUpTo={completedUpTo} />}
-        {page === "category-mood" && project && <CategoryMoodPage project={project} catalog={catalog} onSave={saveDesign} busy={busy} onBack={goBack} onStepClick={goToStep} completedUpTo={completedUpTo} />}
-        {page === "colors" && project && <ColorsFontsPage project={project} catalog={catalog} onSave={saveColors} busy={busy} onBack={goBack} onStepClick={goToStep} completedUpTo={completedUpTo} />}
-        {page === "pick-pages" && project && <PickPagesPage project={project} catalog={catalog} onGenerate={generateMockups} busy={busy} onBack={goBack} onStepClick={goToStep} completedUpTo={completedUpTo} />}
+        {page === "category-mood" && project && catalog && <CategoryMoodPage project={project} catalog={catalog} onSave={saveDesign} busy={busy} onBack={goBack} onStepClick={goToStep} completedUpTo={completedUpTo} />}
+        {page === "colors" && project && catalog && <ColorsFontsPage project={project} catalog={catalog} onSave={saveColors} busy={busy} onBack={goBack} onStepClick={goToStep} completedUpTo={completedUpTo} />}
+        {page === "pick-pages" && project && catalog && <PickPagesPage project={project} catalog={catalog} onGenerate={generateMockups} busy={busy} onBack={goBack} onStepClick={goToStep} completedUpTo={completedUpTo} />}
         {page === "generating" && <GeneratingPage operation={operation} error={error} onRetry={() => project && void generateMockups(project.pageLayout)} />}
         {page === "preview" && project && <PreviewPage mockups={mockups} selectedMockupId={project.selectedMockupId} onConfirm={startBuild} busy={busy} onBack={() => go("pick-pages")} />}
         {page === "building" && <BuildingPage build={build} error={error} onBack={() => go("preview")} />}
-        {page === "download" && build?.status === "completed" && <DownloadPage build={build} deployment={deployment} onDeploy={deploy} busy={busy} onBack={reset} />}
+        {page === "download" && build?.status === "completed" && <DownloadPage build={build} deployment={deployment} onDeploy={deploy} busy={busy} onBack={() => { void returnToProjects(); }} />}
       </div>
     </div>
   );

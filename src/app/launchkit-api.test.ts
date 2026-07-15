@@ -41,6 +41,36 @@ describe("Launch Kit API authentication", () => {
     expect(new Headers(init.headers).get("Authorization")).toBe("Bearer signed-token");
   });
 
+  it("lists projects for the authenticated user", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify([
+          {
+            id: "prj_one",
+            status: "draft",
+            companyName: "Northstar",
+            latestBuildId: null,
+            latestBuildStatus: null,
+            previewUrl: null,
+            downloadUrl: null,
+            createdAt: "2026-07-15T00:00:00Z",
+            updatedAt: "2026-07-15T00:00:00Z",
+          },
+        ]),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    setAccessToken("signed-token");
+
+    const projects = await launchKitApi.listProjects();
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toMatch(/\/api\/v1\/projects$/);
+    expect(new Headers(init.headers).get("Authorization")).toBe("Bearer signed-token");
+    expect(projects[0]?.companyName).toBe("Northstar");
+  });
+
   it("verifies the fixed account through the backend auth endpoint", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(

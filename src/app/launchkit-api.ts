@@ -130,6 +130,17 @@ export type BuildView = {
   downloadUrl: string | null;
   retryAfterSeconds: number | null;
 };
+export type ProjectSummaryView = {
+  id: string;
+  status: string;
+  companyName: string;
+  latestBuildId: string | null;
+  latestBuildStatus: BuildView["status"] | null;
+  previewUrl: string | null;
+  downloadUrl: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
 export type BuildEventView = {
   id: number;
   status: BuildView["status"];
@@ -244,6 +255,7 @@ export const launchKitApi = {
     }),
   getCatalog: () => request<WizardCatalog>("/catalogs/wizard"),
   createProject: () => request<ProjectView>("/projects", { method: "POST", body: "{}" }),
+  listProjects: () => request<ProjectSummaryView[]>("/projects"),
   getProject: (projectId: string) => request<ProjectView>(`/projects/${projectId}`),
   patchProject: (projectId: string, patch: Record<string, unknown>) =>
     request<ProjectView>(`/projects/${projectId}`, {
