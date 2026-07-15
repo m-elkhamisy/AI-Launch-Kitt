@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { CircleHelp } from "lucide-react";
+import { useForm } from "react-hook-form";
 import {
   absoluteApiUrl,
   BuildView,
@@ -14,6 +16,25 @@ import {
   waitForOperation,
   WizardCatalog,
 } from "./launchkit-api";
+import {
+  colorFontSchema,
+  ColorFontValues,
+  customFontsSchema,
+  customPaletteSchema,
+  designSelectionSchema,
+  DesignSelectionValues,
+  loginSchema,
+  LoginValues,
+  mockupSelectionSchema,
+  MockupSelectionValues,
+  otpSchema,
+  OtpValues,
+  pageLayoutSchema,
+  PageLayoutValues,
+  profileFileSchema,
+  questionnaireSchema,
+  QuestionnaireValues,
+} from "./wizard-validation";
 
 import svgPathsLogin from "@/imports/AiLaunchKitLoginPage/svg-8vlpvs8i0v";
 import svgPathsDl from "@/imports/AiLaunchKitDownloadingGeneratedWebsitesPage/svg-7argp47g3q";
@@ -35,6 +56,25 @@ type Page =
   | "preview"
   | "building"
   | "download";
+
+function ValidationError({ id, message }: { id?: string; message?: string }) {
+  if (!message) return null;
+  return (
+    <p id={id} role="alert" className="font-medium text-[12px]" style={{ color: "#fca5a5", lineHeight: 1.5 }}>
+      {message}
+    </p>
+  );
+}
+
+function firstValidationError(value: unknown): string | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  if ("message" in value && typeof value.message === "string") return value.message;
+  for (const child of Object.values(value)) {
+    const message = firstValidationError(child);
+    if (message) return message;
+  }
+  return undefined;
+}
 
 // ─── Page Wrapper ─────────────────────────────────────────────────────────────
 // Fluid container (w-full, capped at a max design width) — content reflows
@@ -508,8 +548,12 @@ function SubNav({
 
 // ─── PAGE 1: Login ────────────────────────────────────────────────────────────
 function LoginPage({ onNext }: { onNext: () => void }) {
-  const [email, setEmail] = useState("");
   const p = svgPathsLogin;
+  const { register, handleSubmit, formState: { errors } } = useForm<LoginValues>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: { email: "" },
+    mode: "onTouched",
+  });
 
   return (
     <ScaledPage
@@ -572,7 +616,7 @@ function LoginPage({ onNext }: { onNext: () => void }) {
             <div style={{ height: 1, background: "rgba(255,255,255,0.1)", width: "100%" }} />
 
             {/* Form */}
-            <div className="flex flex-col gap-[20px] w-full">
+            <form onSubmit={handleSubmit(() => onNext())} className="flex flex-col gap-[20px] w-full" noValidate>
               {/* Email field */}
               <div className="flex flex-col gap-[8px]">
                 <label
@@ -601,19 +645,20 @@ function LoginPage({ onNext }: { onNext: () => void }) {
                   </svg>
                   <input
                     type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    {...register("email")}
                     placeholder="you@example.com"
                     className="flex-1 bg-transparent outline-none font-medium text-[14px]"
                     style={{ color: "white", caretColor: "#6fccdd" }}
-                    onKeyDown={(e) => e.key === "Enter" && onNext()}
+                    aria-invalid={Boolean(errors.email)}
+                    aria-describedby={errors.email ? "email-error" : undefined}
                   />
                 </div>
+                <ValidationError id="email-error" message={errors.email?.message} />
               </div>
 
               {/* Send Code button */}
               <button
-                onClick={onNext}
+                type="submit"
                 className="w-full flex items-center justify-center gap-[8px] font-semibold text-[14px] uppercase"
                 style={{
                   background: "#6fccdd",
@@ -633,7 +678,7 @@ function LoginPage({ onNext }: { onNext: () => void }) {
                   />
                 </svg>
               </button>
-            </div>
+            </form>
 
             
           </div>
@@ -649,6 +694,11 @@ function OtpPage({ onNext, onBack }: { onNext: () => void; onBack: () => void })
   const [focused, setFocused] = useState(0);
 
   const inputRefs = useRef<Array<HTMLInputElement | null>>([]);
+  const { setValue, handleSubmit, formState: { errors } } = useForm<OtpValues>({
+    resolver: zodResolver(otpSchema),
+    defaultValues: { code: "" },
+    mode: "onChange",
+  });
 
   useEffect(() => {
     inputRefs.current[0]?.focus();
@@ -660,6 +710,7 @@ function OtpPage({ onNext, onBack }: { onNext: () => void; onBack: () => void })
     const updated = [...otp];
     updated[index] = value;
     setOtp(updated);
+    setValue("code", updated.join(""), { shouldDirty: true, shouldValidate: true });
 
     if (value && index < 5) {
       inputRefs.current[index + 1]?.focus();
@@ -667,7 +718,7 @@ function OtpPage({ onNext, onBack }: { onNext: () => void; onBack: () => void })
     }
 
     if (updated.every((digit) => digit !== "")) {
-      onNext();
+      void handleSubmit(() => onNext())();
     }
   };
 
@@ -680,6 +731,7 @@ function OtpPage({ onNext, onBack }: { onNext: () => void; onBack: () => void })
         const updated = [...otp];
         updated[index] = "";
         setOtp(updated);
+        setValue("code", updated.join(""), { shouldDirty: true, shouldValidate: true });
       } else if (index > 0) {
         inputRefs.current[index - 1]?.focus();
         setFocused(index - 1);
@@ -777,6 +829,8 @@ function OtpPage({ onNext, onBack }: { onNext: () => void; onBack: () => void })
 
             </div>
 
+            <ValidationError id="otp-error" message={errors.code?.message} />
+
 
             {/* Divider */}
             <div
@@ -844,7 +898,7 @@ function OtpPage({ onNext, onBack }: { onNext: () => void; onBack: () => void })
 
             {/* Verify Button */}
             <button
-              onClick={onNext}
+              onClick={() => void handleSubmit(() => onNext())()}
               className="w-full font-semibold text-[14px] uppercase"
               style={{
                 background: "#6fccdd",
@@ -899,14 +953,7 @@ function OtpPage({ onNext, onBack }: { onNext: () => void; onBack: () => void })
   );
 }
 // ─── PAGE 3: Questionnaire ────────────────────────────────────────────────────
-type QuestionnaireForm = {
-  companyName: string;
-  uniqueness: string;
-  customers: string;
-  tagline: string;
-  cta: string;
-  anythingElse: string;
-};
+type QuestionnaireForm = QuestionnaireValues;
 
 function QuestionnairePage({ project, onSave, onUpload, onBack, onStepClick, completedUpTo, busy }: {
   project: ProjectView;
@@ -921,9 +968,28 @@ function QuestionnairePage({ project, onSave, onUpload, onBack, onStepClick, com
   const [uploadOpen, setUploadOpen] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [uploadError, setUploadError] = useState<string>();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { register, reset, handleSubmit, formState: { errors } } = useForm<QuestionnaireForm>({
+    resolver: zodResolver(questionnaireSchema),
+    defaultValues: {
+      companyName: project.business.companyName,
+      uniqueness: project.business.uvp,
+      customers: project.business.targetAudience,
+      tagline: project.design.tagline,
+      cta: project.design.cta,
+      anythingElse: project.business.notes,
+    },
+    mode: "onTouched",
+  });
 
   async function acceptFile(file: File) {
+    const validation = profileFileSchema.safeParse(file);
+    if (!validation.success) {
+      setUploadError(validation.error.issues[0]?.message ?? "Choose a valid profile file.");
+      return;
+    }
+    setUploadError(undefined);
     setUploadedFile(file);
     setUploadOpen(false);
     await onUpload(file);
@@ -940,17 +1006,8 @@ function QuestionnairePage({ project, onSave, onUpload, onBack, onStepClick, com
     if (file) void acceptFile(file);
   }
 
-  const [form, setForm] = useState<QuestionnaireForm>({
-    companyName: project.business.companyName,
-    uniqueness: project.business.uvp,
-    customers: project.business.targetAudience,
-    tagline: project.design.tagline,
-    cta: project.design.cta,
-    anythingElse: project.business.notes,
-  });
-
   useEffect(() => {
-    setForm({
+    reset({
       companyName: project.business.companyName,
       uniqueness: project.business.uvp,
       customers: project.business.targetAudience,
@@ -958,11 +1015,11 @@ function QuestionnairePage({ project, onSave, onUpload, onBack, onStepClick, com
       cta: project.design.cta,
       anythingElse: project.business.notes,
     });
-  }, [project.updatedAt]);
+  }, [project.updatedAt, project.business, project.design, reset]);
 
-  const continueQuestionnaire = () => void onSave(form);
+  const continueQuestionnaire = () => void handleSubmit(onSave)();
 
-  const fields = [
+  const fields: Array<Array<{ key: keyof QuestionnaireForm; label: string; placeholder: string; optional?: boolean }>> = [
     [
       { key: "companyName", label: "Company / Brand Name", placeholder: "e.g. Acme Corp" },
       { key: "uniqueness", label: "What makes your business unique?", placeholder: "e.g. 10 years of expertise, eco-friendly..." },
@@ -973,7 +1030,7 @@ function QuestionnairePage({ project, onSave, onUpload, onBack, onStepClick, com
     ],
     [
       { key: "cta", label: "Main Call to Action", placeholder: "e.g. Get Started Free" },
-      { key: "anythingElse", label: "Anything Else?", placeholder: "Additional context..." },
+      { key: "anythingElse", label: "Anything Else?", placeholder: "Additional context...", optional: true },
     ],
   ];
 
@@ -1021,6 +1078,7 @@ function QuestionnairePage({ project, onSave, onUpload, onBack, onStepClick, com
               {uploadedFile ? "Change file →" : "Upload here →"}
             </button>
           </div>
+          <ValidationError message={uploadError} />
 
           {/* Upload overlay */}
           {uploadOpen && (
@@ -1142,19 +1200,19 @@ function QuestionnairePage({ project, onSave, onUpload, onBack, onStepClick, com
 
             {fields.map((row, ri) => (
               <div key={ri} className="grid grid-cols-1 sm:grid-cols-2 gap-[24px]">
-                {row.map(({ key, label, placeholder }) => (
+                {row.map(({ key, label, placeholder, optional }) => (
                   <div key={key} className="flex flex-col gap-[8px]">
                     <label
                       className="font-semibold uppercase"
                       style={{ fontSize: 12, color: "#6fccdd", letterSpacing: "0.08em" }}
                     >
-                      {label}
+                      {label}{optional ? " (Optional)" : " *"}
                     </label>
                     <div
                       className="flex items-center"
                       style={{
                         background: "rgba(255,255,255,0.03)",
-                        border: "1px solid rgba(255,255,255,0.1)",
+                        border: errors[key] ? "1px solid rgba(248,113,113,0.8)" : "1px solid rgba(255,255,255,0.1)",
                         borderRadius: 12,
                         height: 48,
                         padding: "0 16px",
@@ -1164,12 +1222,12 @@ function QuestionnairePage({ project, onSave, onUpload, onBack, onStepClick, com
                         className="w-full bg-transparent outline-none font-medium text-[14px]"
                         style={{ color: "white", caretColor: "#6fccdd" }}
                         placeholder={placeholder}
-                        value={(form as Record<string, string>)[key]}
-                        onChange={(e) =>
-                          setForm((f) => ({ ...f, [key]: e.target.value }))
-                        }
+                        {...register(key)}
+                        aria-invalid={Boolean(errors[key])}
+                        aria-describedby={errors[key] ? `${key}-error` : undefined}
                       />
                     </div>
+                    <ValidationError id={`${key}-error`} message={errors[key]?.message} />
                   </div>
                 ))}
               </div>
@@ -1251,18 +1309,32 @@ function CategoryMoodPage({ project, catalog, onSave, onBack, onStepClick, compl
   );
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showMoodModal, setShowMoodModal] = useState(false);
+  const { reset, setValue, handleSubmit, formState: { errors } } = useForm<DesignSelectionValues>({
+    resolver: zodResolver(designSelectionSchema),
+    defaultValues: {
+      categoryId: categories.find((item) => item.id === project.business.categoryId)?.id ?? categories[0]?.id ?? "",
+      moodId: moods.find((item) => item.id === project.design.moodId)?.id ?? moods[0]?.id ?? "",
+      animationId: animationLevels.find((item) => item.id === project.design.animationId)?.id ?? animationLevels[0]?.id ?? "",
+    },
+    mode: "onChange",
+  });
 
   useEffect(() => {
-    setCategory(categories.find((item) => item.id === project.business.categoryId)?.label ?? categories[0]?.label ?? "");
-    setMood(moods.find((item) => item.id === project.design.moodId)?.label ?? moods[0]?.label ?? "");
-    setAnimLevel(Math.max(0, animationLevels.findIndex((item) => item.id === project.design.animationId)));
-  }, [project.updatedAt, catalog]);
+    const categoryChoice = categories.find((item) => item.id === project.business.categoryId) ?? categories[0];
+    const moodChoice = moods.find((item) => item.id === project.design.moodId) ?? moods[0];
+    const animationIndex = Math.max(0, animationLevels.findIndex((item) => item.id === project.design.animationId));
+    setCategory(categoryChoice?.label ?? "");
+    setMood(moodChoice?.label ?? "");
+    setAnimLevel(animationIndex);
+    reset({
+      categoryId: categoryChoice?.id ?? "",
+      moodId: moodChoice?.id ?? "",
+      animationId: animationLevels[animationIndex]?.id ?? "",
+    });
+  }, [project.updatedAt, catalog, categories, moods, animationLevels, reset]);
 
   const continueDesign = () => {
-    const categoryId = categories.find((item) => item.label === category)?.id;
-    const moodId = moods.find((item) => item.label === mood)?.id;
-    const animationId = animationLevels[animLevel]?.id;
-    if (categoryId && moodId && animationId) void onSave(categoryId, moodId, animationId);
+    void handleSubmit(({ categoryId, moodId, animationId }) => onSave(categoryId, moodId, animationId))();
   };
 
   return (
@@ -1385,7 +1457,10 @@ function CategoryMoodPage({ project, catalog, onSave, onBack, onStepClick, compl
                 return (
                   <button
                     key={lvl.label}
-                    onClick={() => setAnimLevel(i)}
+                    onClick={() => {
+                      setAnimLevel(i);
+                      setValue("animationId", lvl.id, { shouldDirty: true, shouldValidate: true });
+                    }}
                     className="flex-1 flex flex-col items-center relative z-10"
                     style={{ gap: "clamp(5px, 2vw, 12px)", minWidth: 0, padding: "0 2px" }}
                   >
@@ -1435,6 +1510,7 @@ function CategoryMoodPage({ project, catalog, onSave, onBack, onStepClick, compl
               })}
             </div>
           </div>
+          <ValidationError message={firstValidationError(errors)} />
         </div>
 
         {/* Category Popup */}
@@ -1483,6 +1559,7 @@ function CategoryMoodPage({ project, catalog, onSave, onBack, onStepClick, compl
                     key={cat.label}
                     onClick={() => {
                       setCategory(cat.label);
+                      setValue("categoryId", cat.id, { shouldDirty: true, shouldValidate: true });
                       setShowCategoryModal(false);
                     }}
                     className="text-left rounded-[12px] transition-all flex flex-col gap-[6px] p-4"
@@ -1547,6 +1624,7 @@ function CategoryMoodPage({ project, catalog, onSave, onBack, onStepClick, compl
                     key={m.label}
                     onClick={() => {
                       setMood(m.label);
+                      setValue("moodId", m.id, { shouldDirty: true, shouldValidate: true });
                       setShowMoodModal(false);
                     }}
                     className="p-[20px] text-left rounded-[12px] transition-all"
@@ -1623,10 +1701,12 @@ function ColorsFontsPage({ project, catalog, onSave, onBack, onStepClick, comple
       : Math.max(0, fontPairs.findIndex((item) => item.id === project.design.fontPairingId)),
   );
   const [customModalOpen, setCustomModalOpen] = useState(false);
+  const [customPaletteError, setCustomPaletteError] = useState<string>();
   const [specificColors, setSpecificColors] = useState(false);
   const [customPalette, setCustomPalette] = useState<CustomPalette | null>(project.design.customPalette);
   const [customDraft, setCustomDraft] = useState<CustomPalette>({ primary: "", secondary: "", background: "", text: "" });
   const [fontModalOpen, setFontModalOpen] = useState(false);
+  const [customFontError, setCustomFontError] = useState<string>();
   const [customFont, setCustomFont] = useState<FontPair | null>(
     project.design.customFonts
       ? { name: "Custom", ...project.design.customFonts }
@@ -1635,20 +1715,33 @@ function ColorsFontsPage({ project, catalog, onSave, onBack, onStepClick, comple
   const [fontDraft, setFontDraft] = useState<{ heading: string; body: string }>({ heading: "", body: "" });
   const [headingSearch, setHeadingSearch] = useState("");
   const [bodySearch, setBodySearch] = useState("");
+  const { setValue, handleSubmit, formState: { errors } } = useForm<ColorFontValues>({
+    resolver: zodResolver(colorFontSchema),
+    defaultValues: {
+      paletteId: project.design.paletteId || palettes[0]?.id || "",
+      customPalette: project.design.customPalette,
+      fontPairingId: project.design.fontPairingId || fontPairs[0]?.id || "",
+      customFonts: project.design.customFonts,
+    },
+    mode: "onChange",
+  });
 
   const continueColors = () => {
     const paletteId = selectedPalette === palettes.length ? "custom" : palettes[selectedPalette]?.id;
     const fontId = selectedFont === fontPairs.length ? "custom" : fontPairs[selectedFont]?.id;
-    if (paletteId && fontId) {
-      void onSave(
-        paletteId,
-        paletteId === "custom" ? customPalette : null,
-        fontId,
-        fontId === "custom" && customFont
-          ? { heading: customFont.heading, body: customFont.body }
-          : null,
-      );
-    }
+    const customFonts = fontId === "custom" && customFont
+      ? { heading: customFont.heading, body: customFont.body }
+      : null;
+    setValue("paletteId", paletteId ?? "", { shouldDirty: true, shouldValidate: true });
+    setValue("customPalette", paletteId === "custom" ? customPalette : null, { shouldDirty: true, shouldValidate: true });
+    setValue("fontPairingId", fontId ?? "", { shouldDirty: true, shouldValidate: true });
+    setValue("customFonts", customFonts, { shouldDirty: true, shouldValidate: true });
+    void handleSubmit((values) => onSave(
+      values.paletteId,
+      values.customPalette,
+      values.fontPairingId,
+      values.customFonts,
+    ))();
   };
 
   return (
@@ -1722,7 +1815,11 @@ function ColorsFontsPage({ project, catalog, onSave, onBack, onStepClick, comple
                 const selected = selectedPalette === CUSTOM_IDX;
                 return (
                   <button
-                    onClick={() => { if (customPalette) setCustomDraft({ ...customPalette }); setCustomModalOpen(true); }}
+                    onClick={() => {
+                      setCustomPaletteError(undefined);
+                      if (customPalette) setCustomDraft({ ...customPalette });
+                      setCustomModalOpen(true);
+                    }}
                     className="relative flex flex-col rounded-[8px] overflow-hidden"
                     style={{
                       height: 80,
@@ -1932,6 +2029,7 @@ function ColorsFontsPage({ project, catalog, onSave, onBack, onStepClick, comple
                     );
                   })}
 
+                  <ValidationError message={customPaletteError} />
                   <div className="flex gap-[12px]">
                     <button
                       onClick={() => setCustomModalOpen(false)}
@@ -1942,7 +2040,13 @@ function ColorsFontsPage({ project, catalog, onSave, onBack, onStepClick, comple
                     </button>
                     <button
                       onClick={() => {
-                        setCustomPalette({ ...customDraft });
+                        const validation = customPaletteSchema.safeParse(customDraft);
+                        if (!validation.success) {
+                          setCustomPaletteError(validation.error.issues[0]?.message ?? "Complete the custom palette.");
+                          return;
+                        }
+                        setCustomPaletteError(undefined);
+                        setCustomPalette(validation.data);
                         setSelectedPalette(palettes.length);
                         setCustomModalOpen(false);
                       }}
@@ -1979,6 +2083,7 @@ function ColorsFontsPage({ project, catalog, onSave, onBack, onStepClick, comple
                 return (
                   <button
                     onClick={() => {
+                      setCustomFontError(undefined);
                       if (customFont) { setFontDraft({ heading: customFont.heading, body: customFont.body }); setHeadingSearch(customFont.heading); setBodySearch(customFont.body); }
                       else { setFontDraft({ heading: "", body: "" }); setHeadingSearch(""); setBodySearch(""); }
                       setFontModalOpen(true);
@@ -2076,16 +2181,21 @@ function ColorsFontsPage({ project, catalog, onSave, onBack, onStepClick, comple
                     </div>
                   )}
 
+                  <ValidationError message={customFontError} />
                   <div className="flex gap-[12px]">
                     <button onClick={() => setFontModalOpen(false)} className="flex-1 font-semibold text-[14px]" style={{ background: "rgba(255,255,255,0.08)", color: "white", border: "none", borderRadius: 10, padding: "12px 0", cursor: "pointer" }}>Cancel</button>
                     <button
                       onClick={() => {
-                        if (fontDraft.heading && fontDraft.body) {
-                          const pair: FontPair = { name: "Custom", heading: fontDraft.heading, body: fontDraft.body };
-                          setCustomFont(pair);
-                          setSelectedFont(fontPairs.length);
-                          setFontModalOpen(false);
+                        const validation = customFontsSchema.safeParse(fontDraft);
+                        if (!validation.success) {
+                          setCustomFontError(validation.error.issues[0]?.message ?? "Choose both fonts.");
+                          return;
                         }
+                        setCustomFontError(undefined);
+                        const pair: FontPair = { name: "Custom", ...validation.data };
+                        setCustomFont(pair);
+                        setSelectedFont(fontPairs.length);
+                        setFontModalOpen(false);
                       }}
                       className="flex-1 font-semibold text-[14px]"
                       style={{ background: "#6FCCDD", color: "#0b0b0b", border: "none", borderRadius: 10, padding: "12px 0", cursor: "pointer", opacity: fontDraft.heading && fontDraft.body ? 1 : 0.5 }}
@@ -2095,6 +2205,7 @@ function ColorsFontsPage({ project, catalog, onSave, onBack, onStepClick, comple
               </div>
             )}
           </div>
+          <ValidationError message={firstValidationError(errors)} />
         </div>
       </div>
     </ScaledPage>
@@ -2293,6 +2404,11 @@ function PickPagesPage({ project, catalog, onGenerate, onBack, onStepClick, comp
   const [renaming, setRenaming] = useState<{ pageId: string; sectionId: string; value: string } | null>(null);
   const [drag, setDrag] = useState<{ pageId: string; sectionId: string } | null>(null);
   const [dragOver, setDragOver] = useState<{ pageId: string; sectionId: string } | null>(null);
+  const { setValue, handleSubmit, formState: { errors } } = useForm<PageLayoutValues>({
+    resolver: zodResolver(pageLayoutSchema),
+    defaultValues: project.pageLayout,
+    mode: "onChange",
+  });
 
   const unlockedSections = catalog.sectionTemplates.filter((section) => !section.locked);
   const continueGeneration = () => {
@@ -2310,7 +2426,8 @@ function PickPagesPage({ project, catalog, onGenerate, onBack, onStepClick, comp
         })),
       })),
     };
-    void onGenerate(layout);
+    setValue("pages", layout.pages, { shouldDirty: true, shouldValidate: true });
+    void handleSubmit((values) => onGenerate(values))();
   };
 
   const selectedPageCount = pages.filter((p) => p.selected).length;
@@ -2416,7 +2533,7 @@ function PickPagesPage({ project, catalog, onGenerate, onBack, onStepClick, comp
             activeStep={3}
             completedUpTo={completedUpTo}
             onBack={onBack}
-            onNext={selectedPageCount > 0 && !hasInvalidPage && !atSectionLimit && !busy ? continueGeneration : undefined}
+            onNext={busy ? undefined : continueGeneration}
             onStepClick={onStepClick}
             nextLabel="Review & Generate"
           />
@@ -2735,12 +2852,13 @@ function PickPagesPage({ project, catalog, onGenerate, onBack, onStepClick, comp
                   return (
                     <>
                       <button
-                          onClick={canGenerate && !busy ? continueGeneration : undefined}
+                        onClick={!busy ? continueGeneration : undefined}
+                        disabled={busy}
                         className="font-semibold text-[14px] uppercase px-[24px] py-[12px] rounded-[8px] w-full sm:w-auto"
                         style={{
-                          background: canGenerate ? "#6fccdd" : "rgba(255,255,255,0.08)",
-                          color: canGenerate ? "#0b0b0b" : "rgba(255,255,255,0.25)",
-                          cursor: canGenerate ? "pointer" : "not-allowed",
+                          background: busy ? "rgba(255,255,255,0.08)" : "#6fccdd",
+                          color: busy ? "rgba(255,255,255,0.25)" : "#0b0b0b",
+                          cursor: busy ? "not-allowed" : "pointer",
                           transition: "background 0.2s, color 0.2s",
                         }}
                       >
@@ -2760,6 +2878,7 @@ function PickPagesPage({ project, catalog, onGenerate, onBack, onStepClick, comp
                 })()}
               </div>
             </div>
+            <ValidationError message={firstValidationError(errors)} />
           </div>
         </div>
       </div>
@@ -2846,11 +2965,18 @@ function PreviewPage({ mockups, selectedMockupId, onConfirm, onBack, busy }: {
   const [selected, setSelected] = useState(
     selectedMockupId ?? mockups[0]?.id ?? "",
   );
+  const { setValue, handleSubmit, formState: { errors } } = useForm<MockupSelectionValues>({
+    resolver: zodResolver(mockupSelectionSchema),
+    defaultValues: { mockupId: selectedMockupId ?? mockups[0]?.id ?? "" },
+    mode: "onChange",
+  });
 
   useEffect(() => {
-    if (selectedMockupId) setSelected(selectedMockupId);
-    else if (!mockups.some((mockup) => mockup.id === selected)) setSelected(mockups[0]?.id ?? "");
-  }, [mockups, selectedMockupId]);
+    const nextSelection = selectedMockupId
+      ?? (mockups.some((mockup) => mockup.id === selected) ? selected : mockups[0]?.id ?? "");
+    setSelected(nextSelection);
+    setValue("mockupId", nextSelection, { shouldValidate: true });
+  }, [mockups, selectedMockupId, selected, setValue]);
 
   return (
     <ScaledPage
@@ -2920,7 +3046,10 @@ function PreviewPage({ mockups, selectedMockupId, onConfirm, onBack, busy }: {
             {mockups.map((v, i) => (
               <button
                 key={v.id}
-                onClick={() => setSelected(v.id)}
+                onClick={() => {
+                  setSelected(v.id);
+                  setValue("mockupId", v.id, { shouldDirty: true, shouldValidate: true });
+                }}
                 className="flex flex-col gap-[16px] p-[20px] text-left"
                 style={{
                   backdropFilter: "blur(12px)",
@@ -3025,8 +3154,8 @@ function PreviewPage({ mockups, selectedMockupId, onConfirm, onBack, busy }: {
           {/* Confirm button */}
           <div className="flex justify-center w-full">
             <button
-              onClick={() => selected && void onConfirm(selected)}
-              disabled={!selected || busy}
+              onClick={() => void handleSubmit(({ mockupId }) => onConfirm(mockupId))()}
+              disabled={busy}
               className="font-semibold text-[18px] w-full sm:w-auto sm:min-w-[360px]"
               style={{
                 background: "#6fccdd",
@@ -3038,6 +3167,7 @@ function PreviewPage({ mockups, selectedMockupId, onConfirm, onBack, busy }: {
               {busy ? "Starting Build..." : "Confirm Selection"}
             </button>
           </div>
+          <ValidationError message={errors.mockupId?.message} />
         </div>
       </div>
     </ScaledPage>

@@ -1,0 +1,149 @@
+import { z } from "zod";
+
+const requiredText = (label: string, minimum: number, maximum: number) =>
+  z.string()
+    .trim()
+    .min(minimum, `${label} must be at least ${minimum} characters.`)
+    .max(maximum, `${label} must be ${maximum} characters or fewer.`);
+
+export const loginSchema = z.object({
+  email: z.string().trim().min(1, "Enter your email address.").email("Enter a valid email address.").max(254),
+});
+
+export const otpSchema = z.object({
+  code: z.string().regex(/^\d{6}$/, "Enter the complete 6-digit code."),
+});
+
+export const questionnaireSchema = z.object({
+  companyName: requiredText("Company or brand name", 2, 120),
+  uniqueness: requiredText("Business differentiator", 10, 1_000),
+  customers: requiredText("Customer description", 3, 500),
+  tagline: requiredText("Tagline", 3, 160),
+  cta: requiredText("Call to action", 2, 80),
+  anythingElse: z.string().trim().max(2_000, "Additional context must be 2,000 characters or fewer."),
+});
+
+export const designSelectionSchema = z.object({
+  categoryId: z.string().trim().min(1, "Choose a business category."),
+  moodId: z.string().trim().min(1, "Choose a design mood."),
+  animationId: z.string().trim().min(1, "Choose an animation level."),
+});
+
+const hexColorSchema = z.string().regex(/^#[0-9a-f]{6}$/i, "Use a 6-digit hex color such as #6FCCDD.");
+
+export const customPaletteSchema = z.object({
+  primary: hexColorSchema,
+  secondary: hexColorSchema,
+  background: hexColorSchema,
+  text: hexColorSchema,
+});
+
+export const customFontsSchema = z.object({
+  heading: requiredText("Heading font", 2, 100),
+  body: requiredText("Body font", 2, 100),
+});
+
+export const colorFontSchema = z.object({
+  paletteId: z.string().trim().min(1, "Choose a color palette."),
+  customPalette: customPaletteSchema.nullable(),
+  fontPairingId: z.string().trim().min(1, "Choose a font pairing."),
+  customFonts: customFontsSchema.nullable(),
+}).superRefine((values, context) => {
+  if (values.paletteId === "custom" && !values.customPalette) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["customPalette"],
+      message: "Complete all four custom colors.",
+    });
+  }
+  if (values.fontPairingId === "custom" && !values.customFonts) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["customFonts"],
+      message: "Choose both custom fonts.",
+    });
+  }
+});
+
+const sectionSchema = z.object({
+  id: z.string().trim().min(1),
+  templateId: z.string().trim().min(1),
+  name: requiredText("Section name", 1, 120),
+  locked: z.boolean(),
+});
+
+const pageSchema = z.object({
+  id: z.string().trim().min(1),
+  templateId: z.string().trim().min(1),
+  name: requiredText("Page name", 1, 120),
+  slug: z.string().trim().min(1, "Every page needs a URL slug.").max(120),
+  sections: z.array(sectionSchema).min(3, "Every page needs navigation, content, and a footer."),
+}).superRefine((page, context) => {
+  if (!page.sections.some((section) => !section.locked)) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["sections"],
+      message: `${page.name} needs at least one content section.`,
+    });
+  }
+  if (!page.sections[0]?.locked || !page.sections.at(-1)?.locked) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["sections"],
+      message: `${page.name} must keep its navigation and footer.`,
+    });
+  }
+});
+
+export const pageLayoutSchema = z.object({
+  pages: z.array(pageSchema)
+    .min(1, "Select at least one page.")
+    .max(6, "Select no more than six pages."),
+}).superRefine((layout, context) => {
+  const editableSections = layout.pages.reduce(
+    (count, page) => count + page.sections.filter((section) => !section.locked).length,
+    0,
+  );
+  if (editableSections > 24) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["pages"],
+      message: "Use no more than 24 content sections.",
+    });
+  }
+  const pageIds = layout.pages.map((page) => page.id);
+  const slugs = layout.pages.map((page) => page.slug);
+  if (new Set(pageIds).size !== pageIds.length || new Set(slugs).size !== slugs.length) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["pages"],
+      message: "Each selected page must have a unique ID and URL slug.",
+    });
+  }
+});
+
+export const mockupSelectionSchema = z.object({
+  mockupId: z.string().trim().min(1, "Select a design before building."),
+});
+
+const supportedProfileExtensions = new Set(["pdf", "docx", "pptx", "txt", "md", "png", "jpg", "jpeg"]);
+export const profileFileSchema = z.custom<File>(
+  (value) => typeof File !== "undefined" && value instanceof File,
+  "Choose a profile file.",
+).superRefine((file, context) => {
+  const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
+  if (!supportedProfileExtensions.has(extension)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: "Choose PDF, DOCX, PPTX, TXT, Markdown, PNG, or JPEG." });
+  }
+  if (file.size > 20 * 1024 * 1024) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: "The profile file must be 20 MB or smaller." });
+  }
+});
+
+export type LoginValues = z.infer<typeof loginSchema>;
+export type OtpValues = z.infer<typeof otpSchema>;
+export type QuestionnaireValues = z.infer<typeof questionnaireSchema>;
+export type DesignSelectionValues = z.infer<typeof designSelectionSchema>;
+export type ColorFontValues = z.infer<typeof colorFontSchema>;
+export type PageLayoutValues = z.infer<typeof pageLayoutSchema>;
+export type MockupSelectionValues = z.infer<typeof mockupSelectionSchema>;
