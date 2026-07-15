@@ -3267,7 +3267,26 @@ function DownloadPage({ build, deployment, onDeploy, onBack, busy }: {
 }) {
   const p = svgPathsDl;
   const [tip, setTip] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
   const websiteUrl = absoluteApiUrl(build.webUrl ?? build.previewUrl);
+
+  const handleDownload = async () => {
+    if (!build.downloadUrl || downloading) return;
+    setDownloading(true);
+    setDownloadError(null);
+    try {
+      await launchKitApi.downloadBuild(build.downloadUrl);
+    } catch (error) {
+      setDownloadError(
+        error instanceof LaunchKitApiError
+          ? error.message
+          : "The build archive could not be downloaded.",
+      );
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   return (
     <ScaledPage designHeight={1100} scrollable header={<TopHeader />}>
@@ -3466,16 +3485,18 @@ function DownloadPage({ build, deployment, onDeploy, onBack, busy }: {
                   </div>
                 </div>
                 <button
-                  onClick={() => {
-                    const url = absoluteApiUrl(build.downloadUrl);
-                    if (url) window.location.assign(url);
-                  }}
-                  disabled={!build.downloadUrl}
-                  className="w-full font-semibold text-[13px] py-[10px] rounded-[8px]"
+                  onClick={() => { void handleDownload(); }}
+                  disabled={!build.downloadUrl || downloading || busy}
+                  className="w-full font-semibold text-[13px] py-[10px] rounded-[8px] disabled:opacity-50"
                   style={{ background: "#6fccdd", color: "#0b0b0b" }}
                 >
-                  Download
+                  {downloading ? "Downloading…" : "Download"}
                 </button>
+                {downloadError && (
+                  <div className="font-medium text-[12px]" style={{ color: "#f87171" }}>
+                    {downloadError}
+                  </div>
+                )}
               </div>
 
               {/* Deploy */}

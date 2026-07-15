@@ -280,6 +280,46 @@ export const launchKitApi = {
       body: "{}",
     }),
   getBuild: (buildId: string) => request<BuildView>(`/builds/${buildId}`),
+  downloadBuild: async (downloadPath: string): Promise<void> => {
+    const url = absoluteApiUrl(downloadPath);
+    if (!url) {
+      throw new LaunchKitApiError("The download URL is missing.", 400, "download_url_missing");
+    }
+    const headers = new Headers();
+    const accessToken = localStorage.getItem(AUTH_TOKEN_KEY);
+    if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
+    const response = await fetch(url, { headers, cache: "no-store" });
+    if (!response.ok) {
+      let envelope: ApiErrorEnvelope = {};
+      try {
+        envelope = await response.json() as ApiErrorEnvelope;
+      } catch {
+        // Fall through to the status-based message.
+      }
+      throw new LaunchKitApiError(
+        envelope.error?.message ?? "The build archive could not be downloaded.",
+        response.status,
+        envelope.error?.code,
+        envelope.error?.requestId,
+      );
+    }
+    const disposition = response.headers.get("Content-Disposition") ?? "";
+    const filenameMatch = /filename="?([^";]+)"?/i.exec(disposition);
+    const filename = filenameMatch?.[1]?.trim() || "website.zip";
+    const blob = await response.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    try {
+      const anchor = document.createElement("a");
+      anchor.href = objectUrl;
+      anchor.download = filename;
+      anchor.rel = "noopener";
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+    } finally {
+      URL.revokeObjectURL(objectUrl);
+    }
+  },
   createDeployment: (buildId: string, idempotencyKey: string) =>
     request<DeploymentView>(`/builds/${buildId}/deployments`, {
       method: "POST",

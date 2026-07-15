@@ -134,4 +134,47 @@ describe("Launch Kit API authentication", () => {
     expect(url).toMatch(/\/api\/v1\/assets\/ast_test\/content$/);
     expect(new Headers(init.headers).get("Authorization")).toBe("Bearer signed-token");
   });
+
+  it("downloads the build archive with the bearer token", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(new Uint8Array([1, 2, 3]), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/zip",
+          "Content-Disposition": 'attachment; filename="site.zip"',
+        },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    setAccessToken("signed-token");
+
+    const createObjectURL = vi.fn(() => "blob:download");
+    const revokeObjectURL = vi.fn();
+    vi.stubGlobal("URL", { ...URL, createObjectURL, revokeObjectURL });
+    const click = vi.fn();
+    const remove = vi.fn();
+    const appendChild = vi
+      .spyOn(document.body, "appendChild")
+      .mockImplementation((node) => node);
+    vi.spyOn(document, "createElement").mockReturnValue({
+      click,
+      remove,
+      set href(_value: string) {},
+      get href() {
+        return "";
+      },
+      set download(_value: string) {},
+      set rel(_value: string) {},
+    } as unknown as HTMLAnchorElement);
+
+    await launchKitApi.downloadBuild("/api/v1/builds/bld_test/download");
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toMatch(/\/api\/v1\/builds\/bld_test\/download$/);
+    expect(new Headers(init.headers).get("Authorization")).toBe("Bearer signed-token");
+    expect(createObjectURL).toHaveBeenCalled();
+    expect(click).toHaveBeenCalled();
+    expect(revokeObjectURL).toHaveBeenCalledWith("blob:download");
+    appendChild.mockRestore();
+  });
 });
