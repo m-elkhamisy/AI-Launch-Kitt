@@ -190,7 +190,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return await response.json() as T;
 }
 
-async function requestBlob(path: string, signal?: AbortSignal): Promise<Blob> {
+async function requestText(path: string, signal?: AbortSignal): Promise<string> {
   const url = absoluteApiUrl(path);
   if (!url) {
     throw new LaunchKitApiError("The requested asset URL is missing.", 400, "asset_url_missing");
@@ -206,7 +206,7 @@ async function requestBlob(path: string, signal?: AbortSignal): Promise<Blob> {
       "asset_load_failed",
     );
   }
-  return await response.blob();
+  return await response.text();
 }
 
 export function absoluteApiUrl(path: string | null): string | null {
@@ -267,7 +267,7 @@ export const launchKitApi = {
     }),
   getMockups: (projectId: string) =>
     request<MockupView[]>(`/projects/${projectId}/mockups`),
-  getAssetContent: (path: string, signal?: AbortSignal) => requestBlob(path, signal),
+  getAssetContent: (path: string, signal?: AbortSignal) => requestText(path, signal),
   selectMockup: (projectId: string, mockupId: string) =>
     request<MockupView>(`/projects/${projectId}/selected-mockup`, {
       method: "PUT",

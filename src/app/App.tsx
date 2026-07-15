@@ -2987,7 +2987,7 @@ function PreviewPage({ mockups, selectedMockupId, onConfirm, onBack, busy }: {
   const [selected, setSelected] = useState(
     selectedMockupId ?? mockups[0]?.id ?? "",
   );
-  const [previewUrls, setPreviewUrls] = useState<Record<string, string>>({});
+  const [previewHtml, setPreviewHtml] = useState<Record<string, string>>({});
   const { setValue, handleSubmit, formState: { errors } } = useForm<MockupSelectionValues>({
     resolver: zodResolver(mockupSelectionSchema),
     defaultValues: { mockupId: selectedMockupId ?? mockups[0]?.id ?? "" },
@@ -3003,16 +3003,13 @@ function PreviewPage({ mockups, selectedMockupId, onConfirm, onBack, busy }: {
 
   useEffect(() => {
     const controller = new AbortController();
-    const objectUrls: string[] = [];
-    setPreviewUrls({});
+    setPreviewHtml({});
 
     for (const mockup of mockups) {
       void launchKitApi.getAssetContent(mockup.previewUrl, controller.signal)
         .then((content) => {
           if (controller.signal.aborted) return;
-          const objectUrl = URL.createObjectURL(content);
-          objectUrls.push(objectUrl);
-          setPreviewUrls((current) => ({ ...current, [mockup.id]: objectUrl }));
+          setPreviewHtml((current) => ({ ...current, [mockup.id]: content }));
         })
         .catch((cause) => {
           if (!controller.signal.aborted) {
@@ -3023,7 +3020,6 @@ function PreviewPage({ mockups, selectedMockupId, onConfirm, onBack, busy }: {
 
     return () => {
       controller.abort();
-      for (const objectUrl of objectUrls) URL.revokeObjectURL(objectUrl);
     };
   }, [mockups]);
 
@@ -3142,9 +3138,9 @@ function PreviewPage({ mockups, selectedMockupId, onConfirm, onBack, busy }: {
                     position: "relative",
                   }}
                 >
-                  {previewUrls[v.id] && (
+                  {previewHtml[v.id] && (
                     <iframe
-                      src={previewUrls[v.id]}
+                      srcDoc={previewHtml[v.id]}
                       title={`${v.label} preview`}
                       sandbox="allow-scripts"
                       className="absolute inset-0 w-full h-full border-0"

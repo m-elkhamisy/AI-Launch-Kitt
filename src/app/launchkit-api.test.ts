@@ -129,7 +129,7 @@ describe("Launch Kit API authentication", () => {
       "/api/v1/assets/ast_test/content",
     );
 
-    expect(await content.text()).toBe("<html>preview</html>");
+    expect(content).toBe("<html>preview</html>");
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).toMatch(/\/api\/v1\/assets\/ast_test\/content$/);
     expect(new Headers(init.headers).get("Authorization")).toBe("Bearer signed-token");
