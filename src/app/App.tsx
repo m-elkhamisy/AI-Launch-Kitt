@@ -3732,14 +3732,24 @@ export default function App() {
   useEffect(() => {
     let cancelled = false;
     const boot = async () => {
+      // Unauthenticated users should see login immediately — do not block the
+      // homepage on catalog/API reachability (CORS, network, etc.).
+      if (!hasAccessToken()) {
+        setPage("login");
+        if (!cancelled) setBooting(false);
+        try {
+          const loadedCatalog = await launchKitApi.getCatalog();
+          if (!cancelled) setCatalog(loadedCatalog);
+        } catch {
+          // Catalog is only required after sign-in; login still works without it.
+        }
+        return;
+      }
+
       try {
         const loadedCatalog = await launchKitApi.getCatalog();
         if (cancelled) return;
         setCatalog(loadedCatalog);
-        if (!hasAccessToken()) {
-          setPage("login");
-          return;
-        }
         const projectId = localStorage.getItem(LS_PROJECT_KEY);
         if (!projectId) return;
         const loadedProject = await launchKitApi.getProject(projectId);
@@ -3978,9 +3988,12 @@ export default function App() {
 
   const currentStep = WIZARD_PAGES.indexOf(page);
   const completedUpTo = Math.max(maxReachedStep, currentStep - 1);
-  const needsProject = !["login", "otp"].includes(page);
+  const isAuthPage = page === "login" || page === "otp";
+  const needsProject = !isAuthPage;
 
-  if (booting || !catalog || (needsProject && !project)) {
+  // Login/OTP must render even when the API/catalog is unreachable. Wizard screens
+  // still wait for catalog + project so they never mount with empty data.
+  if (!isAuthPage && (booting || !catalog || (needsProject && !project))) {
     return (
       <div className="min-h-screen w-full flex items-center justify-center" style={{ background: "#0b0b0b" }}>
         <div className="rounded-full" style={{ width: 48, height: 48, border: "3px solid rgba(111,204,221,0.2)", borderTop: "3px solid #6fccdd", animation: "spin 1s linear infinite" }} />
