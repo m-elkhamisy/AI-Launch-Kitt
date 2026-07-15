@@ -580,7 +580,7 @@ function DownloadBtn() {
     <div className="bg-[#6fccdd] h-[36px] relative rounded-[8px] shrink-0 w-full" data-name="download-btn">
       <div className="flex flex-row justify-center size-full">
         <div className="content-stretch flex items-start justify-center px-[16px] py-[10px] relative size-full">
-          <p className="[word-break:break-word] font-['Montserrat:Bold',sans-serif] font-bold leading-[normal] relative shrink-0 text-[#0b0b0b] text-[14px] whitespace-nowrap">Download HTML</p>
+          <p className="[word-break:break-word] font-['Montserrat:Bold',sans-serif] font-bold leading-[normal] relative shrink-0 text-[#0b0b0b] text-[14px] whitespace-nowrap">Download</p>
         </div>
       </div>
     </div>
