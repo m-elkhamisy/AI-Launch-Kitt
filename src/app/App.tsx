@@ -1,17 +1,21 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CircleHelp } from "lucide-react";
+import { CircleHelp, ExternalLink } from "lucide-react";
 import { useForm } from "react-hook-form";
 import {
   absoluteApiUrl,
   BuildView,
+  clearAccessToken,
   createIdempotencyKey,
   DeploymentView,
+  hasAccessToken,
   launchKitApi,
+  LaunchKitApiError,
   MockupView,
   OperationView,
   PageLayout,
   ProjectView,
+  setAccessToken,
   waitForDeployment,
   waitForOperation,
   WizardCatalog,
@@ -547,7 +551,13 @@ function SubNav({
 }
 
 // ─── PAGE 1: Login ────────────────────────────────────────────────────────────
-function LoginPage({ onNext }: { onNext: () => void }) {
+function LoginPage({
+  onNext,
+  busy = false,
+}: {
+  onNext: (email: string) => void | Promise<void>;
+  busy?: boolean;
+}) {
   const p = svgPathsLogin;
   const { register, handleSubmit, formState: { errors } } = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
@@ -616,7 +626,7 @@ function LoginPage({ onNext }: { onNext: () => void }) {
             <div style={{ height: 1, background: "rgba(255,255,255,0.1)", width: "100%" }} />
 
             {/* Form */}
-            <form onSubmit={handleSubmit(() => onNext())} className="flex flex-col gap-[20px] w-full" noValidate>
+            <form onSubmit={handleSubmit(({ email }) => void onNext(email))} className="flex flex-col gap-[20px] w-full" noValidate>
               {/* Email field */}
               <div className="flex flex-col gap-[8px]">
                 <label
@@ -659,6 +669,7 @@ function LoginPage({ onNext }: { onNext: () => void }) {
               {/* Send Code button */}
               <button
                 type="submit"
+                disabled={busy}
                 className="w-full flex items-center justify-center gap-[8px] font-semibold text-[14px] uppercase"
                 style={{
                   background: "#6fccdd",
@@ -667,7 +678,7 @@ function LoginPage({ onNext }: { onNext: () => void }) {
                   padding: "16px 0",
                 }}
               >
-                Send Code
+                {busy ? "Checking..." : "Send Code"}
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                   <path
                     d={p.p3bfa7a00}
@@ -689,7 +700,15 @@ function LoginPage({ onNext }: { onNext: () => void }) {
 }
 
 // ─── PAGE 2: OTP ──────────────────────────────────────────────────────────────
-function OtpPage({ onNext, onBack }: { onNext: () => void; onBack: () => void }) {
+function OtpPage({
+  onNext,
+  onBack,
+  busy = false,
+}: {
+  onNext: (code: string) => void | Promise<void>;
+  onBack: () => void;
+  busy?: boolean;
+}) {
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [focused, setFocused] = useState(0);
 
@@ -718,7 +737,7 @@ function OtpPage({ onNext, onBack }: { onNext: () => void; onBack: () => void })
     }
 
     if (updated.every((digit) => digit !== "")) {
-      void handleSubmit(() => onNext())();
+      void handleSubmit(({ code }) => void onNext(code))();
     }
   };
 
@@ -858,6 +877,7 @@ function OtpPage({ onNext, onBack }: { onNext: () => void; onBack: () => void })
                     inputRefs.current[index] = el;
                   }}
                   value={digit}
+                  disabled={busy}
                   maxLength={1}
                   inputMode="numeric"
                   onFocus={() => setFocused(index)}
@@ -898,7 +918,8 @@ function OtpPage({ onNext, onBack }: { onNext: () => void; onBack: () => void })
 
             {/* Verify Button */}
             <button
-              onClick={() => void handleSubmit(() => onNext())()}
+              onClick={() => void handleSubmit(({ code }) => void onNext(code))()}
+              disabled={busy}
               className="w-full font-semibold text-[14px] uppercase"
               style={{
                 background: "#6fccdd",
@@ -907,7 +928,7 @@ function OtpPage({ onNext, onBack }: { onNext: () => void; onBack: () => void })
                 padding: "16px 0",
               }}
             >
-              Verify Code
+              {busy ? "Verifying..." : "Verify Code"}
             </button>
 
 
@@ -1019,7 +1040,7 @@ function QuestionnairePage({ project, onSave, onUpload, onBack, onStepClick, com
 
   const continueQuestionnaire = () => void handleSubmit(onSave)();
 
-  const fields: Array<Array<{ key: keyof QuestionnaireForm; label: string; placeholder: string; optional?: boolean }>> = [
+  const fields: Array<Array<{ key: keyof QuestionnaireForm; label: string; placeholder: string }>> = [
     [
       { key: "companyName", label: "Company / Brand Name", placeholder: "e.g. Acme Corp" },
       { key: "uniqueness", label: "What makes your business unique?", placeholder: "e.g. 10 years of expertise, eco-friendly..." },
@@ -1030,7 +1051,7 @@ function QuestionnairePage({ project, onSave, onUpload, onBack, onStepClick, com
     ],
     [
       { key: "cta", label: "Main Call to Action", placeholder: "e.g. Get Started Free" },
-      { key: "anythingElse", label: "Anything Else?", placeholder: "Additional context...", optional: true },
+      { key: "anythingElse", label: "Anything Else?", placeholder: "Additional context..." },
     ],
   ];
 
@@ -1200,13 +1221,13 @@ function QuestionnairePage({ project, onSave, onUpload, onBack, onStepClick, com
 
             {fields.map((row, ri) => (
               <div key={ri} className="grid grid-cols-1 sm:grid-cols-2 gap-[24px]">
-                {row.map(({ key, label, placeholder, optional }) => (
+                {row.map(({ key, label, placeholder }) => (
                   <div key={key} className="flex flex-col gap-[8px]">
                     <label
                       className="font-semibold uppercase"
                       style={{ fontSize: 12, color: "#6fccdd", letterSpacing: "0.08em" }}
                     >
-                      {label}{optional ? " (Optional)" : " *"}
+                      {label} (Optional)
                     </label>
                     <div
                       className="flex items-center"
@@ -3220,6 +3241,7 @@ function DownloadPage({ build, deployment, onDeploy, onBack, busy }: {
 }) {
   const p = svgPathsDl;
   const [tip, setTip] = useState(false);
+  const websiteUrl = absoluteApiUrl(build.webUrl ?? build.previewUrl);
 
   return (
     <ScaledPage designHeight={1100} scrollable header={<TopHeader />}>
@@ -3252,12 +3274,31 @@ function DownloadPage({ build, deployment, onDeploy, onBack, busy }: {
 
           {/* Website Preview */}
           <div className="flex flex-col gap-[16px] w-full max-w-[680px] mx-auto items-center sm:items-stretch">
-            <span
-              className="font-semibold uppercase text-[12px] text-center sm:text-left"
-              style={{ color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em" }}
-            >
-              Website Preview
-            </span>
+            <div className="flex items-center justify-between w-full">
+              <span
+                className="font-semibold uppercase text-[12px] text-left"
+                style={{ color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em" }}
+              >
+                Website Preview
+              </span>
+              <button
+                type="button"
+                onClick={() => websiteUrl && window.open(websiteUrl, "_blank", "noopener,noreferrer")}
+                disabled={!websiteUrl}
+                aria-label="Open website preview in a new tab"
+                title="Open website preview in a new tab"
+                className="flex items-center justify-center rounded-[6px] disabled:opacity-40 disabled:cursor-not-allowed"
+                style={{
+                  width: 28,
+                  height: 28,
+                  color: "#6fccdd",
+                  background: "rgba(111,204,221,0.1)",
+                  border: "1px solid rgba(111,204,221,0.25)",
+                }}
+              >
+                <ExternalLink size={15} strokeWidth={1.8} aria-hidden="true" />
+              </button>
+            </div>
             <div
               className="flex flex-col overflow-hidden w-full"
               style={{
@@ -3384,7 +3425,7 @@ function DownloadPage({ build, deployment, onDeploy, onBack, busy }: {
               Next Actions
             </span>
             <div className="flex flex-col sm:flex-row gap-4 justify-center w-full items-stretch">
-              {/* Download HTML */}
+              {/* Download */}
               <div
                 className="flex flex-col gap-[16px] p-[24px] rounded-[16px] w-full sm:w-[280px] mx-auto"
                 style={{ background: "rgba(111,204,221,0.13)", border: "1px solid rgba(111,204,221,0.2)", minHeight: "100%" }}
@@ -3393,7 +3434,7 @@ function DownloadPage({ build, deployment, onDeploy, onBack, busy }: {
                   <path d={p.pdba8e90} stroke="#6fccdd" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
                 <div>
-                  <div className="text-white font-semibold text-[14px]">Download HTML</div>
+                  <div className="text-white font-semibold text-[14px]">Download</div>
                   <div className="font-medium text-[12px] mt-[4px]" style={{ color: "rgba(255,255,255,0.4)" }}>
                     Get your complete HTML files
                   </div>
@@ -3407,7 +3448,7 @@ function DownloadPage({ build, deployment, onDeploy, onBack, busy }: {
                   className="w-full font-semibold text-[13px] py-[10px] rounded-[8px]"
                   style={{ background: "#6fccdd", color: "#0b0b0b" }}
                 >
-                  Download HTML
+                  Download
                 </button>
               </div>
 
@@ -3616,9 +3657,16 @@ function LegacyApp() {
 const LS_PROJECT_KEY = "ailk_projectId";
 const LS_OPERATION_KEY = "ailk_operationId";
 const WIZARD_PAGES: Page[] = ["questionnaire", "category-mood", "colors", "pick-pages"];
+const ACTIVE_BUILD_STATUSES: BuildView["status"][] = [
+  "queued",
+  "submitting",
+  "running",
+  "processing_result",
+];
 
 export default function App() {
   const [page, setPage] = useState<Page>(() => {
+    if (!hasAccessToken()) return "login";
     const saved = localStorage.getItem(LS_PAGE_KEY) as Page | null;
     const restorable: Page[] = [
       ...WIZARD_PAGES, "generating", "preview", "building", "download",
@@ -3638,6 +3686,7 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [booting, setBooting] = useState(true);
+  const [loginEmail, setLoginEmail] = useState("test@innovationcity.com");
 
   const go = useCallback((next: Page) => {
     setPage(next);
@@ -3661,6 +3710,10 @@ export default function App() {
         const loadedCatalog = await launchKitApi.getCatalog();
         if (cancelled) return;
         setCatalog(loadedCatalog);
+        if (!hasAccessToken()) {
+          setPage("login");
+          return;
+        }
         const projectId = localStorage.getItem(LS_PROJECT_KEY);
         if (!projectId) return;
         const loadedProject = await launchKitApi.getProject(projectId);
@@ -3692,6 +3745,12 @@ export default function App() {
           go("pick-pages");
         }
       } catch (cause) {
+        if (cause instanceof LaunchKitApiError && cause.status === 401) {
+          clearAccessToken();
+          setPage("login");
+          setError("Your staging session expired. Sign in again to continue.");
+          return;
+        }
         localStorage.removeItem(LS_PROJECT_KEY);
         localStorage.removeItem(LS_OPERATION_KEY);
         setProject(null);
@@ -3706,23 +3765,41 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!build) return;
-    if (build.status === "completed") {
-      if (page === "building") go("download");
-      return;
-    }
-    if (!["queued", "submitting", "running", "processing_result"].includes(build.status)) return;
+    if (build?.status === "completed" && page === "building") go("download");
+  }, [build?.status, page, go]);
+
+  useEffect(() => {
+    if (!build || !ACTIVE_BUILD_STATUSES.includes(build.status)) return;
+
     let cancelled = false;
-    const timer = window.setTimeout(async () => {
+    let timer: number | undefined;
+
+    const schedulePoll = (delaySeconds: number) => {
+      timer = window.setTimeout(() => void poll(), delaySeconds * 1000);
+    };
+
+    const poll = async () => {
       try {
         const next = await launchKitApi.getBuild(build.id);
-        if (!cancelled) setBuild(next);
+        if (cancelled) return;
+        setBuild(next);
+        setError(null);
+        if (ACTIVE_BUILD_STATUSES.includes(next.status)) {
+          schedulePoll(next.retryAfterSeconds ?? 2);
+        }
       } catch (cause) {
-        if (!cancelled) setError(cause instanceof Error ? cause.message : "Build status could not be refreshed.");
+        if (cancelled) return;
+        setError(cause instanceof Error ? cause.message : "Build status could not be refreshed.");
+        schedulePoll(2);
       }
-    }, (build.retryAfterSeconds ?? 2) * 1000);
-    return () => { cancelled = true; window.clearTimeout(timer); };
-  }, [build?.id, build?.status, build?.message, page, go]);
+    };
+
+    schedulePoll(build.retryAfterSeconds ?? 2);
+    return () => {
+      cancelled = true;
+      if (timer !== undefined) window.clearTimeout(timer);
+    };
+  }, [build?.id]);
 
   const perform = async (action: () => Promise<void>) => {
     setBusy(true);
@@ -3730,6 +3807,10 @@ export default function App() {
     try {
       await action();
     } catch (cause) {
+      if (cause instanceof LaunchKitApiError && cause.status === 401) {
+        clearAccessToken();
+        setPage("login");
+      }
       setError(cause instanceof Error ? cause.message : "The request could not be completed.");
     } finally {
       setBusy(false);
@@ -3738,13 +3819,32 @@ export default function App() {
 
   const ensureProject = async () => {
     if (project) return project;
+    const savedProjectId = localStorage.getItem(LS_PROJECT_KEY);
+    if (savedProjectId) {
+      try {
+        const savedProject = await launchKitApi.getProject(savedProjectId);
+        setProject(savedProject);
+        return savedProject;
+      } catch (cause) {
+        if (!(cause instanceof LaunchKitApiError) || cause.status !== 404) throw cause;
+        localStorage.removeItem(LS_PROJECT_KEY);
+      }
+    }
     const created = await launchKitApi.createProject();
     localStorage.setItem(LS_PROJECT_KEY, created.id);
     setProject(created);
     return created;
   };
 
-  const enterWizard = () => perform(async () => {
+  const requestAccessCode = (email: string) => perform(async () => {
+    await launchKitApi.requestAccessCode(email);
+    setLoginEmail(email.trim().toLowerCase());
+    go("otp");
+  });
+
+  const verifyAccessCode = (code: string) => perform(async () => {
+    const session = await launchKitApi.verifyAccessCode(loginEmail, code);
+    setAccessToken(session.accessToken);
     await ensureProject();
     setMaxReachedStep(Math.max(0, maxReachedStep));
     go("questionnaire");
@@ -3875,8 +3975,8 @@ export default function App() {
   return (
     <div style={{ minHeight: "100vh", width: "100%", background: "#0b0b0b", display: "flex", justifyContent: "center", alignItems: "stretch" }}>
       <div style={{ width: "100%", maxWidth: 1440, minHeight: "100vh", margin: "0 auto", display: "flex", flexDirection: "column" }}>
-        {page === "login" && <LoginPage onNext={() => go("otp")} />}
-        {page === "otp" && <OtpPage onNext={() => void enterWizard()} onBack={goBack} />}
+        {page === "login" && <LoginPage onNext={requestAccessCode} busy={busy} />}
+        {page === "otp" && <OtpPage onNext={verifyAccessCode} onBack={goBack} busy={busy} />}
         {error && (
           <div className="fixed top-[96px] left-1/2 -translate-x-1/2 z-[10000] max-w-[calc(100%-32px)] px-4 py-3 rounded-[8px] flex items-center gap-3" style={{ background: "#2b1717", border: "1px solid rgba(248,113,113,0.5)", color: "white", fontFamily: "'Montserrat', sans-serif" }}>
             <span className="text-[13px] font-medium">{error}</span>

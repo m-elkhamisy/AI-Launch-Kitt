@@ -6,21 +6,40 @@ const requiredText = (label: string, minimum: number, maximum: number) =>
     .min(minimum, `${label} must be at least ${minimum} characters.`)
     .max(maximum, `${label} must be ${maximum} characters or fewer.`);
 
+const optionalText = (label: string, minimum: number, maximum: number) =>
+  z.string()
+    .trim()
+    .max(maximum, `${label} must be ${maximum} characters or fewer.`)
+    .refine(
+      (value) => value.length === 0 || value.length >= minimum,
+      `${label} must be at least ${minimum} characters when provided.`,
+    );
+
 export const loginSchema = z.object({
-  email: z.string().trim().min(1, "Enter your email address.").email("Enter a valid email address.").max(254),
+  email: z.string()
+    .trim()
+    .min(1, "Enter your email address.")
+    .email("Enter a valid email address.")
+    .max(254)
+    .refine(
+      (email) => email.toLowerCase() === "test@innovationcity.com",
+      "Use the enabled staging email address.",
+    ),
 });
 
 export const otpSchema = z.object({
-  code: z.string().regex(/^\d{6}$/, "Enter the complete 6-digit code."),
+  code: z.string()
+    .regex(/^\d{6}$/, "Enter the complete 6-digit code.")
+    .refine((code: string): boolean => code === "123456", "Enter the staging access code."),
 });
 
 export const questionnaireSchema = z.object({
-  companyName: requiredText("Company or brand name", 2, 120),
-  uniqueness: requiredText("Business differentiator", 10, 1_000),
-  customers: requiredText("Customer description", 3, 500),
-  tagline: requiredText("Tagline", 3, 160),
-  cta: requiredText("Call to action", 2, 80),
-  anythingElse: z.string().trim().max(2_000, "Additional context must be 2,000 characters or fewer."),
+  companyName: optionalText("Company or brand name", 2, 120),
+  uniqueness: optionalText("Business differentiator", 10, 1_000),
+  customers: optionalText("Customer description", 3, 500),
+  tagline: optionalText("Tagline", 3, 160),
+  cta: optionalText("Call to action", 2, 80),
+  anythingElse: optionalText("Additional context", 1, 2_000),
 });
 
 export const designSelectionSchema = z.object({

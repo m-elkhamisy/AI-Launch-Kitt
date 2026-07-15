@@ -2,6 +2,13 @@ export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? "http://localh
   .replace(/\/$/, "");
 
 const API_ROOT = `${API_BASE_URL}/api/v1`;
+const AUTH_TOKEN_KEY = "ailk_accessToken";
+
+export type AuthTokenView = {
+  accessToken: string;
+  tokenType: "bearer";
+  expiresInSeconds: number;
+};
 
 export type Choice = { id: string; label: string; description: string };
 export type PaletteChoice = {
@@ -151,6 +158,10 @@ export class LaunchKitApiError extends Error {
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers);
+  const accessToken = localStorage.getItem(AUTH_TOKEN_KEY);
+  if (accessToken && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${accessToken}`);
+  }
   if (init?.body && !(init.body instanceof FormData) && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
@@ -182,7 +193,29 @@ export function createIdempotencyKey(scope: string): string {
   return `${scope}-${id}`;
 }
 
+export function hasAccessToken(): boolean {
+  return Boolean(localStorage.getItem(AUTH_TOKEN_KEY));
+}
+
+export function setAccessToken(accessToken: string): void {
+  localStorage.setItem(AUTH_TOKEN_KEY, accessToken);
+}
+
+export function clearAccessToken(): void {
+  localStorage.removeItem(AUTH_TOKEN_KEY);
+}
+
 export const launchKitApi = {
+  requestAccessCode: (email: string) =>
+    request<{ status: string }>("/auth/request-code", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    }),
+  verifyAccessCode: (email: string, code: string) =>
+    request<AuthTokenView>("/auth/verify", {
+      method: "POST",
+      body: JSON.stringify({ email, code }),
+    }),
   getCatalog: () => request<WizardCatalog>("/catalogs/wizard"),
   createProject: () => request<ProjectView>("/projects", { method: "POST", body: "{}" }),
   getProject: (projectId: string) => request<ProjectView>(`/projects/${projectId}`),
