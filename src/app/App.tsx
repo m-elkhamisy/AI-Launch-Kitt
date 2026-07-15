@@ -18,6 +18,7 @@ import {
   setAccessToken,
   waitForDeployment,
   waitForOperation,
+  watchBuild,
   WizardCatalog,
 } from "./launchkit-api";
 import {
@@ -2986,6 +2987,7 @@ function PreviewPage({ mockups, selectedMockupId, onConfirm, onBack, busy }: {
   const [selected, setSelected] = useState(
     selectedMockupId ?? mockups[0]?.id ?? "",
   );
+  const [previewUrls, setPreviewUrls] = useState<Record<string, string>>({});
   const { setValue, handleSubmit, formState: { errors } } = useForm<MockupSelectionValues>({
     resolver: zodResolver(mockupSelectionSchema),
     defaultValues: { mockupId: selectedMockupId ?? mockups[0]?.id ?? "" },
@@ -2998,6 +3000,32 @@ function PreviewPage({ mockups, selectedMockupId, onConfirm, onBack, busy }: {
     setSelected(nextSelection);
     setValue("mockupId", nextSelection, { shouldValidate: true });
   }, [mockups, selectedMockupId, selected, setValue]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const objectUrls: string[] = [];
+    setPreviewUrls({});
+
+    for (const mockup of mockups) {
+      void launchKitApi.getAssetContent(mockup.previewUrl, controller.signal)
+        .then((content) => {
+          if (controller.signal.aborted) return;
+          const objectUrl = URL.createObjectURL(content);
+          objectUrls.push(objectUrl);
+          setPreviewUrls((current) => ({ ...current, [mockup.id]: objectUrl }));
+        })
+        .catch((cause) => {
+          if (!controller.signal.aborted) {
+            console.error("Mockup preview could not be loaded", cause);
+          }
+        });
+    }
+
+    return () => {
+      controller.abort();
+      for (const objectUrl of objectUrls) URL.revokeObjectURL(objectUrl);
+    };
+  }, [mockups]);
 
   return (
     <ScaledPage
@@ -3114,13 +3142,15 @@ function PreviewPage({ mockups, selectedMockupId, onConfirm, onBack, busy }: {
                     position: "relative",
                   }}
                 >
-                  <iframe
-                    src={absoluteApiUrl(v.previewUrl) ?? undefined}
-                    title={`${v.label} preview`}
-                    sandbox="allow-scripts"
-                    className="absolute inset-0 w-full h-full border-0"
-                    style={{ background: "white", zIndex: 2 }}
-                  />
+                  {previewUrls[v.id] && (
+                    <iframe
+                      src={previewUrls[v.id]}
+                      title={`${v.label} preview`}
+                      sandbox="allow-scripts"
+                      className="absolute inset-0 w-full h-full border-0"
+                      style={{ background: "white", zIndex: 2 }}
+                    />
+                  )}
                   {/* Nav bar */}
                   <div
                     className="flex items-center gap-[8px] px-[12px]"
@@ -3771,34 +3801,24 @@ export default function App() {
   useEffect(() => {
     if (!build || !ACTIVE_BUILD_STATUSES.includes(build.status)) return;
 
-    let cancelled = false;
-    let timer: number | undefined;
-
-    const schedulePoll = (delaySeconds: number) => {
-      timer = window.setTimeout(() => void poll(), delaySeconds * 1000);
-    };
-
-    const poll = async () => {
-      try {
-        const next = await launchKitApi.getBuild(build.id);
-        if (cancelled) return;
+    const controller = new AbortController();
+    void watchBuild(
+      build,
+      (next) => {
+        if (controller.signal.aborted) return;
         setBuild(next);
         setError(null);
-        if (ACTIVE_BUILD_STATUSES.includes(next.status)) {
-          schedulePoll(next.retryAfterSeconds ?? 2);
-        }
-      } catch (cause) {
-        if (cancelled) return;
-        setError(cause instanceof Error ? cause.message : "Build status could not be refreshed.");
-        schedulePoll(2);
+      },
+      controller.signal,
+    ).catch((cause) => {
+      if (controller.signal.aborted) return;
+      if (cause instanceof LaunchKitApiError && cause.status === 401) {
+        clearAccessToken();
+        setPage("login");
       }
-    };
-
-    schedulePoll(build.retryAfterSeconds ?? 2);
-    return () => {
-      cancelled = true;
-      if (timer !== undefined) window.clearTimeout(timer);
-    };
+      setError(cause instanceof Error ? cause.message : "Build status could not be refreshed.");
+    });
+    return () => controller.abort();
   }, [build?.id]);
 
   const perform = async (action: () => Promise<void>) => {

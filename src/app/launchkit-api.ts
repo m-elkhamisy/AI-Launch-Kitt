@@ -130,6 +130,13 @@ export type BuildView = {
   downloadUrl: string | null;
   retryAfterSeconds: number | null;
 };
+export type BuildEventView = {
+  id: number;
+  status: BuildView["status"];
+  stage: string;
+  message: string;
+  createdAt: string;
+};
 export type DeploymentView = {
   id: string;
   buildId: string;
@@ -181,6 +188,25 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     );
   }
   return await response.json() as T;
+}
+
+async function requestBlob(path: string, signal?: AbortSignal): Promise<Blob> {
+  const url = absoluteApiUrl(path);
+  if (!url) {
+    throw new LaunchKitApiError("The requested asset URL is missing.", 400, "asset_url_missing");
+  }
+  const headers = new Headers();
+  const accessToken = localStorage.getItem(AUTH_TOKEN_KEY);
+  if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
+  const response = await fetch(url, { headers, signal, cache: "no-store" });
+  if (!response.ok) {
+    throw new LaunchKitApiError(
+      "The protected preview could not be loaded.",
+      response.status,
+      "asset_load_failed",
+    );
+  }
+  return await response.blob();
 }
 
 export function absoluteApiUrl(path: string | null): string | null {
@@ -241,6 +267,7 @@ export const launchKitApi = {
     }),
   getMockups: (projectId: string) =>
     request<MockupView[]>(`/projects/${projectId}/mockups`),
+  getAssetContent: (path: string, signal?: AbortSignal) => requestBlob(path, signal),
   selectMockup: (projectId: string, mockupId: string) =>
     request<MockupView>(`/projects/${projectId}/selected-mockup`, {
       method: "PUT",
@@ -262,6 +289,137 @@ export const launchKitApi = {
   getDeployment: (deploymentId: string) =>
     request<DeploymentView>(`/deployments/${deploymentId}`),
 };
+
+const ACTIVE_BUILD_STATUSES = new Set<BuildView["status"]>([
+  "queued",
+  "submitting",
+  "running",
+  "processing_result",
+]);
+
+async function streamBuildEvents(
+  buildId: string,
+  afterEventId: number,
+  onEvent: (event: BuildEventView) => void,
+  signal: AbortSignal,
+): Promise<number> {
+  const headers = new Headers({ Accept: "text/event-stream" });
+  const accessToken = localStorage.getItem(AUTH_TOKEN_KEY);
+  if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
+  if (afterEventId > 0) headers.set("Last-Event-ID", String(afterEventId));
+
+  const response = await fetch(`${API_ROOT}/builds/${buildId}/events`, {
+    headers,
+    signal,
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    throw new LaunchKitApiError(
+      "The build event stream could not be opened.",
+      response.status,
+      "event_stream_failed",
+    );
+  }
+  if (!response.body) {
+    throw new LaunchKitApiError(
+      "The build event stream is unavailable.",
+      503,
+      "event_stream_unavailable",
+    );
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let lastEventId = afterEventId;
+
+  const consumeBlock = (block: string) => {
+    let eventType = "message";
+    let eventId = lastEventId;
+    const data: string[] = [];
+    for (const line of block.split(/\r?\n/)) {
+      if (!line || line.startsWith(":")) continue;
+      const separator = line.indexOf(":");
+      const field = separator === -1 ? line : line.slice(0, separator);
+      const value = separator === -1 ? "" : line.slice(separator + 1).replace(/^ /, "");
+      if (field === "event") eventType = value;
+      if (field === "id") eventId = Number.parseInt(value, 10) || eventId;
+      if (field === "data") data.push(value);
+    }
+    if (eventType !== "status" || data.length === 0) return;
+    const event = JSON.parse(data.join("\n")) as BuildEventView;
+    lastEventId = Math.max(eventId, event.id);
+    onEvent(event);
+  };
+
+  while (!signal.aborted) {
+    const { done, value } = await reader.read();
+    buffer += decoder.decode(value, { stream: !done });
+    const blocks = buffer.split(/\r?\n\r?\n/);
+    buffer = blocks.pop() ?? "";
+    for (const block of blocks) consumeBlock(block);
+    if (done) break;
+  }
+  if (buffer.trim()) consumeBlock(buffer);
+  return lastEventId;
+}
+
+function waitForReconnect(delayMilliseconds: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    const timer = window.setTimeout(resolve, delayMilliseconds);
+    signal.addEventListener(
+      "abort",
+      () => {
+        window.clearTimeout(timer);
+        resolve();
+      },
+      { once: true },
+    );
+  });
+}
+
+export async function watchBuild(
+  initialBuild: BuildView,
+  onUpdate: (build: BuildView) => void,
+  signal: AbortSignal,
+): Promise<BuildView> {
+  let current = initialBuild;
+  let lastEventId = 0;
+
+  while (!signal.aborted && ACTIVE_BUILD_STATUSES.has(current.status)) {
+    try {
+      lastEventId = await streamBuildEvents(
+        current.id,
+        lastEventId,
+        (event) => {
+          current = {
+            ...current,
+            status: event.status,
+            stage: event.stage,
+            message: event.message,
+          };
+          onUpdate(current);
+        },
+        signal,
+      );
+    } catch (cause) {
+      if (signal.aborted) return current;
+      if (cause instanceof LaunchKitApiError && cause.status === 401) throw cause;
+    }
+    if (signal.aborted) return current;
+
+    try {
+      current = await launchKitApi.getBuild(current.id);
+      onUpdate(current);
+    } catch (cause) {
+      if (cause instanceof LaunchKitApiError && cause.status === 401) throw cause;
+    }
+    if (ACTIVE_BUILD_STATUSES.has(current.status)) {
+      await waitForReconnect((current.retryAfterSeconds ?? 5) * 1000, signal);
+    }
+  }
+  return current;
+}
 
 export async function waitForOperation(
   operationId: string,
