@@ -16,7 +16,7 @@ describe("restricted staging credentials", () => {
 });
 
 describe("brand questionnaire", () => {
-  it("allows every field to be left empty", () => {
+  it("requires the five core brand fields", () => {
     expect(questionnaireSchema.safeParse({
       companyName: "",
       uniqueness: "",
@@ -24,19 +24,19 @@ describe("brand questionnaire", () => {
       tagline: "",
       cta: "",
       anythingElse: "",
-    }).success).toBe(true);
+    }).success).toBe(false);
   });
 
-  it("validates minimum lengths only when a value is provided", () => {
+  it("allows only additional context to be empty", () => {
     const result = questionnaireSchema.safeParse({
-      companyName: "A",
-      uniqueness: "",
-      customers: "",
-      tagline: "",
-      cta: "",
+      companyName: "Innovation City",
+      uniqueness: "A focused launch platform for growing businesses.",
+      customers: "Founders and product teams",
+      tagline: "Launch with confidence",
+      cta: "Start building",
       anythingElse: "",
     });
 
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
   });
 });

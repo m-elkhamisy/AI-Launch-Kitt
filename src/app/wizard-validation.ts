@@ -34,11 +34,11 @@ export const otpSchema = z.object({
 });
 
 export const questionnaireSchema = z.object({
-  companyName: optionalText("Company or brand name", 2, 120),
-  uniqueness: optionalText("Business differentiator", 10, 1_000),
-  customers: optionalText("Customer description", 3, 500),
-  tagline: optionalText("Tagline", 3, 160),
-  cta: optionalText("Call to action", 2, 80),
+  companyName: requiredText("Company or brand name", 2, 120),
+  uniqueness: requiredText("Business differentiator", 10, 1_000),
+  customers: requiredText("Customer description", 3, 500),
+  tagline: requiredText("Tagline", 3, 160),
+  cta: requiredText("Call to action", 2, 80),
   anythingElse: optionalText("Additional context", 1, 2_000),
 });
 

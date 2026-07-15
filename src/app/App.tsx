@@ -1040,7 +1040,7 @@ function QuestionnairePage({ project, onSave, onUpload, onBack, onStepClick, com
 
   const continueQuestionnaire = () => void handleSubmit(onSave)();
 
-  const fields: Array<Array<{ key: keyof QuestionnaireForm; label: string; placeholder: string }>> = [
+  const fields: Array<Array<{ key: keyof QuestionnaireForm; label: string; placeholder: string; optional?: boolean }>> = [
     [
       { key: "companyName", label: "Company / Brand Name", placeholder: "e.g. Acme Corp" },
       { key: "uniqueness", label: "What makes your business unique?", placeholder: "e.g. 10 years of expertise, eco-friendly..." },
@@ -1051,7 +1051,7 @@ function QuestionnairePage({ project, onSave, onUpload, onBack, onStepClick, com
     ],
     [
       { key: "cta", label: "Main Call to Action", placeholder: "e.g. Get Started Free" },
-      { key: "anythingElse", label: "Anything Else?", placeholder: "Additional context..." },
+      { key: "anythingElse", label: "Anything Else?", placeholder: "Additional context...", optional: true },
     ],
   ];
 
@@ -1221,13 +1221,13 @@ function QuestionnairePage({ project, onSave, onUpload, onBack, onStepClick, com
 
             {fields.map((row, ri) => (
               <div key={ri} className="grid grid-cols-1 sm:grid-cols-2 gap-[24px]">
-                {row.map(({ key, label, placeholder }) => (
+                {row.map(({ key, label, placeholder, optional }) => (
                   <div key={key} className="flex flex-col gap-[8px]">
                     <label
                       className="font-semibold uppercase"
                       style={{ fontSize: 12, color: "#6fccdd", letterSpacing: "0.08em" }}
                     >
-                      {label} (Optional)
+                      {label}{optional ? " (Optional)" : " *"}
                     </label>
                     <div
                       className="flex items-center"
