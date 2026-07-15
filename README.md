@@ -1,4 +1,4 @@
-# AI Launch Kit Frontend
+# AI Launch Kit Frontend 
 
 The React client for the V1 AI Launch Kit workflow. It uses the backend as the
 source of truth for projects, wizard catalogs, uploads, mockups, builds, and
