@@ -30,3 +30,17 @@ body {
 * {
   box-sizing: border-box;
 }
+
+button {
+  transition: transform 0.2s ease, opacity 0.2s ease, background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+button:hover {
+  transform: translateY(-1px);
+  opacity: 0.95;
+}
+
+button:disabled:hover {
+  transform: none;
+  opacity: 1;
+}

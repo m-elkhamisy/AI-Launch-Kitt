@@ -296,6 +296,14 @@ function SubNav({
           {/* Left: back arrow */}
           <button
             onClick={onBack}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.08)";
+              (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background = "none";
+              (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
+            }}
             style={{
               display: "flex",
               alignItems: "center",
@@ -332,6 +340,16 @@ function SubNav({
           <button
             onClick={onNext}
             disabled={!onNext}
+            onMouseEnter={(e) => {
+              if (!onNext) return;
+              (e.currentTarget as HTMLButtonElement).style.background = "#8fe3eb";
+              (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
+            }}
+            onMouseLeave={(e) => {
+              if (!onNext) return;
+              (e.currentTarget as HTMLButtonElement).style.background = "#6fccdd";
+              (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
+            }}
             style={{
               flexShrink: 0,
               fontWeight: 600,
@@ -429,7 +447,19 @@ function SubNav({
       >
       {/* Left: Back + separator + title */}
       <div className="flex items-center gap-[12px] pl-[24px]">
-        <button onClick={onBack} className="flex items-center justify-center">
+        <button
+          onClick={onBack}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.08)";
+            (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+            (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
+          }}
+          className="flex items-center justify-center"
+          style={{ borderRadius: 6 }}
+        >
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
             <path d={n.p8122280} fill="white" />
           </svg>
@@ -475,6 +505,16 @@ function SubNav({
         <button
           onClick={onNext}
           disabled={!onNext}
+          onMouseEnter={(e) => {
+            if (!onNext) return;
+            (e.currentTarget as HTMLButtonElement).style.background = "#8fe3eb";
+            (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
+          }}
+          onMouseLeave={(e) => {
+            if (!onNext) return;
+            (e.currentTarget as HTMLButtonElement).style.background = "#6fccdd";
+            (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
+          }}
           className="font-semibold text-[14px] uppercase px-[24px] py-[12px] rounded-[8px]"
           style={{
             background: onNext ? "#6fccdd" : "rgba(255,255,255,0.08)",
@@ -493,7 +533,27 @@ function SubNav({
 // ─── PAGE 1: Login ────────────────────────────────────────────────────────────
 function LoginPage({ onNext }: { onNext: () => void }) {
   const [email, setEmail] = useState("");
+  const [notice, setNotice] = useState<{ type: "error" | "success"; message: string } | null>(null);
   const p = svgPathsLogin;
+
+  useEffect(() => {
+    if (!notice) return;
+    const timer = window.setTimeout(() => setNotice(null), 3000);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
+
+  const handleNext = () => {
+    const trimmedEmail = email.trim();
+    const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail);
+
+    if (!isValidEmail) {
+      setNotice({ type: "error", message: "Please enter a valid email address." });
+      return;
+    }
+
+    setNotice(null);
+    onNext();
+  };
 
   return (
     <ScaledPage
@@ -565,6 +625,20 @@ function LoginPage({ onNext }: { onNext: () => void }) {
                 >
                   Email Address
                 </label>
+                {notice && (
+                  <div
+                    className="rounded-[12px] border px-[14px] py-[12px]"
+                    style={{
+                      background: "rgba(248,113,113,0.1)",
+                      borderColor: "rgba(248,113,113,0.3)",
+                      color: "#fecaca",
+                      fontSize: 13,
+                      fontWeight: 600,
+                    }}
+                  >
+                    {notice.message}
+                  </div>
+                )}
                 <div
                   className="flex items-center gap-[12px]"
                   style={{
@@ -590,14 +664,22 @@ function LoginPage({ onNext }: { onNext: () => void }) {
                     placeholder="you@example.com"
                     className="flex-1 bg-transparent outline-none font-medium text-[14px]"
                     style={{ color: "white", caretColor: "#6fccdd" }}
-                    onKeyDown={(e) => e.key === "Enter" && onNext()}
+                    onKeyDown={(e) => e.key === "Enter" && handleNext()}
                   />
                 </div>
               </div>
 
               {/* Send Code button */}
               <button
-                onClick={onNext}
+                onClick={handleNext}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.background = "#8fe3eb";
+                  (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.background = "#6fccdd";
+                  (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
+                }}
                 className="w-full flex items-center justify-center gap-[8px] font-semibold text-[14px] uppercase"
                 style={{
                   background: "#6fccdd",
@@ -829,6 +911,14 @@ function OtpPage({ onNext, onBack }: { onNext: () => void; onBack: () => void })
             {/* Verify Button */}
             <button
               onClick={onNext}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.background = "#8fe3eb";
+                (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.background = "#6fccdd";
+                (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
+              }}
               className="w-full font-semibold text-[14px] uppercase"
               style={{
                 background: "#6fccdd",
@@ -864,6 +954,14 @@ function OtpPage({ onNext, onBack }: { onNext: () => void; onBack: () => void })
 
               <button
                 onClick={onBack}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.color = "#6fccdd";
+                  (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.4)";
+                  (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
+                }}
                 className="font-medium text-[13px]"
                 style={{
                   color: "rgba(255,255,255,0.4)",
@@ -909,6 +1007,23 @@ function QuestionnairePage({ onNext, onBack, onStepClick, completedUpTo }: { onN
     cta: "",
     anythingElse: "",
   });
+  const [notice, setNotice] = useState<{ type: "error" | "success"; message: string } | null>(null);
+
+  useEffect(() => {
+    if (!notice) return;
+    const timer = window.setTimeout(() => setNotice(null), 3000);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
+
+  const handleNext = () => {
+    const hasEmptyFields = Object.values(form).some((value) => String(value).trim() === "");
+    if (hasEmptyFields) {
+      setNotice({ type: "error", message: "Please fill in all fields before continuing." });
+      return;
+    }
+    setNotice(null);
+    onNext();
+  };
 
   const fields = [
     [
@@ -929,7 +1044,7 @@ function QuestionnairePage({ onNext, onBack, onStepClick, completedUpTo }: { onN
     <ScaledPage
       designHeight={1100}
       scrollable
-      header={<><TopHeader /><SubNav activeStep={0} completedUpTo={completedUpTo} onBack={onBack} onNext={onNext} onStepClick={onStepClick} /></>}
+      header={<><TopHeader /><SubNav activeStep={0} completedUpTo={completedUpTo} onBack={onBack} onNext={handleNext} onStepClick={onStepClick} /></>}
     >
       <div
         className="w-full min-h-full flex flex-col"
@@ -965,6 +1080,14 @@ function QuestionnairePage({ onNext, onBack, onStepClick, completedUpTo }: { onN
               className="font-semibold text-[14px] underline"
               style={{ color: "#6fccdd" }}
               onClick={(e) => { e.stopPropagation(); setUploadOpen(true); }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.color = "#8fe3eb";
+                (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.color = "#6fccdd";
+                (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
+              }}
             >
               {uploadedFile ? "Change file →" : "Upload here →"}
             </button>
@@ -992,6 +1115,16 @@ function QuestionnairePage({ onNext, onBack, onStepClick, completedUpTo }: { onN
                   <span className="text-white font-semibold text-[18px]">Upload Portfolio</span>
                   <button
                     onClick={() => setUploadOpen(false)}
+                    onMouseEnter={(e) => {
+                      (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.08)";
+                      (e.currentTarget as HTMLButtonElement).style.color = "white";
+                      (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
+                    }}
+                    onMouseLeave={(e) => {
+                      (e.currentTarget as HTMLButtonElement).style.background = "none";
+                      (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.5)";
+                      (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
+                    }}
                     style={{ color: "rgba(255,255,255,0.5)", fontSize: 22, lineHeight: 1, background: "none", border: "none", cursor: "pointer" }}
                   >×</button>
                 </div>
@@ -1052,6 +1185,14 @@ function QuestionnairePage({ onNext, onBack, onStepClick, completedUpTo }: { onN
                     cursor: "pointer",
                   }}
                   onClick={() => fileInputRef.current?.click()}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.background = "#8fe3eb";
+                    (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.background = "#6FCCDD";
+                    (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
+                  }}
                 >
                   Choose File from Computer
                 </button>
@@ -1088,6 +1229,21 @@ function QuestionnairePage({ onNext, onBack, onStepClick, completedUpTo }: { onN
               <div className="w-[8px] h-[8px] rounded-full" style={{ background: "#6fccdd" }} />
             </div>
 
+            {notice && (
+              <div
+                className="rounded-[12px] border px-[14px] py-[12px]"
+                style={{
+                  background: notice.type === "error" ? "rgba(248,113,113,0.1)" : "rgba(111,204,221,0.1)",
+                  borderColor: notice.type === "error" ? "rgba(248,113,113,0.3)" : "rgba(111,204,221,0.25)",
+                  color: notice.type === "error" ? "#fecaca" : "#bdeff3",
+                  fontSize: 13,
+                  fontWeight: 600,
+                }}
+              >
+                {notice.message}
+              </div>
+            )}
+
             {fields.map((row, ri) => (
               <div key={ri} className="grid grid-cols-1 sm:grid-cols-2 gap-[24px]">
                 {row.map(({ key, label, placeholder }) => (
@@ -1123,19 +1279,6 @@ function QuestionnairePage({ onNext, onBack, onStepClick, completedUpTo }: { onN
               </div>
             ))}
 
-            {/* Save button */}
-            <button
-              onClick={onNext}
-              className="w-full font-semibold text-[14px] uppercase"
-              style={{
-                background: "#6fccdd",
-                color: "#0b0b0b",
-                borderRadius: 12,
-                padding: "16px 0",
-              }}
-            >
-              Save &amp; Continue
-            </button>
           </div>
         </div>
       </div>
@@ -1176,23 +1319,54 @@ const ANIMATION_LEVELS = [
 ];
 
 function CategoryMoodPage({ onNext, onBack, onStepClick, completedUpTo }: { onNext: () => void; onBack: () => void; onStepClick?: (step: number) => void; completedUpTo?: number }) {
-  const [category, setCategory] = useState("Tech / SaaS");
-  const [mood, setMood] = useState("Dark & Modern");
+  const [category, setCategory] = useState("");
+  const [mood, setMood] = useState("");
   const [animLevel, setAnimLevel] = useState(2);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showMoodModal, setShowMoodModal] = useState(false);
+  const [notice, setNotice] = useState<{ type: "error" | "success"; message: string } | null>(null);
+
+  useEffect(() => {
+    if (!notice) return;
+    const timer = window.setTimeout(() => setNotice(null), 3000);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
+
+  const handleNext = () => {
+    if (!category.trim() || !mood.trim()) {
+      setNotice({ type: "error", message: "Please choose both a business category and a design mood before continuing." });
+      return;
+    }
+    setNotice(null);
+    onNext();
+  };
 
   return (
     <ScaledPage
       designHeight={1000}
       scrollable
-      header={<><TopHeader /><SubNav activeStep={1} completedUpTo={completedUpTo} onBack={onBack} onNext={onNext} onStepClick={onStepClick} /></>}
+      header={<><TopHeader /><SubNav activeStep={1} completedUpTo={completedUpTo} onBack={onBack} onNext={handleNext} onStepClick={onStepClick} /></>}
     >
       <div
         className="w-full min-h-full flex flex-col"
         style={{ background: "#0b0b0b", fontFamily: "'Montserrat', sans-serif" }}
       >
         <div className="px-[clamp(16px,7vw,120px)] py-[clamp(24px,5vw,48px)] flex flex-col gap-[clamp(24px,5vw,48px)]">
+
+          {notice && (
+            <div
+              className="rounded-[12px] border px-[14px] py-[12px]"
+              style={{
+                background: "rgba(248,113,113,0.1)",
+                borderColor: "rgba(248,113,113,0.3)",
+                color: "#fecaca",
+                fontSize: 13,
+                fontWeight: 600,
+              }}
+            >
+              {notice.message}
+            </div>
+          )}
 
           {/* ── Cards row ─────────────────────────────────────────────────────── */}
           <div className="flex flex-col sm:flex-row gap-3 w-full">
@@ -1208,9 +1382,9 @@ function CategoryMoodPage({ onNext, onBack, onStepClick, completedUpTo }: { onNe
                     Business Category
                   </p>
                   <div className="flex flex-col gap-[6px]">
-                    <h3 className="text-white font-semibold text-[16px] sm:text-[18px] leading-[24px] sm:leading-[28px]">{category}</h3>
+                    <h3 className="text-white font-semibold text-[16px] sm:text-[18px] leading-[24px] sm:leading-[28px]">{category || "Click here to select a category"}</h3>
                     <p className="font-medium text-[13px] sm:text-[14px] leading-[18px] sm:leading-[20px]" style={{ color: "rgba(255,255,255,0.6)", maxWidth: 360 }}>
-                      {BUSINESS_CATEGORIES.find((c) => c.label === category)?.desc ?? ""}
+                      {BUSINESS_CATEGORIES.find((c) => c.label === category)?.desc ?? "Choose your business category to continue."}
                     </p>
                   </div>
                 </div>
@@ -1232,10 +1406,18 @@ function CategoryMoodPage({ onNext, onBack, onStepClick, completedUpTo }: { onNe
                 <div style={{ height: 1, background: "rgba(255,255,255,0.1)", marginBottom: 12 }} />
                 <button
                   onClick={() => setShowCategoryModal(true)}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.color = "#8fe3eb";
+                    (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.color = "#6fccdd";
+                    (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
+                  }}
                   className="flex items-center gap-[8px] font-medium text-[13px] sm:text-[14px] leading-[18px] sm:leading-[20px] w-fit"
                   style={{ color: "#6fccdd" }}
                 >
-                  Choose a different category
+                  Click here to select a category
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                     <path d="M3.33 8H12.67M9.33 5L12.67 8L9.33 11" stroke="#6fccdd" strokeWidth="1.33" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
@@ -1254,9 +1436,9 @@ function CategoryMoodPage({ onNext, onBack, onStepClick, completedUpTo }: { onNe
                     Design Mood
                   </p>
                   <div className="flex flex-col gap-[6px]">
-                    <h3 className="text-white font-semibold text-[16px] sm:text-[18px] leading-[24px] sm:leading-[28px]">{mood}</h3>
+                    <h3 className="text-white font-semibold text-[16px] sm:text-[18px] leading-[24px] sm:leading-[28px]">{mood || "Click here to select a design mood"}</h3>
                     <p className="font-medium text-[13px] sm:text-[14px] leading-[18px] sm:leading-[20px]" style={{ color: "rgba(255,255,255,0.6)", maxWidth: 360 }}>
-                      {DESIGN_MOODS.find((m) => m.label === mood)?.desc ?? ""}
+                      {DESIGN_MOODS.find((m) => m.label === mood)?.desc ?? "Choose a design mood to continue."}
                     </p>
                   </div>
                 </div>
@@ -1273,10 +1455,18 @@ function CategoryMoodPage({ onNext, onBack, onStepClick, completedUpTo }: { onNe
                 <div style={{ height: 1, background: "rgba(255,255,255,0.1)", marginBottom: 12 }} />
                 <button
                   onClick={() => setShowMoodModal(true)}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.color = "#8fe3eb";
+                    (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.color = "#6fccdd";
+                    (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
+                  }}
                   className="flex items-center gap-[8px] font-medium text-[13px] sm:text-[14px] leading-[18px] sm:leading-[20px] w-fit"
                   style={{ color: "#6fccdd" }}
                 >
-                  Choose a different category
+                  Click here to select a design mood
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                     <path d="M3.33 8H12.67M9.33 5L12.67 8L9.33 11" stroke="#6fccdd" strokeWidth="1.33" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
@@ -1379,6 +1569,14 @@ function CategoryMoodPage({ onNext, onBack, onStepClick, completedUpTo }: { onNe
                 </h3>
                 <button
                   onClick={() => setShowCategoryModal(false)}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.16)";
+                    (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.08)";
+                    (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
+                  }}
                   className="text-white font-bold flex items-center justify-center"
                   style={{
                     fontSize: 20,
@@ -1449,6 +1647,14 @@ function CategoryMoodPage({ onNext, onBack, onStepClick, completedUpTo }: { onNe
                 <h3 className="text-white font-semibold" style={{ fontSize: "clamp(17px, 4vw, 20px)" }}>Choose Design Mood</h3>
                 <button
                   onClick={() => setShowMoodModal(false)}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.16)";
+                    (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.08)";
+                    (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
+                  }}
                   className="text-white font-bold text-[20px] w-[32px] h-[32px] flex items-center justify-center"
                   style={{
                     background: "rgba(255,255,255,0.08)",
@@ -1555,6 +1761,14 @@ function ColorsFontsPage({ onNext, onBack, onStepClick, completedUpTo }: { onNex
                   <button
                     key={i}
                     onClick={() => setSelectedPalette(i)}
+                    onMouseEnter={(e) => {
+                      (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
+                      (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 8px 24px rgba(0,0,0,0.2)";
+                    }}
+                    onMouseLeave={(e) => {
+                      (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
+                      (e.currentTarget as HTMLButtonElement).style.boxShadow = "none";
+                    }}
                     className="relative flex flex-col rounded-[8px] overflow-hidden"
                     style={{
                       height: 80,
@@ -1599,6 +1813,14 @@ function ColorsFontsPage({ onNext, onBack, onStepClick, completedUpTo }: { onNex
                 return (
                   <button
                     onClick={() => { if (customPalette) setCustomDraft({ ...customPalette }); setCustomModalOpen(true); }}
+                    onMouseEnter={(e) => {
+                      (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
+                      (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 8px 24px rgba(0,0,0,0.2)";
+                    }}
+                    onMouseLeave={(e) => {
+                      (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
+                      (e.currentTarget as HTMLButtonElement).style.boxShadow = "none";
+                    }}
                     className="relative flex flex-col rounded-[8px] overflow-hidden"
                     style={{
                       height: 80,
@@ -1811,6 +2033,14 @@ function ColorsFontsPage({ onNext, onBack, onStepClick, completedUpTo }: { onNex
                   <div className="flex gap-[12px]">
                     <button
                       onClick={() => setCustomModalOpen(false)}
+                      onMouseEnter={(e) => {
+                        (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.16)";
+                        (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
+                      }}
+                      onMouseLeave={(e) => {
+                        (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.08)";
+                        (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
+                      }}
                       className="flex-1 font-semibold text-[14px]"
                       style={{ background: "rgba(255,255,255,0.08)", color: "white", border: "none", borderRadius: 10, padding: "12px 0", cursor: "pointer" }}
                     >
@@ -1821,6 +2051,14 @@ function ColorsFontsPage({ onNext, onBack, onStepClick, completedUpTo }: { onNex
                         setCustomPalette({ ...customDraft });
                         setSelectedPalette(PALETTES.length);
                         setCustomModalOpen(false);
+                      }}
+                      onMouseEnter={(e) => {
+                        (e.currentTarget as HTMLButtonElement).style.background = "#8fe3eb";
+                        (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
+                      }}
+                      onMouseLeave={(e) => {
+                        (e.currentTarget as HTMLButtonElement).style.background = "#6FCCDD";
+                        (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
                       }}
                       className="flex-1 font-semibold text-[14px]"
                       style={{ background: "#6FCCDD", color: "#0b0b0b", border: "none", borderRadius: 10, padding: "12px 0", cursor: "pointer" }}
@@ -1858,6 +2096,14 @@ function ColorsFontsPage({ onNext, onBack, onStepClick, completedUpTo }: { onNex
                       if (customFont) { setFontDraft({ heading: customFont.heading, body: customFont.body }); setHeadingSearch(customFont.heading); setBodySearch(customFont.body); }
                       else { setFontDraft({ heading: "", body: "" }); setHeadingSearch(""); setBodySearch(""); }
                       setFontModalOpen(true);
+                    }}
+                    onMouseEnter={(e) => {
+                      (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
+                      (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 8px 24px rgba(0,0,0,0.2)";
+                    }}
+                    onMouseLeave={(e) => {
+                      (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
+                      (e.currentTarget as HTMLButtonElement).style.boxShadow = "none";
                     }}
                     className="flex flex-col gap-[10px] p-[16px] text-left"
                     style={{
@@ -1918,9 +2164,12 @@ function ColorsFontsPage({ onNext, onBack, onStepClick, completedUpTo }: { onNex
                           type="text"
                           value={searchVal}
                           onChange={(e) => setSearch(e.target.value)}
-                          placeholder="Search fonts…"
+                          placeholder="Type a font name (e.g. Montserrat)"
                           style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8, color: "white", fontSize: 14, fontFamily: "'Montserrat',sans-serif", padding: "10px 12px", outline: "none", width: "100%" }}
                         />
+                        <p style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", lineHeight: 1.5 }}>
+                          Type a font name to see Google Fonts suggestions in the dropdown below.
+                        </p>
                         {searchVal && (
                           <div style={{ background: "#1a1a1a", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, maxHeight: 180, overflowY: "auto" }}>
                             {filtered.length === 0 ? (
@@ -2005,6 +2254,14 @@ function FontCard({
   return (
     <button
       onClick={onClick}
+      onMouseEnter={(e) => {
+        (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
+        (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 8px 24px rgba(0,0,0,0.2)";
+      }}
+      onMouseLeave={(e) => {
+        (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
+        (e.currentTarget as HTMLButtonElement).style.boxShadow = "none";
+      }}
       className="flex flex-col gap-[10px] p-[16px] text-left"
       style={{
         backdropFilter: "blur(12px)",
@@ -2284,6 +2541,18 @@ function PickPagesPage({ onNext, onBack, onStepClick, completedUpTo }: { onNext:
               </div>
             </div>
 
+            {/* Selection summary strip */}
+            <div className="flex flex-col sm:flex-row sm:items-center items-stretch justify-between gap-3 px-[20px] py-[14px] rounded-[12px]" style={{ background: "rgba(111,204,221,0.05)", border: "1px solid rgba(111,204,221,0.15)" }}>
+              <div>
+                <p className="text-white font-semibold text-[14px]">
+                  {pages.filter((p) => p.selected).length} pages · {totalContentSections} content sections
+                </p>
+                <p className="font-medium text-[12px] mt-[2px]" style={{ color: "rgba(255,255,255,0.4)" }}>
+                  {pages.filter((p) => p.selected).map((p) => p.name).join(", ")}
+                </p>
+              </div>
+            </div>
+
             {/* Page cards grid — 1 col mobile, 2 tablet, 3 desktop */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
               {pages.map((page) => (
@@ -2315,7 +2584,11 @@ function PickPagesPage({ onNext, onBack, onStepClick, completedUpTo }: { onNext:
                     style={{ borderBottom: "1px solid rgba(255,255,255,0.1)" }}
                   >
                     <span className="text-white font-semibold text-[18px] leading-[28px]">{page.name}</span>
-                    <button onClick={(e) => e.stopPropagation()} className="shrink-0">
+                    <button onClick={(e) => e.stopPropagation()} onMouseEnter={(e) => {
+                      (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
+                    }} onMouseLeave={(e) => {
+                      (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
+                    }} className="shrink-0">
                       {page.selected ? (
                         <svg width="22" height="22" viewBox="0 0 20 20" fill="none">
                           <path d={svgPathsCatMood.p1e585400} fill="#6FCCDD" fillRule="evenodd" clipRule="evenodd" />
@@ -2396,6 +2669,14 @@ function PickPagesPage({ onNext, onBack, onStepClick, completedUpTo }: { onNext:
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setOpenMenu(isMenuOpen ? null : { pageId: page.id, sectionId: section.id });
+                                }}
+                                onMouseEnter={(e) => {
+                                  (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.08)";
+                                  (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
+                                }}
+                                onMouseLeave={(e) => {
+                                  (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+                                  (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
                                 }}
                                 className="flex items-center justify-center rounded"
                                 style={{ width: 20, height: 20 }}
@@ -2537,50 +2818,6 @@ function PickPagesPage({ onNext, onBack, onStepClick, completedUpTo }: { onNext:
               ))}
             </div>
 
-            {/* JSON summary strip */}
-            <div
-              className="flex flex-col sm:flex-row sm:items-center items-stretch justify-between gap-3 px-[20px] py-[14px] rounded-[12px]"
-              style={{ background: "rgba(111,204,221,0.05)", border: "1px solid rgba(111,204,221,0.15)" }}
-            >
-              <div>
-                <p className="text-white font-semibold text-[14px]">
-                  {pages.filter((p) => p.selected).length} pages · {totalContentSections} content sections
-                </p>
-                <p className="font-medium text-[12px] mt-[2px]" style={{ color: "rgba(255,255,255,0.4)" }}>
-                  {pages.filter((p) => p.selected).map((p) => p.name).join(", ")}
-                </p>
-              </div>
-              <div className="flex flex-col items-stretch sm:items-end gap-[6px]">
-                {(() => {
-                  const canGenerate = selectedPageCount > 0 && !hasInvalidPage && !atSectionLimit;
-                  return (
-                    <>
-                      <button
-                        onClick={canGenerate ? onNext : undefined}
-                        className="font-semibold text-[14px] uppercase px-[24px] py-[12px] rounded-[8px] w-full sm:w-auto"
-                        style={{
-                          background: canGenerate ? "#6fccdd" : "rgba(255,255,255,0.08)",
-                          color: canGenerate ? "#0b0b0b" : "rgba(255,255,255,0.25)",
-                          cursor: canGenerate ? "pointer" : "not-allowed",
-                          transition: "background 0.2s, color 0.2s",
-                        }}
-                      >
-                        Review &amp; Generate
-                      </button>
-                      {!canGenerate && (
-                        <p style={{ color: "rgba(248,113,113,0.8)", fontSize: 11, textAlign: "right", maxWidth: 240 }}>
-                          {selectedPageCount === 0
-                            ? "Select at least one page to continue."
-                            : hasInvalidPage
-                            ? "Fix page configuration issues before continuing."
-                            : "Remove sections to stay within the 24-section limit."}
-                        </p>
-                      )}
-                    </>
-                  );
-                })()}
-              </div>
-            </div>
           </div>
         </div>
       </div>
@@ -2866,6 +3103,21 @@ function PreviewPage({ onNext, onBack }: { onNext: () => void; onBack: () => voi
 // ─── PAGE 9: Download ─────────────────────────────────────────────────────────
 function DownloadPage({ onBack }: { onBack: () => void }) {
   const p = svgPathsDl;
+  const [downloadNotice, setDownloadNotice] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
+  useEffect(() => {
+    if (!downloadNotice) return;
+    const timer = window.setTimeout(() => setDownloadNotice(null), 3000);
+    return () => window.clearTimeout(timer);
+  }, [downloadNotice]);
+
+  const handlePortfolioDownload = () => {
+    const succeeded = Math.random() > 0.3;
+    setDownloadNotice({
+      type: succeeded ? "success" : "error",
+      message: succeeded ? "Portfolio download started successfully." : "Portfolio download failed. Please try again.",
+    });
+  };
 
   return (
     <ScaledPage designHeight={1100} scrollable header={<TopHeader />}>
@@ -3014,18 +3266,50 @@ function DownloadPage({ onBack }: { onBack: () => void }) {
           </div>
 
           {/* Next Actions */}
-          <div className="flex flex-col gap-[16px] w-full max-w-[680px] mx-auto items-center">
+          <div className="flex flex-col gap-[16px] w-full max-w-[900px] mx-auto items-center">
+            {downloadNotice && (
+              <div
+                className="w-full rounded-[12px] border px-[14px] py-[12px] text-center"
+                style={{
+                  background: downloadNotice.type === "success" ? "rgba(111,204,221,0.12)" : "rgba(248,113,113,0.12)",
+                  borderColor: downloadNotice.type === "success" ? "rgba(111,204,221,0.3)" : "rgba(248,113,113,0.3)",
+                  color: downloadNotice.type === "success" ? "#bdeff3" : "#fecaca",
+                  fontSize: 13,
+                  fontWeight: 600,
+                }}
+              >
+                {downloadNotice.message}
+              </div>
+            )}
             <span
               className="font-semibold uppercase text-[12px] text-center"
               style={{ color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em" }}
             >
               Next Actions
             </span>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center w-full items-stretch">
+
+            <div
+              className="w-full rounded-[14px] border border-white/10 bg-[rgba(255,255,255,0.03)] px-[16px] py-[12px] sm:px-[20px]"
+              style={{ color: "rgba(255,255,255,0.75)" }}
+            >
+              <div className="flex items-start gap-[10px]">
+                <div className="mt-[2px] flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#6fccdd]/20">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                    <path d="M12 5v14M12 19l-5-5m5 5 5-5" stroke="#6fccdd" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </div>
+                <div className="text-[12px] sm:text-[13px] leading-[1.6]">
+                  Deploying your website uses Vercel. Clicking "Deploy Now" will redirect you to Vercel, where you can sign in with your email or create a new account to publish your website.
+                </div>
+              </div>
+            </div>
+
+            <div className="grid w-full gap-4 sm:grid-cols-2">
+              
               {/* Download HTML */}
               <div
-                className="flex flex-col gap-[16px] p-[24px] rounded-[16px] w-full sm:w-[280px] mx-auto"
-                style={{ background: "rgba(111,204,221,0.13)", border: "1px solid rgba(111,204,221,0.2)", minHeight: "100%" }}
+                className="flex flex-col gap-[16px] p-[24px] rounded-[16px] w-full min-h-full"
+                style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.12)" }}
               >
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
                   <path d={p.pdba8e90} stroke="#6fccdd" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -3037,79 +3321,122 @@ function DownloadPage({ onBack }: { onBack: () => void }) {
                   </div>
                 </div>
                 <button
-                  className="w-full font-semibold text-[13px] py-[10px] rounded-[8px]"
-                  style={{ background: "#6fccdd", color: "#0b0b0b" }}
+                  className="w-full font-semibold text-[13px] py-[10px] rounded-[8px] uppercase transition-all duration-200"
+                  style={{
+                     border: "1.5px solid #6fccdd",
+                     color: "#6fccdd",
+                    background: "transparent",
+                  }}
+                  onMouseEnter={(e) => {
+                   (e.currentTarget as HTMLButtonElement).style.background = "#6fccdd";
+                   (e.currentTarget as HTMLButtonElement).style.color = "#0b0b0b";
+                   (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
+                  }}
+                  onMouseLeave={(e) => {
+                   (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+                   (e.currentTarget as HTMLButtonElement).style.color = "#6fccdd";
+                   (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
+                  }}
                 >
                   Download HTML
                 </button>
               </div>
 
+              {/* Download Brochure */}
+              <div
+                className="flex flex-col gap-[16px] p-[24px] rounded-[16px] w-full min-h-full"
+                style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.1)" }}
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                  <path d="M7 4h7l4 4v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z" stroke="#6fccdd" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M14 4v4h4" stroke="#6fccdd" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M9 13h6M9 16h4" stroke="#6fccdd" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                <div>
+                  <div className="text-white font-semibold text-[14px]">Download Brochure</div>
+                  <div className="font-medium text-[12px] mt-[4px]" style={{ color: "rgba(255,255,255,0.4)" }}>
+                    Share your website story in a polished PDF
+                  </div>
+                </div>
+                <button
+                  className="w-full font-semibold text-[13px] py-[10px] rounded-[8px] uppercase transition-all duration-200"
+                  style={{ border: "1.5px solid #6fccdd", color: "#6fccdd", background: "transparent" }}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.background = "#6fccdd";
+                    (e.currentTarget as HTMLButtonElement).style.color = "#0b0b0b";
+                    (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+                    (e.currentTarget as HTMLButtonElement).style.color = "#6fccdd";
+                    (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
+                  }}
+                >
+                  Download Brochure
+                </button>
+              </div>
+
+              {/* Download Portfolio */}
+              <div
+                className="flex flex-col gap-[16px] p-[24px] rounded-[16px] w-full min-h-full"
+                style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.12)" }}
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                  <path d="M4 7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7Z" stroke="#6fccdd" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M9 13h6M9 16h4" stroke="#6fccdd" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                <div>
+                  <div className="text-white font-semibold text-[14px]">Download Portfolio</div>
+                  <div className="font-medium text-[12px] mt-[4px]" style={{ color: "rgba(255,255,255,0.4)" }}>
+                    Export a polished portfolio package
+                  </div>
+                </div>
+                <button
+                  className="w-full font-semibold text-[13px] py-[10px] rounded-[8px] uppercase transition-all duration-200"
+                  style={{ border: "1.5px solid #6fccdd", color: "#6fccdd", background: "transparent" }}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.background = "#6fccdd";
+                    (e.currentTarget as HTMLButtonElement).style.color = "#0b0b0b";
+                    (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+                    (e.currentTarget as HTMLButtonElement).style.color = "#6fccdd";
+                    (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
+                  }}
+                  onClick={handlePortfolioDownload}
+                >
+                  Download Portfolio
+                </button>
+              </div>
+
               {/* Deploy */}
               <div
-                className="flex flex-col gap-[16px] p-[24px] rounded-[16px] w-full sm:w-[280px] mx-auto"
-                style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.1)", minHeight: "100%" }}
+                className="flex flex-col gap-[16px] p-[24px] rounded-[16px] w-full min-h-full"
+                style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.12)" }}
               >
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
                   <path d={p.p3d0d0400} stroke="#6fccdd" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
                 <div>
-                  <div className="flex items-center gap-[6px]">
-                    <span className="text-white font-semibold text-[14px]">Deploy to Domain</span>
-                    {(() => {
-                      const [tip, setTip] = useState(false);
-                      return (
-                        <div style={{ position: "relative", display: "inline-flex" }}>
-                          <button
-                            onMouseEnter={() => setTip(true)}
-                            onMouseLeave={() => setTip(false)}
-                            onClick={() => setTip(v => !v)}
-                            style={{ background: "none", border: "none", padding: 0, cursor: "pointer", lineHeight: 1, color: "rgba(255,255,255,0.35)", fontSize: 14, display: "flex", alignItems: "center" }}
-                            aria-label="More information"
-                          >
-                            ⓘ
-                          </button>
-                          {tip && (
-                            <div
-                              style={{
-                                position: "absolute",
-                                bottom: "calc(100% + 8px)",
-                                left: "50%",
-                                transform: "translateX(-50%)",
-                                width: 240,
-                                background: "#1e1e1e",
-                                border: "1px solid rgba(255,255,255,0.12)",
-                                borderRadius: 12,
-                                padding: "12px 14px",
-                                boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
-                                fontSize: 12,
-                                fontWeight: 500,
-                                color: "rgba(255,255,255,0.7)",
-                                lineHeight: 1.6,
-                                zIndex: 100,
-                                pointerEvents: "none",
-                              }}
-                            >
-                              Deploying your website uses Vercel. Clicking 'Deploy Now' will redirect you to Vercel, where you can sign in with your email or create a new account to publish your website.
-                              <div style={{
-                                position: "absolute", bottom: -5, left: "50%", transform: "translateX(-50%)",
-                                width: 10, height: 10, background: "#1e1e1e",
-                                border: "1px solid rgba(255,255,255,0.12)",
-                                borderTop: "none", borderLeft: "none",
-                                rotate: "45deg",
-                              }} />
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })()}
-                  </div>
+                  <div className="text-white font-semibold text-[14px]">Deploy to Domain</div>
                   <div className="font-medium text-[12px] mt-[4px]" style={{ color: "rgba(255,255,255,0.4)" }}>
                     Requires a connected domain
                   </div>
                 </div>
                 <button
-                  className="w-full font-semibold text-[13px] py-[10px] rounded-[8px] uppercase"
+                  className="w-full font-semibold text-[13px] py-[10px] rounded-[8px] uppercase transition-all duration-200"
                   style={{ border: "1.5px solid #6fccdd", color: "#6fccdd", background: "transparent" }}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.background = "#6fccdd";
+                    (e.currentTarget as HTMLButtonElement).style.color = "#0b0b0b";
+                    (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+                    (e.currentTarget as HTMLButtonElement).style.color = "#6fccdd";
+                    (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
+                  }}
                 >
                   Deploy Now
                 </button>
