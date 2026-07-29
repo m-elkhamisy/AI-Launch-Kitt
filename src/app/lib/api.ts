@@ -18,7 +18,10 @@ export class ApiError extends Error {
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let res: Response;
   try {
-    res = await fetch(`${BASE}${path}`, init);
+    res = await fetch(`${BASE}${path}`, {
+      credentials: "include",
+      ...init,
+    });
   } catch {
     throw new ApiError(0, "Cannot reach the server — is the backend running?");
   }

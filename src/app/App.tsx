@@ -1,6 +1,13 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 
 import * as api from "@/app/lib/api";
+import {
+  AuthUser,
+  consumeAuthQueryParams,
+  fetchAuthMe,
+  logoutSession,
+  startOAuthLogin,
+} from "@/app/lib/auth";
 import { loadWizard, saveWizard, resetWizardPipeline, buildSubmissionData } from "@/app/lib/wizardStore";
 import svgPathsLogin from "@/imports/AiLaunchKitLoginPage/svg-8vlpvs8i0v";
 import svgPathsDl from "@/imports/AiLaunchKitDownloadingGeneratedWebsitesPage/svg-7argp47g3q";
@@ -22,8 +29,8 @@ type Page =
   | "preview"
   | "download";
 
-// ─── Page Wrapper ─────────────────────────────────────────────────────────────
-// Fluid container (w-full, capped at a max design width) — content reflows
+// ??? Page Wrapper ?????????????????????????????????????????????????????????????
+// Fluid container (w-full, capped at a max design width) ? content reflows
 // at every viewport size instead of being locked to a fixed-width canvas.
 function ScaledPage({
   children,
@@ -51,7 +58,7 @@ function ScaledPage({
     >
       {/* Header/nav renders at native size, full viewport width. */}
       {header && <div className="w-full flex-shrink-0">{header}</div>}
-      {/* Body content is a genuinely fluid container — no fixed-width/zoom canvas — so it
+      {/* Body content is a genuinely fluid container ? no fixed-width/zoom canvas ? so it
           reflows at every viewport width instead of leaving dead space around a locked 1440px design. */}
       <div
         className="w-full mx-auto"
@@ -60,7 +67,7 @@ function ScaledPage({
           maxWidth: 1440,
           padding: "0 clamp(16px, 3vw, 32px)",
           boxSizing: "border-box",
-          // Always grow to fill the remaining viewport height — otherwise short pages leave
+          // Always grow to fill the remaining viewport height ? otherwise short pages leave
           // dead space below instead of the content/background filling the screen.
           // minHeight:100vh on the outer wrapper has no cap, so tall content still grows
           // past one viewport and scrolls normally.
@@ -76,7 +83,7 @@ function ScaledPage({
   );
 }
 
-// ─── Logo SVG ─────────────────────────────────────────────────────────────────
+// ??? Logo SVG ?????????????????????????????????????????????????????????????????
 function LogoSvg() {
   const p = svgPathsLogin;
   const whiteLetters = [
@@ -114,7 +121,7 @@ function LogoSvg() {
   );
 }
 
-// ─── Top Header ───────────────────────────────────────────────────────────────
+// ??? Top Header ???????????????????????????????????????????????????????????????
 function TopHeader({ showProfile = true }: { showProfile?: boolean }) {
   const p = svgPathsLogin;
   return (
@@ -142,7 +149,7 @@ function TopHeader({ showProfile = true }: { showProfile?: boolean }) {
   );
 }
 
-// ─── Sub-Nav Bar ──────────────────────────────────────────────────────────────
+// ??? Sub-Nav Bar ??????????????????????????????????????????????????????????????
 const STEPS = [
   { label: "Business", iconKey: "building" },
   { label: "Design Category & Mood", iconKey: "widget" },
@@ -169,9 +176,9 @@ function SubNav({
   const n = svgPathsNav;
 
   // Colours per state matching the Figma design exactly:
-  //   done (completed)  → teal check-circle
-  //   active (current)  → teal icon  #6FCCDD
-  //   future            → dimmed white/grey icon
+  //   done (completed)  ? teal check-circle
+  //   active (current)  ? teal icon  #6FCCDD
+  //   future            ? dimmed white/grey icon
   function StepIcon({ iconKey, done, active }: { iconKey: string; done: boolean; active: boolean }) {
     if (done) {
       // Teal filled check-circle (same path used across all Figma screens)
@@ -186,7 +193,7 @@ function SubNav({
     }
 
     const teal = "#6FCCDD";
-    // Active step → full teal; future step → dimmed
+    // Active step ? full teal; future step ? dimmed
     const fill = active ? teal : undefined;
     const opacity = active ? 1 : undefined;
 
@@ -220,7 +227,7 @@ function SubNav({
     }
 
     if (iconKey === "widget") {
-      // Widget 2 icon — Figma Frame5
+      // Widget 2 icon ? Figma Frame5
       const wFill = active ? teal : "rgba(128,128,128,0.55)";
       return (
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -233,7 +240,7 @@ function SubNav({
     }
 
     if (iconKey === "palette") {
-      // Palette icon — Figma Frame6
+      // Palette icon ? Figma Frame6
       const pFill = active ? teal : "rgba(255,255,255,0.2)";
       return (
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -243,7 +250,7 @@ function SubNav({
     }
 
     if (iconKey === "document") {
-      // Document Text icon — Figma Frame8
+      // Document Text icon ? Figma Frame8
       const dFill = active ? teal : "rgba(255,255,255,0.2)";
       return (
         <svg width="18" height="20" viewBox="0 0 18 20" fill="none">
@@ -255,7 +262,7 @@ function SubNav({
     return null;
   }
 
-  // ── Shared chevron connector ────────────────────────────────────────────
+  // ?? Shared chevron connector ????????????????????????????????????????????
   const Chevron = ({ small }: { small?: boolean }) => (
     <svg
       width={small ? 6 : 8}
@@ -269,12 +276,12 @@ function SubNav({
   );
 
   // Both layouts render together; Tailwind's `md:` breakpoint (CSS media query, not JS)
-  // decides which is visible — no isMobile JS branching.
+  // decides which is visible ? no isMobile JS branching.
   return (
     <>
-      {/* ── Compact layout (below lg) — two-row strip. The full breadcrumb below
+      {/* ?? Compact layout (below lg) ? two-row strip. The full breadcrumb below
           needs ~700px for its longest label ("Design Category & Mood"), so it only
-          switches in once there's room to avoid overlapping the back/next buttons. ── */}
+          switches in once there's room to avoid overlapping the back/next buttons. ?? */}
       <div
         className="flex lg:hidden flex-col"
         style={{
@@ -283,7 +290,7 @@ function SubNav({
           fontFamily: "'Montserrat', sans-serif",
         }}
       >
-        {/* ── Row 1: back arrow · title · Next button ── */}
+        {/* ?? Row 1: back arrow ? title ? Next button ?? */}
         <div
           style={{
             height: 48,
@@ -371,9 +378,9 @@ function SubNav({
           </button>
         </div>
 
-        {/* ── Row 2: step strip — icon-only except active step shows icon + label.
+        {/* ?? Row 2: step strip ? icon-only except active step shows icon + label.
             The active label is width-capped with ellipsis so this row always fits without
-            ever needing to scroll horizontally, down to a 320px viewport. ── */}
+            ever needing to scroll horizontally, down to a 320px viewport. ?? */}
         <div
           style={{
             height: 40,
@@ -437,7 +444,7 @@ function SubNav({
         </div>
       </div>
 
-      {/* ── Full layout (lg and up) — breadcrumb + back/next ──────────────── */}
+      {/* ?? Full layout (lg and up) ? breadcrumb + back/next ???????????????? */}
       <div
         className="hidden lg:flex relative items-center"
         style={{
@@ -532,29 +539,51 @@ function SubNav({
   );
 }
 
-// ─── PAGE 1: Login ────────────────────────────────────────────────────────────
-function LoginPage({ onNext }: { onNext: () => void }) {
-  const [email, setEmail] = useState("");
-  const [notice, setNotice] = useState<{ type: "error" | "success"; message: string } | null>(null);
+// ??? PAGE 1: Login (OAuth PKCE ? IC-hosted email OTP) ?????????????????????????
+function LoginPage({
+  onAuthenticated,
+  initialError,
+}: {
+  onAuthenticated: (user: AuthUser) => void;
+  initialError?: string | null;
+}) {
+  const [notice, setNotice] = useState<{ type: "error" | "success"; message: string } | null>(
+    initialError ? { type: "error", message: initialError } : null,
+  );
+  const [checking, setChecking] = useState(true);
+  const [starting, setStarting] = useState(false);
   const p = svgPathsLogin;
 
   useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const me = await fetchAuthMe();
+        if (!cancelled && me.authenticated && me.user) {
+          onAuthenticated(me.user);
+          return;
+        }
+      } catch {
+        // Stay on login if session check fails.
+      } finally {
+        if (!cancelled) setChecking(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [onAuthenticated]);
+
+  useEffect(() => {
     if (!notice) return;
-    const timer = window.setTimeout(() => setNotice(null), 3000);
+    const timer = window.setTimeout(() => setNotice(null), 5000);
     return () => window.clearTimeout(timer);
   }, [notice]);
 
-  const handleNext = () => {
-    const trimmedEmail = email.trim();
-    const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail);
-
-    if (!isValidEmail) {
-      setNotice({ type: "error", message: "Please enter a valid email address." });
-      return;
-    }
-
+  const handleLogin = () => {
+    setStarting(true);
     setNotice(null);
-    onNext();
+    startOAuthLogin();
   };
 
   return (
@@ -570,7 +599,6 @@ function LoginPage({ onNext }: { onNext: () => void }) {
             background: "#0b0b0b",
           }}
         >
-          {/* Innovation City logo mark + wordmark */}
           <LogoSvg />
         </div>
       }
@@ -579,7 +607,6 @@ function LoginPage({ onNext }: { onNext: () => void }) {
         className="w-full flex flex-col flex-1"
         style={{ background: "#0b0b0b", fontFamily: "'Montserrat', sans-serif", minHeight: "100%" }}
       >
-        {/* Page body — card centered */}
         <div className="flex flex-1 items-center justify-center p-5 sm:p-6">
           <div
             className="flex flex-col items-center gap-[28px] w-full max-w-[480px] p-6 sm:p-12"
@@ -589,7 +616,6 @@ function LoginPage({ onNext }: { onNext: () => void }) {
               borderRadius: 20,
             }}
           >
-            {/* Card header — logo mark + text centered */}
             <div className="flex flex-col items-center gap-[16px] w-full">
               <div
                 className="flex items-center justify-center"
@@ -609,72 +635,36 @@ function LoginPage({ onNext }: { onNext: () => void }) {
               <div className="text-center">
                 <h2 className="text-white font-semibold text-[18px] mb-[8px]">Welcome back</h2>
                 <p style={{ color: "rgba(255,255,255,0.6)", fontSize: 14, fontWeight: 500 }}>
-                  Enter your email to receive a one-time code
+                  Sign in with Microsoft using your Innovation City account
                 </p>
               </div>
             </div>
 
-            {/* Divider */}
             <div style={{ height: 1, background: "rgba(255,255,255,0.1)", width: "100%" }} />
 
-            {/* Form */}
             <div className="flex flex-col gap-[20px] w-full">
-              {/* Email field */}
-              <div className="flex flex-col gap-[8px]">
-                <label
-                  className="font-semibold uppercase"
-                  style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", letterSpacing: "0.08em" }}
-                >
-                  Email Address
-                </label>
-                {notice && (
-                  <div
-                    className="rounded-[12px] border px-[14px] py-[12px]"
-                    style={{
-                      background: "rgba(248,113,113,0.1)",
-                      borderColor: "rgba(248,113,113,0.3)",
-                      color: "#fecaca",
-                      fontSize: 13,
-                      fontWeight: 600,
-                    }}
-                  >
-                    {notice.message}
-                  </div>
-                )}
+              {notice && (
                 <div
-                  className="flex items-center gap-[12px]"
+                  className="rounded-[12px] border px-[14px] py-[12px]"
                   style={{
-                    background: "rgba(255,255,255,0.03)",
-                    border: "1px solid rgba(255,255,255,0.1)",
-                    borderRadius: 12,
-                    padding: "14px 16px",
+                    background:
+                      notice.type === "error" ? "rgba(248,113,113,0.1)" : "rgba(111,204,221,0.1)",
+                    borderColor:
+                      notice.type === "error" ? "rgba(248,113,113,0.3)" : "rgba(111,204,221,0.3)",
+                    color: notice.type === "error" ? "#fecaca" : "#b7eef5",
+                    fontSize: 13,
+                    fontWeight: 600,
                   }}
                 >
-                  <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-                    <path
-                      d={p.pd3d5900}
-                      stroke="rgba(255,255,255,0.6)"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="you@example.com"
-                    className="flex-1 bg-transparent outline-none font-medium text-[14px]"
-                    style={{ color: "white", caretColor: "#6fccdd" }}
-                    onKeyDown={(e) => e.key === "Enter" && handleNext()}
-                  />
+                  {notice.message}
                 </div>
-              </div>
+              )}
 
-              {/* Send Code button */}
               <button
-                onClick={handleNext}
+                onClick={handleLogin}
+                disabled={checking || starting}
                 onMouseEnter={(e) => {
+                  if (checking || starting) return;
                   (e.currentTarget as HTMLButtonElement).style.background = "#8fe3eb";
                   (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
                 }}
@@ -688,9 +678,11 @@ function LoginPage({ onNext }: { onNext: () => void }) {
                   color: "#0b0b0b",
                   borderRadius: 12,
                   padding: "16px 0",
+                  opacity: checking || starting ? 0.7 : 1,
+                  cursor: checking || starting ? "wait" : "pointer",
                 }}
               >
-                Send Code
+                {checking ? "Checking session?" : starting ? "Redirecting?" : "Sign in with Microsoft"}
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                   <path
                     d={p.p3bfa7a00}
@@ -701,9 +693,15 @@ function LoginPage({ onNext }: { onNext: () => void }) {
                   />
                 </svg>
               </button>
-            </div>
 
-            
+              <p
+                className="text-center"
+                style={{ color: "rgba(255,255,255,0.45)", fontSize: 12, fontWeight: 500, lineHeight: 1.5 }}
+              >
+                You will be redirected to Microsoft to sign in. Only
+                @innovationcity.com accounts are allowed.
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -711,7 +709,7 @@ function LoginPage({ onNext }: { onNext: () => void }) {
   );
 }
 
-// ─── PAGE 2: OTP ──────────────────────────────────────────────────────────────
+// ??? PAGE 2: OTP ??????????????????????????????????????????????????????????????
 function OtpPage({ onNext, onBack }: { onNext: () => void; onBack: () => void }) {
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [focused, setFocused] = useState(0);
@@ -969,7 +967,7 @@ function OtpPage({ onNext, onBack }: { onNext: () => void; onBack: () => void })
                   color: "rgba(255,255,255,0.4)",
                 }}
               >
-                ← Back to email
+                ? Back to email
               </button>
 
             </div>
@@ -982,7 +980,7 @@ function OtpPage({ onNext, onBack }: { onNext: () => void; onBack: () => void })
     </ScaledPage>
   );
 }
-// ─── PAGE 3: Questionnaire ────────────────────────────────────────────────────
+// ??? PAGE 3: Questionnaire ????????????????????????????????????????????????????
 function QuestionnairePage({ onNext, onBack, onStepClick, completedUpTo }: { onNext: () => void; onBack: () => void; onStepClick?: (step: number) => void; completedUpTo?: number }) {
   const p = svgPathsMerged;
   const [uploadOpen, setUploadOpen] = useState(false);
@@ -990,7 +988,7 @@ function QuestionnairePage({ onNext, onBack, onStepClick, completedUpTo }: { onN
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Upload → POST /extract → pre-fill the form from the PDF
+  // Upload ? POST /extract ? pre-fill the form from the PDF
   async function extractFromPdf(file: File) {
     setUploadedFile(file);
     setExtracting(true);
@@ -1017,7 +1015,7 @@ function QuestionnairePage({ onNext, onBack, onStepClick, completedUpTo }: { onN
         },
       });
       setUploadOpen(false);
-      setNotice({ type: "success", message: "Details extracted from your document — review and continue." });
+      setNotice({ type: "success", message: "Details extracted from your document ? review and continue." });
     } catch (err: any) {
       const d = err?.detail;
       setNotice({
@@ -1025,7 +1023,7 @@ function QuestionnairePage({ onNext, onBack, onStepClick, completedUpTo }: { onN
         message:
           (typeof d === "object" && d?.reason) ||
           (typeof d === "string" && d) ||
-          "Could not read that PDF — please fill the form manually.",
+          "Could not read that PDF ? please fill the form manually.",
       });
     } finally {
       setExtracting(false);
@@ -1128,7 +1126,7 @@ function QuestionnairePage({ onNext, onBack, onStepClick, completedUpTo }: { onN
                 (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
               }}
             >
-              {uploadedFile ? "Change file →" : "Upload here →"}
+              {uploadedFile ? "Change file ?" : "Upload here ?"}
             </button>
           </div>
 
@@ -1151,7 +1149,7 @@ function QuestionnairePage({ onNext, onBack, onStepClick, completedUpTo }: { onN
               >
                 {/* Header */}
                 <div className="flex items-center justify-between w-full">
-                  <span className="text-white font-semibold text-[18px]">Upload Portfolio{extracting ? " — reading your document…" : ""}</span>
+                  <span className="text-white font-semibold text-[18px]">Upload Portfolio{extracting ? " ? reading your document?" : ""}</span>
                   <button
                     onClick={() => setUploadOpen(false)}
                     onMouseEnter={(e) => {
@@ -1165,7 +1163,7 @@ function QuestionnairePage({ onNext, onBack, onStepClick, completedUpTo }: { onN
                       (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
                     }}
                     style={{ color: "rgba(255,255,255,0.5)", fontSize: 22, lineHeight: 1, background: "none", border: "none", cursor: "pointer" }}
-                  >×</button>
+                  >?</button>
                 </div>
 
                 {/* Drop zone */}
@@ -1194,7 +1192,7 @@ function QuestionnairePage({ onNext, onBack, onStepClick, completedUpTo }: { onN
                     <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 13, marginTop: 6 }}>or click to browse from your computer</p>
                   </div>
                   <p style={{ color: "rgba(255,255,255,0.3)", fontSize: 12 }}>
-                    PDF · DOCX · PPTX · TXT · PNG · JPG — max 20 MB
+                    PDF ? DOCX ? PPTX ? TXT ? PNG ? JPG ? max 20 MB
                   </p>
                 </div>
 
@@ -1325,11 +1323,11 @@ function QuestionnairePage({ onNext, onBack, onStepClick, completedUpTo }: { onN
   );
 }
 
-// ─── PAGE 4: Category & Mood ──────────────────────────────────────────────────
+// ??? PAGE 4: Category & Mood ??????????????????????????????????????????????????
 const BUSINESS_CATEGORIES = [
   { label: "Corporate Enterprise", desc: "Ideal for established businesses that need a professional online presence to build trust and attract clients." },
   { label: "Bookshop", desc: "Independent or chain bookstore selling physical or digital books to avid readers." },
-  { label: "Coffee Shop", desc: "Café or coffeehouse with a warm, inviting atmosphere and specialty drinks." },
+  { label: "Coffee Shop", desc: "Caf? or coffeehouse with a warm, inviting atmosphere and specialty drinks." },
   { label: "Education", desc: "Schools, tutors, online courses or academic institutions delivering learning experiences." },
   { label: "Healthcare", desc: "Clinics, practices or health & wellness providers serving patients and communities." },
   { label: "Restaurant", desc: "Dining establishments, takeaway or food delivery services for food lovers." },
@@ -1408,7 +1406,7 @@ function CategoryMoodPage({ onNext, onBack, onStepClick, completedUpTo }: { onNe
             </div>
           )}
 
-          {/* ── Cards row ─────────────────────────────────────────────────────── */}
+          {/* ?? Cards row ??????????????????????????????????????????????????????? */}
           <div className="flex flex-col sm:flex-row gap-3 w-full">
             {/* Business Category card */}
             <div
@@ -1428,7 +1426,7 @@ function CategoryMoodPage({ onNext, onBack, onStepClick, completedUpTo }: { onNe
                     </p>
                   </div>
                 </div>
-                {/* Icon chip — notched bottom-left corner */}
+                {/* Icon chip ? notched bottom-left corner */}
                 <div
                   className="flex items-center justify-center shrink-0"
                   style={{ width: 56, height: 56, background: "rgba(255,255,255,0.06)", borderRadius: "16px 16px 0 16px" }}
@@ -1515,13 +1513,13 @@ function CategoryMoodPage({ onNext, onBack, onStepClick, completedUpTo }: { onNe
             </div>
           </div>
 
-          {/* ── Animation Level ───────────────────────────────────────────────── */}
+          {/* ?? Animation Level ????????????????????????????????????????????????? */}
           <div className="flex flex-col gap-[32px] w-full">
             <p className="font-semibold uppercase text-[12px]" style={{ color: "rgba(255,255,255,0.5)", letterSpacing: "0.12em" }}>
               Animation Level
             </p>
             <div className="relative flex items-end w-full overflow-x-hidden">
-              {/* Track line — vertically centered on dots, spans the full row */}
+              {/* Track line ? vertically centered on dots, spans the full row */}
               <div
                 className="absolute left-0 right-0 w-full"
                 style={{ bottom: "clamp(8px, 2vw, 11px)", height: 2, background: "rgba(255,255,255,0.1)" }}
@@ -1536,7 +1534,7 @@ function CategoryMoodPage({ onNext, onBack, onStepClick, completedUpTo }: { onNe
                     className="flex-1 flex flex-col items-center relative z-10"
                     style={{ gap: "clamp(5px, 2vw, 12px)", minWidth: 0, padding: "0 2px" }}
                   >
-                    {/* Label + sub-label above — clamp() sizing + wrapping so text never gets clipped */}
+                    {/* Label + sub-label above ? clamp() sizing + wrapping so text never gets clipped */}
                     <div className="flex flex-col gap-[2px] items-center text-center" style={{ width: "100%" }}>
                       <span
                         style={{
@@ -1627,11 +1625,11 @@ function CategoryMoodPage({ onNext, onBack, onStepClick, completedUpTo }: { onNe
                     flexShrink: 0,
                   }}
                 >
-                  ×
+                  ?
                 </button>
               </div>
 
-              {/* Category grid — 1 col mobile, 3 cols tablet/desktop */}
+              {/* Category grid ? 1 col mobile, 3 cols tablet/desktop */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {BUSINESS_CATEGORIES.map((cat) => (
                   <button
@@ -1701,7 +1699,7 @@ function CategoryMoodPage({ onNext, onBack, onStepClick, completedUpTo }: { onNe
                     borderRadius: 8,
                   }}
                 >
-                  ×
+                  ?
                 </button>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-[12px]">
@@ -1731,7 +1729,7 @@ function CategoryMoodPage({ onNext, onBack, onStepClick, completedUpTo }: { onNe
   );
 }
 
-// ─── PAGE 5: Colors & Fonts ───────────────────────────────────────────────────
+// ??? PAGE 5: Colors & Fonts ???????????????????????????????????????????????????
 type PaletteEntry = { name: string; primary: string; secondary: string; background: string; text: string };
 const PALETTES: PaletteEntry[] = [
   { name: "Modern Blue",    primary: "#2563EB", secondary: "#60A5FA", background: "#F8FAFC", text: "#1E293B" },
@@ -1963,7 +1961,7 @@ function ColorsFontsPage({ onNext, onBack, onStepClick, completedUpTo }: { onNex
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-white font-semibold text-[17px]">Custom Palette</span>
-                    <button onClick={() => setCustomModalOpen(false)} style={{ color: "rgba(255,255,255,0.4)", fontSize: 22, background: "none", border: "none", cursor: "pointer", lineHeight: 1 }}>×</button>
+                    <button onClick={() => setCustomModalOpen(false)} style={{ color: "rgba(255,255,255,0.4)", fontSize: 22, background: "none", border: "none", cursor: "pointer", lineHeight: 1 }}>?</button>
                   </div>
 
                   {/* Checkbox */}
@@ -2155,7 +2153,7 @@ function ColorsFontsPage({ onNext, onBack, onStepClick, completedUpTo }: { onNex
               Font Pairings
             </span>
 
-            {/* Unified responsive grid — 2 cols mobile, 3 tablet, 4 desktop. CSS decides the
+            {/* Unified responsive grid ? 2 cols mobile, 3 tablet, 4 desktop. CSS decides the
                 column count (Tailwind breakpoints), not JS device detection. */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
               {FONT_PAIRS.map((pair, i) => (
@@ -2192,7 +2190,7 @@ function ColorsFontsPage({ onNext, onBack, onStepClick, completedUpTo }: { onNex
                     {customFont ? (
                       <>
                         <p className="text-white font-bold text-[14px] sm:text-[16px] leading-tight" style={{ fontFamily: `'${customFont.heading}', serif` }}>{customFont.heading}</p>
-                        <p className="text-[11px] sm:text-[12px] leading-relaxed" style={{ color: "rgba(255,255,255,0.5)", fontFamily: `'${customFont.body}', sans-serif` }}>{customFont.body} — body text</p>
+                        <p className="text-[11px] sm:text-[12px] leading-relaxed" style={{ color: "rgba(255,255,255,0.5)", fontFamily: `'${customFont.body}', sans-serif` }}>{customFont.body} ? body text</p>
                       </>
                     ) : (
                       <div className="flex flex-col items-center justify-center flex-1 gap-[8px]" style={{ minHeight: 60 }}>
@@ -2223,7 +2221,7 @@ function ColorsFontsPage({ onNext, onBack, onStepClick, completedUpTo }: { onNex
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-white font-semibold text-[17px]">Custom Font Pairing</span>
-                    <button onClick={() => setFontModalOpen(false)} style={{ color: "rgba(255,255,255,0.4)", fontSize: 22, background: "none", border: "none", cursor: "pointer", lineHeight: 1 }}>×</button>
+                    <button onClick={() => setFontModalOpen(false)} style={{ color: "rgba(255,255,255,0.4)", fontSize: 22, background: "none", border: "none", cursor: "pointer", lineHeight: 1 }}>?</button>
                   </div>
 
                   {/* Heading font picker */}
@@ -2355,13 +2353,13 @@ function FontCard({
         {pair.heading}
       </p>
       <p className="text-[11px] sm:text-[12px] leading-relaxed" style={{ color: "rgba(255,255,255,0.5)", fontFamily: `'${pair.body}', sans-serif` }}>
-        {pair.body} — body text
+        {pair.body} ? body text
       </p>
     </button>
   );
 }
 
-// ─── PAGE 6: Pick Pages ───────────────────────────────────────────────────────
+// ??? PAGE 6: Pick Pages ???????????????????????????????????????????????????????
 type Section = { id: string; name: string; locked?: boolean };
 type PageTemplate = { id: string; name: string; selected: boolean; sections: Section[] };
 
@@ -2646,7 +2644,7 @@ function PickPagesPage({ onNext, onBack, onStepClick, completedUpTo }: { onNext:
             <div className="flex flex-col sm:flex-row sm:items-center items-stretch justify-between gap-3 px-[20px] py-[14px] rounded-[12px]" style={{ background: "rgba(111,204,221,0.05)", border: "1px solid rgba(111,204,221,0.15)" }}>
               <div>
                 <p className="text-white font-semibold text-[14px]">
-                  {pages.filter((p) => p.selected).length} pages · {totalContentSections} content sections
+                  {pages.filter((p) => p.selected).length} pages ? {totalContentSections} content sections
                 </p>
                 <p className="font-medium text-[12px] mt-[2px]" style={{ color: "rgba(255,255,255,0.4)" }}>
                   {pages.filter((p) => p.selected).map((p) => p.name).join(", ")}
@@ -2654,7 +2652,7 @@ function PickPagesPage({ onNext, onBack, onStepClick, completedUpTo }: { onNext:
               </div>
             </div>
 
-            {/* Page cards grid — 1 col mobile, 2 tablet, 3 desktop */}
+            {/* Page cards grid ? 1 col mobile, 2 tablet, 3 desktop */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
               {pages.map((page) => (
                 <div
@@ -2709,7 +2707,7 @@ function PickPagesPage({ onNext, onBack, onStepClick, completedUpTo }: { onNext:
                     </p>
                   )}
 
-                  {/* Sections list — drag-and-drop */}
+                  {/* Sections list ? drag-and-drop */}
                   <div className="flex flex-col gap-[4px]">
                     {page.sections.map((section) => {
                       const isMenuOpen = openMenu?.pageId === page.id && openMenu?.sectionId === section.id;
@@ -2736,7 +2734,7 @@ function PickPagesPage({ onNext, onBack, onStepClick, completedUpTo }: { onNext:
                             transition: "background 0.15s, border 0.15s, opacity 0.15s",
                           }}
                         >
-                          {/* Drag handle — hidden for locked sections */}
+                          {/* Drag handle ? hidden for locked sections */}
                           {!section.locked && (
                             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ flexShrink: 0, opacity: 0.4 }}>
                               {[2, 6, 10].map((x) => [3, 7, 11].map((y) => (
@@ -2763,7 +2761,7 @@ function PickPagesPage({ onNext, onBack, onStepClick, completedUpTo }: { onNext:
                             </span>
                           )}
 
-                          {/* 3-dot menu — content sections only, Delete only */}
+                          {/* 3-dot menu ? content sections only, Delete only */}
                           {!section.locked && (
                             <div className="relative shrink-0">
                               <button
@@ -2831,7 +2829,7 @@ function PickPagesPage({ onNext, onBack, onStepClick, completedUpTo }: { onNext:
                     })}
                   </div>
 
-                  {/* Add section button — 24 content-section global limit */}
+                  {/* Add section button ? 24 content-section global limit */}
                   {(() => {
                     const totalContent = pages.filter((p) => p.selected).reduce((n, p) => n + p.sections.filter((s) => !s.locked).length, 0);
                     const atContentLimit = totalContent >= 24;
@@ -2926,7 +2924,7 @@ function PickPagesPage({ onNext, onBack, onStepClick, completedUpTo }: { onNext:
   );
 }
 
-// ─── PAGE 7: Generating ───────────────────────────────────────────────────────
+// ??? PAGE 7: Generating ???????????????????????????????????????????????????????
 const PHASES = [
   "Reviewing and saving your brand details...",
   "Tailoring three design directions to your brand...",
@@ -2949,7 +2947,7 @@ function GeneratingPage({ onNext, onBack }: { onNext: () => void; onBack?: () =>
       setProgress(4);
       setPhaseIndex(0);
       try {
-        // Reset only when inputs actually changed since the last run — identical
+        // Reset only when inputs actually changed since the last run ? identical
         // inputs resume the existing pipeline (idempotent, zero v0 cost).
         const dataStr = JSON.stringify(buildSubmissionData());
         const prior = loadWizard();
@@ -3002,7 +3000,7 @@ function GeneratingPage({ onNext, onBack }: { onNext: () => void; onBack?: () =>
               setPhaseIndex(PHASES.length - 1);
               setTimeout(() => { if (!cancelled) onNext(); }, 400);
             }
-          } catch { /* transient poll error — keep polling */ }
+          } catch { /* transient poll error ? keep polling */ }
         }, 5000);
       } catch (err: any) {
         if (cancelled) return;
@@ -3113,7 +3111,7 @@ function GeneratingPage({ onNext, onBack }: { onNext: () => void; onBack?: () =>
   );
 }
 
-// ─── PAGE 8: Preview ──────────────────────────────────────────────────────────
+// ??? PAGE 8: Preview ??????????????????????????????????????????????????????????
 const VERSIONS = [
   { name: "Version 1", subtitle: "Clean and structured" },
   { name: "Version 2", subtitle: "Bold and contemporary" },
@@ -3141,7 +3139,7 @@ function PreviewPage({ onNext, onBack }: { onNext: () => void; onBack: () => voi
       onNext();
     } catch (err: any) {
       const d = err?.detail;
-      setConfirmError(typeof d === "string" ? d : "Could not start the full build — please try again.");
+      setConfirmError(typeof d === "string" ? d : "Could not start the full build ? please try again.");
       setConfirming(false);
     }
   };
@@ -3153,7 +3151,7 @@ function PreviewPage({ onNext, onBack }: { onNext: () => void; onBack: () => voi
       header={
         <>
           <TopHeader />
-          {/* Completed steps bar — full-bleed border, stepper content stays centered with its own padding */}
+          {/* Completed steps bar ? full-bleed border, stepper content stays centered with its own padding */}
           <div
             className="w-full flex flex-wrap items-center justify-center gap-x-[clamp(8px,2vw,16px)] gap-y-2 px-[clamp(12px,4vw,32px)] py-2"
             style={{
@@ -3209,7 +3207,7 @@ function PreviewPage({ onNext, onBack }: { onNext: () => void; onBack: () => voi
             </p>
           </div>
 
-          {/* Version cards — live previews open in a new tab (v0 demos block iframe embedding) */}
+          {/* Version cards ? live previews open in a new tab (v0 demos block iframe embedding) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-[20px] w-full">
             {VERSIONS.map((v, i) => {
               const pv = previews[i];
@@ -3265,7 +3263,7 @@ function PreviewPage({ onNext, onBack }: { onNext: () => void; onBack: () => voi
                   >
                     {ok ? (
                       <>
-                        {/* live scaled mockup — served by our backend, so embedding works */}
+                        {/* live scaled mockup ? served by our backend, so embedding works */}
                         <div style={{ position: "relative", width: "100%", aspectRatio: "1200 / 700", overflow: "hidden", background: "#fff" }}>
                           <iframe
                             src={pv.demoUrl as string}
@@ -3294,7 +3292,7 @@ function PreviewPage({ onNext, onBack }: { onNext: () => void; onBack: () => voi
                             border: "1px solid rgba(111,204,221,0.4)",
                           }}
                         >
-                          Open Full ↗
+                          Open Full ?
                         </a>
                       </>
                     ) : (
@@ -3328,7 +3326,7 @@ function PreviewPage({ onNext, onBack }: { onNext: () => void; onBack: () => voi
                 opacity: confirming ? 0.6 : 1,
               }}
             >
-              {confirming ? "Starting your full build…" : "Confirm Selection"}
+              {confirming ? "Starting your full build?" : "Confirm Selection"}
             </button>
           </div>
         </div>
@@ -3337,7 +3335,7 @@ function PreviewPage({ onNext, onBack }: { onNext: () => void; onBack: () => voi
   );
 }
 
-// ─── PAGE 9: Download ─────────────────────────────────────────────────────────
+// ??? PAGE 9: Download ?????????????????????????????????????????????????????????
 function DownloadPage({ onBack }: { onBack: () => void }) {
   const p = svgPathsDl;
   const chatId = loadWizard().finalChatId;
@@ -3356,7 +3354,7 @@ function DownloadPage({ onBack }: { onBack: () => void }) {
 
   // Poll the full-site build until it's genuinely live
   useEffect(() => {
-    if (!chatId) { setBuildError("No build in progress — please start from the beginning."); return; }
+    if (!chatId) { setBuildError("No build in progress ? please start from the beginning."); return; }
     let cancelled = false;
     const tick = async () => {
       try {
@@ -3365,7 +3363,7 @@ function DownloadPage({ onBack }: { onBack: () => void }) {
         setBuild({ status: b.status, demoUrl: b.demoUrl ?? null });
         if (b.status === "failed") setBuildError("The website build failed. Please go back and try again.");
         if (b.status === "completed" || b.status === "failed") clearInterval(timer);
-      } catch { /* transient — keep polling */ }
+      } catch { /* transient ? keep polling */ }
     };
     const timer = setInterval(tick, 5000);
     tick();
@@ -3376,7 +3374,7 @@ function DownloadPage({ onBack }: { onBack: () => void }) {
 
   const handleZipDownload = () => {
     if (!ready || !chatId) {
-      setDownloadNotice({ type: "error", message: "The website is still building — the source code will be available when it's ready." });
+      setDownloadNotice({ type: "error", message: "The website is still building ? the source code will be available when it's ready." });
       return;
     }
     window.location.href = api.downloadUrl(chatId);
@@ -3385,7 +3383,7 @@ function DownloadPage({ onBack }: { onBack: () => void }) {
   // Brochure / portfolio: generate once (idempotent), then open the PDF
   const handleDocDownload = async (kind: "brochure" | "portfolio") => {
     if (!companyId) {
-      setDownloadNotice({ type: "error", message: "No company data found — please start from the beginning." });
+      setDownloadNotice({ type: "error", message: "No company data found ? please start from the beginning." });
       return;
     }
     if (docBusy) return;
@@ -3398,7 +3396,7 @@ function DownloadPage({ onBack }: { onBack: () => void }) {
       const d = err?.detail;
       setDownloadNotice({
         type: "error",
-        message: (typeof d === "object" && d?.reason) || (typeof d === "string" && d) || `Could not generate the ${kind} — please try again.`,
+        message: (typeof d === "object" && d?.reason) || (typeof d === "string" && d) || `Could not generate the ${kind} ? please try again.`,
       });
     } finally {
       setDocBusy(null);
@@ -3407,11 +3405,11 @@ function DownloadPage({ onBack }: { onBack: () => void }) {
 
   const handleClaim = async () => {
     if (!ready || !chatId || claim.loading) {
-      if (!ready) setDownloadNotice({ type: "error", message: "The website is still building — claiming unlocks when it's ready." });
+      if (!ready) setDownloadNotice({ type: "error", message: "The website is still building ? claiming unlocks when it's ready." });
       return;
     }
     if (claim.url) {
-      // a code already exists — reopen it; minting another would invalidate it
+      // a code already exists ? reopen it; minting another would invalidate it
       window.open(claim.url, "_blank", "noopener");
       return;
     }
@@ -3424,7 +3422,7 @@ function DownloadPage({ onBack }: { onBack: () => void }) {
     } catch (err: any) {
       const d = err?.detail;
       setClaim({ loading: false, url: null });
-      setDownloadNotice({ type: "error", message: typeof d === "string" ? d : "Could not create the claim link — try again." });
+      setDownloadNotice({ type: "error", message: typeof d === "string" ? d : "Could not create the claim link ? try again." });
     }
   };
 
@@ -3451,9 +3449,9 @@ function DownloadPage({ onBack }: { onBack: () => void }) {
                 />
               </svg>
             </div>
-            <h2 className="text-white font-semibold px-2" style={{ fontSize: "clamp(19px, 5vw, 24px)" }}>{buildError ? "Something went wrong" : ready ? "Your website is ready!" : "Building your full website…"}</h2>
+            <h2 className="text-white font-semibold px-2" style={{ fontSize: "clamp(19px, 5vw, 24px)" }}>{buildError ? "Something went wrong" : ready ? "Your website is ready!" : "Building your full website?"}</h2>
             <p className="px-2 max-w-[420px]" style={{ color: "rgba(255,255,255,0.5)", fontSize: "clamp(13px, 3.5vw, 14px)", fontWeight: 500, lineHeight: 1.6 }}>
-              {buildError ? buildError : ready ? "Your AI-generated website is complete and ready to deploy." : "All pages are being generated — this usually takes a few minutes."}
+              {buildError ? buildError : ready ? "Your AI-generated website is complete and ready to deploy." : "All pages are being generated ? this usually takes a few minutes."}
             </p>
           </div>
 
@@ -3532,7 +3530,7 @@ function DownloadPage({ onBack }: { onBack: () => void }) {
                     <>
                       <div className="flex items-center justify-center rounded-full"
                            style={{ width: 44, height: 44, background: "rgba(111,204,221,0.15)", border: "1px solid rgba(111,204,221,0.5)" }}>
-                        <span style={{ color: "#6fccdd", fontSize: 20, fontWeight: 700 }}>✓</span>
+                        <span style={{ color: "#6fccdd", fontSize: 20, fontWeight: 700 }}>?</span>
                       </div>
                       <span className="font-semibold text-[15px]" style={{ color: "white" }}>
                         Your website is live
@@ -3544,7 +3542,7 @@ function DownloadPage({ onBack }: { onBack: () => void }) {
                         className="font-semibold text-[13px] uppercase"
                         style={{ padding: "12px 22px", borderRadius: 8, background: "#6fccdd", color: "#0b0b0b" }}
                       >
-                        Open Your Website ↗
+                        Open Your Website ?
                       </a>
                     </>
                   ) : (
@@ -3605,7 +3603,7 @@ function DownloadPage({ onBack }: { onBack: () => void }) {
                   </svg>
                 </div>
                 <div className="text-[12px] sm:text-[13px] leading-[1.6]">
-                  Claiming your website uses Vercel. Clicking "Claim Now" opens a Vercel page where you sign in (or create a free account) and click Transfer — the whole project moves into your own Vercel account. The link is valid for 24 hours.
+                  Claiming your website uses Vercel. Clicking "Claim Now" opens a Vercel page where you sign in (or create a free account) and click Transfer ? the whole project moves into your own Vercel account. The link is valid for 24 hours.
                 </div>
               </div>
             </div>
@@ -3645,7 +3643,7 @@ function DownloadPage({ onBack }: { onBack: () => void }) {
                   }}
                   onClick={handleZipDownload}
                 >
-                  {ready ? "Download ZIP" : "Building…"}
+                  {ready ? "Download ZIP" : "Building?"}
                 </button>
               </div>
 
@@ -3680,7 +3678,7 @@ function DownloadPage({ onBack }: { onBack: () => void }) {
                   }}
                   onClick={() => handleDocDownload("brochure")}
                 >
-                  {docBusy === "brochure" ? "Generating…" : "Download Brochure"}
+                  {docBusy === "brochure" ? "Generating?" : "Download Brochure"}
                 </button>
               </div>
 
@@ -3714,7 +3712,7 @@ function DownloadPage({ onBack }: { onBack: () => void }) {
                   }}
                   onClick={() => handleDocDownload("portfolio")}
                 >
-                  {docBusy === "portfolio" ? "Generating…" : "Download Portfolio"}
+                  {docBusy === "portfolio" ? "Generating?" : "Download Portfolio"}
                 </button>
               </div>
 
@@ -3747,7 +3745,7 @@ function DownloadPage({ onBack }: { onBack: () => void }) {
                   }}
                   onClick={handleClaim}
                 >
-                  {claim.loading ? "Preparing…" : claim.url ? "Claim link ready ↗" : ready ? "Claim Now" : "Building…"}
+                  {claim.loading ? "Preparing?" : claim.url ? "Claim link ready ?" : ready ? "Claim Now" : "Building?"}
                 </button>
               </div>
             </div>
@@ -3758,11 +3756,29 @@ function DownloadPage({ onBack }: { onBack: () => void }) {
   );
 }
 
-// ─── App Root ─────────────────────────────────────────────────────────────────
+// ??? App Root ?????????????????????????????????????????????????????????????????
 const LS_STEP_KEY = "ailk_maxReachedStep";
 const LS_PAGE_KEY = "ailk_page";
 
+function authErrorMessage(reason: string | null): string {
+  if (!reason) return "Sign-in failed. Please try again.";
+  const known: Record<string, string> = {
+    access_denied: "Sign-in was cancelled or denied.",
+    state_expired: "Your sign-in session expired. Please try again.",
+    invalid_state: "Your sign-in session was invalid. Please try again.",
+    invalid_response: "Microsoft returned an incomplete response. Please try again.",
+    token_exchange_failed: "We could not complete sign-in. Please try again.",
+    domain_not_allowed: "Only Innovation City email accounts can access this app.",
+    provisioning_failed: "We could not create your session. Please try again.",
+  };
+  return known[reason] ?? reason;
+}
+
 export default function App() {
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [authReady, setAuthReady] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+
   const [page, setPage] = useState<Page>(() => {
     const saved = localStorage.getItem(LS_PAGE_KEY) as Page | null;
     // Restore any page except the auth screens. Generating resumes its pipeline
@@ -3781,6 +3797,66 @@ export default function App() {
     localStorage.setItem(LS_PAGE_KEY, p);
   };
 
+  const handleAuthenticated = useCallback((nextUser: AuthUser) => {
+    setUser(nextUser);
+    setAuthError(null);
+    setPage((current) => {
+      if (current === "login" || current === "otp") {
+        localStorage.setItem(LS_PAGE_KEY, "questionnaire");
+        return "questionnaire";
+      }
+      return current;
+    });
+  }, []);
+
+  const handleLogout = useCallback(async () => {
+    try {
+      await logoutSession();
+    } catch {
+      // Clear local state even if revoke fails.
+    }
+    setUser(null);
+    setMaxReachedStep(-1);
+    localStorage.removeItem(LS_STEP_KEY);
+    localStorage.setItem(LS_PAGE_KEY, "login");
+    setPage("login");
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { status, reason } = consumeAuthQueryParams();
+      if (status === "error") {
+        setAuthError(authErrorMessage(reason));
+      } else if (status === "logged_out") {
+        setAuthError(null);
+        setUser(null);
+      }
+
+      try {
+        const me = await fetchAuthMe();
+        if (cancelled) return;
+        if (me.authenticated && me.user) {
+          handleAuthenticated(me.user);
+        } else if (page !== "login" && page !== "otp") {
+          setPage("login");
+          localStorage.setItem(LS_PAGE_KEY, "login");
+        }
+      } catch {
+        if (!cancelled && page !== "login" && page !== "otp") {
+          setPage("login");
+        }
+      } finally {
+        if (!cancelled) setAuthReady(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // Intentionally run once on mount for session bootstrap.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [handleAuthenticated]);
+
   // Persist maxReachedStep whenever it changes
   useEffect(() => {
     localStorage.setItem(LS_STEP_KEY, String(maxReachedStep));
@@ -3788,7 +3864,6 @@ export default function App() {
 
   const ORDER: Page[] = [
     "login",
-    "otp",
     "questionnaire",
     "category-mood",
     "colors",
@@ -3798,7 +3873,7 @@ export default function App() {
     "download",
   ];
 
-  // Step index → page mapping (the 4 wizard steps in the breadcrumb)
+  // Step index ? page mapping (the 4 wizard steps in the breadcrumb)
   const STEP_PAGES: Page[] = ["questionnaire", "category-mood", "colors", "pick-pages"];
 
   const goNext = () => {
@@ -3806,10 +3881,9 @@ export default function App() {
     if (i < ORDER.length - 1) {
       const nextPage = ORDER[i + 1];
       setPage(nextPage);
-      // Update maxReachedStep when advancing to a new step page
+      localStorage.setItem(LS_PAGE_KEY, nextPage);
       const nextStep = STEP_PAGES.indexOf(nextPage);
       if (nextStep > maxReachedStep) setMaxReachedStep(nextStep);
-      // When leaving a step page, mark that step as completed
       const currentStep = STEP_PAGES.indexOf(page);
       if (currentStep >= 0 && currentStep > maxReachedStep) setMaxReachedStep(currentStep);
     }
@@ -3818,14 +3892,14 @@ export default function App() {
   const goBack = () => {
     const i = ORDER.indexOf(page);
     if (i > 0) {
-      // Mark current step complete before going back
       const currentStep = STEP_PAGES.indexOf(page);
       if (currentStep > maxReachedStep) setMaxReachedStep(currentStep);
-      setPage(ORDER[i - 1]);
+      const prev = ORDER[i - 1];
+      setPage(prev);
+      localStorage.setItem(LS_PAGE_KEY, prev);
     }
   };
 
-  // Only allow navigating to a step that the user has already reached (no skipping forward)
   const goToStep = (step: number) => {
     const target = STEP_PAGES[step];
     if (!target) return;
@@ -3835,12 +3909,33 @@ export default function App() {
       const currentStep = STEP_PAGES.indexOf(page);
       if (currentStep > maxReachedStep) setMaxReachedStep(currentStep);
       setPage(target);
+      localStorage.setItem(LS_PAGE_KEY, target);
     }
   };
 
-  // completedUpTo: the highest step index the user has fully passed through
   const currentStep = STEP_PAGES.indexOf(page);
   const completedUpTo = Math.max(maxReachedStep, currentStep - 1);
+
+  if (!authReady) {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          width: "100%",
+          background: "#0b0b0b",
+          color: "rgba(255,255,255,0.6)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontFamily: "'Montserrat', sans-serif",
+          fontSize: 14,
+          fontWeight: 500,
+        }}
+      >
+        Loading?
+      </div>
+    );
+  }
 
   return (
     <div
@@ -3863,15 +3958,24 @@ export default function App() {
           flexDirection: "column",
         }}
       >
-        {page === "login" && <LoginPage onNext={goNext} />}
-        {page === "otp" && <OtpPage onNext={goNext} onBack={goBack} />}
-        {page === "questionnaire" && <QuestionnairePage onNext={goNext} onBack={goBack} onStepClick={goToStep} completedUpTo={completedUpTo} />}
-        {page === "category-mood" && <CategoryMoodPage onNext={goNext} onBack={goBack} onStepClick={goToStep} completedUpTo={completedUpTo} />}
-        {page === "colors" && <ColorsFontsPage onNext={goNext} onBack={goBack} onStepClick={goToStep} completedUpTo={completedUpTo} />}
-        {page === "pick-pages" && <PickPagesPage onNext={goNext} onBack={goBack} onStepClick={goToStep} completedUpTo={completedUpTo} />}
-        {page === "generating" && <GeneratingPage onNext={goNext} onBack={goBack} />}
-        {page === "preview" && <PreviewPage onNext={goNext} onBack={goBack} />}
-        {page === "download" && <DownloadPage onBack={() => go("login")} />}
+        {page === "login" && (
+          <LoginPage onAuthenticated={handleAuthenticated} initialError={authError} />
+        )}
+        {page === "questionnaire" && user && (
+          <QuestionnairePage onNext={goNext} onBack={handleLogout} onStepClick={goToStep} completedUpTo={completedUpTo} />
+        )}
+        {page === "category-mood" && user && (
+          <CategoryMoodPage onNext={goNext} onBack={goBack} onStepClick={goToStep} completedUpTo={completedUpTo} />
+        )}
+        {page === "colors" && user && (
+          <ColorsFontsPage onNext={goNext} onBack={goBack} onStepClick={goToStep} completedUpTo={completedUpTo} />
+        )}
+        {page === "pick-pages" && user && (
+          <PickPagesPage onNext={goNext} onBack={goBack} onStepClick={goToStep} completedUpTo={completedUpTo} />
+        )}
+        {page === "generating" && user && <GeneratingPage onNext={goNext} onBack={goBack} />}
+        {page === "preview" && user && <PreviewPage onNext={goNext} onBack={goBack} />}
+        {page === "download" && user && <DownloadPage onBack={() => void handleLogout()} />}
       </div>
     </div>
   );
