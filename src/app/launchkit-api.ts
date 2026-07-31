@@ -242,6 +242,34 @@ export function clearAccessToken(): void {
   localStorage.removeItem(AUTH_TOKEN_KEY);
 }
 
+// ─── InnovationCity OAuth (PKCE handled server-side) ─────────────────────────
+// The backend redirects to the IC-hosted login, exchanges the code, and returns
+// to the frontend with ?auth=success plus an httpOnly API-token cookie.
+
+export function beginInnovationCityLogin(): void {
+  window.location.href = `${API_BASE_URL}/auth/login`;
+}
+
+export async function fetchInnovationCityApiToken(): Promise<AuthTokenView> {
+  const response = await fetch(`${API_BASE_URL}/auth/token`, { credentials: "include" });
+  if (!response.ok) {
+    throw new LaunchKitApiError(
+      "The Innovation City session could not be confirmed. Sign in again.",
+      response.status,
+      "ic_session_missing",
+    );
+  }
+  return await response.json() as AuthTokenView;
+}
+
+export async function innovationCityLogout(): Promise<void> {
+  try {
+    await fetch(`${API_BASE_URL}/auth/logout`, { method: "POST", credentials: "include" });
+  } catch {
+    // Local sign-out proceeds even if the backend session is already gone.
+  }
+}
+
 export const launchKitApi = {
   requestAccessCode: (email: string) =>
     request<{ status: string }>("/auth/request-code", {

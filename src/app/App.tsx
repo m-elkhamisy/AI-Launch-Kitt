@@ -4,11 +4,14 @@ import { CircleHelp, ExternalLink } from "lucide-react";
 import { useForm } from "react-hook-form";
 import {
   absoluteApiUrl,
+  beginInnovationCityLogin,
   BuildView,
   clearAccessToken,
   createIdempotencyKey,
   DeploymentView,
+  fetchInnovationCityApiToken,
   hasAccessToken,
+  innovationCityLogout,
   launchKitApi,
   LaunchKitApiError,
   MockupView,
@@ -29,8 +32,6 @@ import {
   customPaletteSchema,
   designSelectionSchema,
   DesignSelectionValues,
-  loginSchema,
-  LoginValues,
   mockupSelectionSchema,
   MockupSelectionValues,
   otpSchema,
@@ -558,15 +559,10 @@ function LoginPage({
   onNext,
   busy = false,
 }: {
-  onNext: (email: string) => void | Promise<void>;
+  onNext: () => void | Promise<void>;
   busy?: boolean;
 }) {
   const p = svgPathsLogin;
-  const { register, handleSubmit, formState: { errors } } = useForm<LoginValues>({
-    resolver: zodResolver(loginSchema),
-    defaultValues: { email: "" },
-    mode: "onTouched",
-  });
 
   return (
     <ScaledPage
@@ -620,7 +616,7 @@ function LoginPage({
               <div className="text-center">
                 <h2 className="text-white font-semibold text-[18px] mb-[8px]">Welcome back</h2>
                 <p style={{ color: "rgba(255,255,255,0.6)", fontSize: 14, fontWeight: 500 }}>
-                  Enter your email to receive a one-time code
+                  Sign in with your Innovation City account to continue
                 </p>
               </div>
             </div>
@@ -628,73 +624,34 @@ function LoginPage({
             {/* Divider */}
             <div style={{ height: 1, background: "rgba(255,255,255,0.1)", width: "100%" }} />
 
-            {/* Form */}
-            <form onSubmit={handleSubmit(({ email }) => void onNext(email))} className="flex flex-col gap-[20px] w-full" noValidate>
-              {/* Email field */}
-              <div className="flex flex-col gap-[8px]">
-                <label
-                  className="font-semibold uppercase"
-                  style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", letterSpacing: "0.08em" }}
-                >
-                  Email Address
-                </label>
-                <div
-                  className="flex items-center gap-[12px]"
-                  style={{
-                    background: "rgba(255,255,255,0.03)",
-                    border: "1px solid rgba(255,255,255,0.1)",
-                    borderRadius: 12,
-                    padding: "14px 16px",
-                  }}
-                >
-                  <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-                    <path
-                      d={p.pd3d5900}
-                      stroke="rgba(255,255,255,0.6)"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                  <input
-                    type="email"
-                    {...register("email")}
-                    placeholder="you@example.com"
-                    className="flex-1 bg-transparent outline-none font-medium text-[14px]"
-                    style={{ color: "white", caretColor: "#6fccdd" }}
-                    aria-invalid={Boolean(errors.email)}
-                    aria-describedby={errors.email ? "email-error" : undefined}
-                  />
-                </div>
-                <ValidationError id="email-error" message={errors.email?.message} />
-              </div>
+            {/* Continue with Innovation City */}
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void onNext()}
+              className="w-full flex items-center justify-center gap-[8px] font-semibold text-[14px] uppercase"
+              style={{
+                background: "#6fccdd",
+                color: "#0b0b0b",
+                borderRadius: 12,
+                padding: "16px 0",
+              }}
+            >
+              {busy ? "Redirecting..." : "Continue with Innovation City"}
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path
+                  d={p.p3bfa7a00}
+                  stroke="#0b0b0b"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
 
-              {/* Send Code button */}
-              <button
-                type="submit"
-                disabled={busy}
-                className="w-full flex items-center justify-center gap-[8px] font-semibold text-[14px] uppercase"
-                style={{
-                  background: "#6fccdd",
-                  color: "#0b0b0b",
-                  borderRadius: 12,
-                  padding: "16px 0",
-                }}
-              >
-                {busy ? "Checking..." : "Send Code"}
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                  <path
-                    d={p.p3bfa7a00}
-                    stroke="#0b0b0b"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </button>
-            </form>
-
-            
+            <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, fontWeight: 500, textAlign: "center" }}>
+              You will be redirected to the secure Innovation City login.
+            </p>
           </div>
         </div>
       </div>
@@ -3915,7 +3872,6 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [booting, setBooting] = useState(true);
-  const [loginEmail, setLoginEmail] = useState("test@innovationcity.com");
 
   const go = useCallback((next: Page) => {
     setPage(next);
@@ -3954,6 +3910,33 @@ export default function App() {
   useEffect(() => {
     let cancelled = false;
     const boot = async () => {
+      // Returning from the Innovation City OAuth redirect (?auth=success/error).
+      const params = new URLSearchParams(window.location.search);
+      const authStatus = params.get("auth");
+      if (authStatus) {
+        const reason = params.get("reason");
+        params.delete("auth");
+        params.delete("reason");
+        const query = params.toString();
+        window.history.replaceState(
+          {},
+          "",
+          `${window.location.pathname}${query ? `?${query}` : ""}`,
+        );
+        if (authStatus === "success") {
+          try {
+            const session = await fetchInnovationCityApiToken();
+            setAccessToken(session.accessToken);
+          } catch {
+            if (!cancelled) setError("Sign-in could not be completed. Please try again.");
+          }
+        } else if (authStatus === "error") {
+          if (!cancelled) {
+            setError(reason ? `Sign-in failed: ${reason}` : "Sign-in failed. Please try again.");
+          }
+        }
+      }
+
       if (!hasAccessToken()) {
         setPage("login");
         if (!cancelled) setBooting(false);
@@ -4052,19 +4035,9 @@ export default function App() {
     );
   };
 
-  const requestAccessCode = (email: string) => perform(async () => {
-    await launchKitApi.requestAccessCode(email);
-    setLoginEmail(email.trim().toLowerCase());
-    go("otp");
-  });
-
-  const verifyAccessCode = (code: string) => perform(async () => {
-    const session = await launchKitApi.verifyAccessCode(loginEmail, code);
-    setAccessToken(session.accessToken);
-    clearActiveProject();
-    await refreshProjects();
-    go("projects");
-  });
+  const signIn = () => {
+    beginInnovationCityLogin();
+  };
 
   const createWebsite = () => perform(async () => {
     clearActiveProject();
@@ -4107,6 +4080,7 @@ export default function App() {
   });
 
   const signOut = () => {
+    void innovationCityLogout();
     clearAccessToken();
     clearActiveProject();
     setProjects([]);
@@ -4235,8 +4209,7 @@ export default function App() {
   return (
     <div style={{ minHeight: "100vh", width: "100%", background: "#0b0b0b", display: "flex", justifyContent: "center", alignItems: "stretch" }}>
       <div style={{ width: "100%", maxWidth: 1440, minHeight: "100vh", margin: "0 auto", display: "flex", flexDirection: "column" }}>
-        {page === "login" && <LoginPage onNext={requestAccessCode} busy={busy} />}
-        {page === "otp" && <OtpPage onNext={verifyAccessCode} onBack={goBack} busy={busy} />}
+        {page === "login" && <LoginPage onNext={signIn} busy={busy} />}
         {error && (
           <div className="fixed top-[96px] left-1/2 -translate-x-1/2 z-[10000] max-w-[calc(100%-32px)] px-4 py-3 rounded-[8px] flex items-center gap-3" style={{ background: "#2b1717", border: "1px solid rgba(248,113,113,0.5)", color: "white", fontFamily: "'Montserrat', sans-serif" }}>
             <span className="text-[13px] font-medium">{error}</span>
