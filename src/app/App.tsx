@@ -3938,15 +3938,22 @@ export default function App() {
       }
 
       if (!hasAccessToken()) {
-        setPage("login");
-        if (!cancelled) setBooting(false);
+        // Cookie-only IC session: mint/store Bearer so /api/v1 works after refresh.
         try {
-          const loadedCatalog = await launchKitApi.getCatalog();
-          if (!cancelled) setCatalog(loadedCatalog);
+          const session = await fetchInnovationCityApiToken();
+          if (cancelled) return;
+          setAccessToken(session.accessToken);
         } catch {
-          // Catalog is only required after sign-in; login still works without it.
+          setPage("login");
+          if (!cancelled) setBooting(false);
+          try {
+            const loadedCatalog = await launchKitApi.getCatalog();
+            if (!cancelled) setCatalog(loadedCatalog);
+          } catch {
+            // Catalog is only required after sign-in; login still works without it.
+          }
+          return;
         }
-        return;
       }
 
       try {
@@ -4041,11 +4048,21 @@ export default function App() {
 
   const createWebsite = () => perform(async () => {
     clearActiveProject();
-    const created = await launchKitApi.createProject();
-    localStorage.setItem(LS_PROJECT_KEY, created.id);
-    setProject(created);
-    setMaxReachedStep(-1);
-    go("questionnaire");
+    try {
+      const created = await launchKitApi.createProject();
+      localStorage.setItem(LS_PROJECT_KEY, created.id);
+      setProject(created);
+      setMaxReachedStep(-1);
+      go("questionnaire");
+    } catch (cause) {
+      if (cause instanceof LaunchKitApiError && cause.code === "generation_quota_exceeded") {
+        setError(cause.message);
+        await refreshProjects();
+        go("projects");
+        return;
+      }
+      throw cause;
+    }
   });
 
   const openProject = (projectId: string) => perform(async () => {

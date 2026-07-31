@@ -183,7 +183,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (init?.body && !(init.body instanceof FormData) && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
-  const response = await fetch(`${API_ROOT}${path}`, { ...init, headers });
+  const response = await fetch(`${API_ROOT}${path}`, {
+    ...init,
+    headers,
+    // Send the httpOnly lk_api_token cookie as a fallback to Bearer localStorage.
+    credentials: "include",
+  });
   if (!response.ok) {
     let envelope: ApiErrorEnvelope = {};
     try {
