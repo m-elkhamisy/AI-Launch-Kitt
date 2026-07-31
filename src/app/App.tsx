@@ -1,14 +1,47 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-
-import * as api from "@/app/lib/api";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { CircleHelp, ExternalLink } from "lucide-react";
+import { useForm } from "react-hook-form";
 import {
-  AuthUser,
-  consumeAuthQueryParams,
-  fetchAuthMe,
-  logoutSession,
-  startOAuthLogin,
-} from "@/app/lib/auth";
-import { loadWizard, saveWizard, resetWizardPipeline, buildSubmissionData } from "@/app/lib/wizardStore";
+  absoluteApiUrl,
+  BuildView,
+  clearAccessToken,
+  createIdempotencyKey,
+  DeploymentView,
+  hasAccessToken,
+  launchKitApi,
+  LaunchKitApiError,
+  MockupView,
+  OperationView,
+  PageLayout,
+  ProjectSummaryView,
+  ProjectView,
+  setAccessToken,
+  waitForDeployment,
+  waitForOperation,
+  watchBuild,
+  WizardCatalog,
+} from "./launchkit-api";
+import {
+  colorFontSchema,
+  ColorFontValues,
+  customFontsSchema,
+  customPaletteSchema,
+  designSelectionSchema,
+  DesignSelectionValues,
+  loginSchema,
+  LoginValues,
+  mockupSelectionSchema,
+  MockupSelectionValues,
+  otpSchema,
+  OtpValues,
+  pageLayoutSchema,
+  PageLayoutValues,
+  profileFileSchema,
+  questionnaireSchema,
+  QuestionnaireValues,
+} from "./wizard-validation";
+
 import svgPathsLogin from "@/imports/AiLaunchKitLoginPage/svg-8vlpvs8i0v";
 import svgPathsDl from "@/imports/AiLaunchKitDownloadingGeneratedWebsitesPage/svg-7argp47g3q";
 import svgPathsMerged from "@/imports/AiLaunchKitMainPageMergedFlow/svg-9l4sd51871";
@@ -21,16 +54,37 @@ import svgPathsNav from "@/imports/Frame1410068676/svg-96pcbqyjjo";
 type Page =
   | "login"
   | "otp"
+  | "projects"
   | "questionnaire"
   | "category-mood"
   | "colors"
   | "pick-pages"
   | "generating"
   | "preview"
+  | "building"
   | "download";
 
-// ??? Page Wrapper ?????????????????????????????????????????????????????????????
-// Fluid container (w-full, capped at a max design width) ? content reflows
+function ValidationError({ id, message }: { id?: string; message?: string }) {
+  if (!message) return null;
+  return (
+    <p id={id} role="alert" className="font-medium text-[12px]" style={{ color: "#fca5a5", lineHeight: 1.5 }}>
+      {message}
+    </p>
+  );
+}
+
+function firstValidationError(value: unknown): string | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  if ("message" in value && typeof value.message === "string") return value.message;
+  for (const child of Object.values(value)) {
+    const message = firstValidationError(child);
+    if (message) return message;
+  }
+  return undefined;
+}
+
+// ─── Page Wrapper ─────────────────────────────────────────────────────────────
+// Fluid container (w-full, capped at a max design width) — content reflows
 // at every viewport size instead of being locked to a fixed-width canvas.
 function ScaledPage({
   children,
@@ -58,7 +112,7 @@ function ScaledPage({
     >
       {/* Header/nav renders at native size, full viewport width. */}
       {header && <div className="w-full flex-shrink-0">{header}</div>}
-      {/* Body content is a genuinely fluid container ? no fixed-width/zoom canvas ? so it
+      {/* Body content is a genuinely fluid container — no fixed-width/zoom canvas — so it
           reflows at every viewport width instead of leaving dead space around a locked 1440px design. */}
       <div
         className="w-full mx-auto"
@@ -67,7 +121,7 @@ function ScaledPage({
           maxWidth: 1440,
           padding: "0 clamp(16px, 3vw, 32px)",
           boxSizing: "border-box",
-          // Always grow to fill the remaining viewport height ? otherwise short pages leave
+          // Always grow to fill the remaining viewport height — otherwise short pages leave
           // dead space below instead of the content/background filling the screen.
           // minHeight:100vh on the outer wrapper has no cap, so tall content still grows
           // past one viewport and scrolls normally.
@@ -83,7 +137,7 @@ function ScaledPage({
   );
 }
 
-// ??? Logo SVG ?????????????????????????????????????????????????????????????????
+// ─── Logo SVG ─────────────────────────────────────────────────────────────────
 function LogoSvg() {
   const p = svgPathsLogin;
   const whiteLetters = [
@@ -121,7 +175,7 @@ function LogoSvg() {
   );
 }
 
-// ??? Top Header ???????????????????????????????????????????????????????????????
+// ─── Top Header ───────────────────────────────────────────────────────────────
 function TopHeader({ showProfile = true }: { showProfile?: boolean }) {
   const p = svgPathsLogin;
   return (
@@ -149,7 +203,7 @@ function TopHeader({ showProfile = true }: { showProfile?: boolean }) {
   );
 }
 
-// ??? Sub-Nav Bar ??????????????????????????????????????????????????????????????
+// ─── Sub-Nav Bar ──────────────────────────────────────────────────────────────
 const STEPS = [
   { label: "Business", iconKey: "building" },
   { label: "Design Category & Mood", iconKey: "widget" },
@@ -176,9 +230,9 @@ function SubNav({
   const n = svgPathsNav;
 
   // Colours per state matching the Figma design exactly:
-  //   done (completed)  ? teal check-circle
-  //   active (current)  ? teal icon  #6FCCDD
-  //   future            ? dimmed white/grey icon
+  //   done (completed)  → teal check-circle
+  //   active (current)  → teal icon  #6FCCDD
+  //   future            → dimmed white/grey icon
   function StepIcon({ iconKey, done, active }: { iconKey: string; done: boolean; active: boolean }) {
     if (done) {
       // Teal filled check-circle (same path used across all Figma screens)
@@ -193,7 +247,7 @@ function SubNav({
     }
 
     const teal = "#6FCCDD";
-    // Active step ? full teal; future step ? dimmed
+    // Active step → full teal; future step → dimmed
     const fill = active ? teal : undefined;
     const opacity = active ? 1 : undefined;
 
@@ -227,7 +281,7 @@ function SubNav({
     }
 
     if (iconKey === "widget") {
-      // Widget 2 icon ? Figma Frame5
+      // Widget 2 icon — Figma Frame5
       const wFill = active ? teal : "rgba(128,128,128,0.55)";
       return (
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -240,7 +294,7 @@ function SubNav({
     }
 
     if (iconKey === "palette") {
-      // Palette icon ? Figma Frame6
+      // Palette icon — Figma Frame6
       const pFill = active ? teal : "rgba(255,255,255,0.2)";
       return (
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -250,7 +304,7 @@ function SubNav({
     }
 
     if (iconKey === "document") {
-      // Document Text icon ? Figma Frame8
+      // Document Text icon — Figma Frame8
       const dFill = active ? teal : "rgba(255,255,255,0.2)";
       return (
         <svg width="18" height="20" viewBox="0 0 18 20" fill="none">
@@ -262,7 +316,7 @@ function SubNav({
     return null;
   }
 
-  // ?? Shared chevron connector ????????????????????????????????????????????
+  // ── Shared chevron connector ────────────────────────────────────────────
   const Chevron = ({ small }: { small?: boolean }) => (
     <svg
       width={small ? 6 : 8}
@@ -276,12 +330,12 @@ function SubNav({
   );
 
   // Both layouts render together; Tailwind's `md:` breakpoint (CSS media query, not JS)
-  // decides which is visible ? no isMobile JS branching.
+  // decides which is visible — no isMobile JS branching.
   return (
     <>
-      {/* ?? Compact layout (below lg) ? two-row strip. The full breadcrumb below
+      {/* ── Compact layout (below lg) — two-row strip. The full breadcrumb below
           needs ~700px for its longest label ("Design Category & Mood"), so it only
-          switches in once there's room to avoid overlapping the back/next buttons. ?? */}
+          switches in once there's room to avoid overlapping the back/next buttons. ── */}
       <div
         className="flex lg:hidden flex-col"
         style={{
@@ -290,7 +344,7 @@ function SubNav({
           fontFamily: "'Montserrat', sans-serif",
         }}
       >
-        {/* ?? Row 1: back arrow ? title ? Next button ?? */}
+        {/* ── Row 1: back arrow · title · Next button ── */}
         <div
           style={{
             height: 48,
@@ -305,14 +359,6 @@ function SubNav({
           {/* Left: back arrow */}
           <button
             onClick={onBack}
-            onMouseEnter={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.08)";
-              (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
-            }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.background = "none";
-              (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
-            }}
             style={{
               display: "flex",
               alignItems: "center",
@@ -349,16 +395,6 @@ function SubNav({
           <button
             onClick={onNext}
             disabled={!onNext}
-            onMouseEnter={(e) => {
-              if (!onNext) return;
-              (e.currentTarget as HTMLButtonElement).style.background = "#8fe3eb";
-              (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
-            }}
-            onMouseLeave={(e) => {
-              if (!onNext) return;
-              (e.currentTarget as HTMLButtonElement).style.background = "#6fccdd";
-              (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
-            }}
             style={{
               flexShrink: 0,
               fontWeight: 600,
@@ -378,9 +414,9 @@ function SubNav({
           </button>
         </div>
 
-        {/* ?? Row 2: step strip ? icon-only except active step shows icon + label.
+        {/* ── Row 2: step strip — icon-only except active step shows icon + label.
             The active label is width-capped with ellipsis so this row always fits without
-            ever needing to scroll horizontally, down to a 320px viewport. ?? */}
+            ever needing to scroll horizontally, down to a 320px viewport. ── */}
         <div
           style={{
             height: 40,
@@ -444,7 +480,7 @@ function SubNav({
         </div>
       </div>
 
-      {/* ?? Full layout (lg and up) ? breadcrumb + back/next ???????????????? */}
+      {/* ── Full layout (lg and up) — breadcrumb + back/next ──────────────── */}
       <div
         className="hidden lg:flex relative items-center"
         style={{
@@ -456,19 +492,7 @@ function SubNav({
       >
       {/* Left: Back + separator + title */}
       <div className="flex items-center gap-[12px] pl-[24px]">
-        <button
-          onClick={onBack}
-          onMouseEnter={(e) => {
-            (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.08)";
-            (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
-          }}
-          onMouseLeave={(e) => {
-            (e.currentTarget as HTMLButtonElement).style.background = "transparent";
-            (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
-          }}
-          className="flex items-center justify-center"
-          style={{ borderRadius: 6 }}
-        >
+        <button onClick={onBack} className="flex items-center justify-center">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
             <path d={n.p8122280} fill="white" />
           </svg>
@@ -514,16 +538,6 @@ function SubNav({
         <button
           onClick={onNext}
           disabled={!onNext}
-          onMouseEnter={(e) => {
-            if (!onNext) return;
-            (e.currentTarget as HTMLButtonElement).style.background = "#8fe3eb";
-            (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
-          }}
-          onMouseLeave={(e) => {
-            if (!onNext) return;
-            (e.currentTarget as HTMLButtonElement).style.background = "#6fccdd";
-            (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
-          }}
           className="font-semibold text-[14px] uppercase px-[24px] py-[12px] rounded-[8px]"
           style={{
             background: onNext ? "#6fccdd" : "rgba(255,255,255,0.08)",
@@ -539,52 +553,20 @@ function SubNav({
   );
 }
 
-// ??? PAGE 1: Login (OAuth PKCE ? IC-hosted email OTP) ?????????????????????????
+// ─── PAGE 1: Login ────────────────────────────────────────────────────────────
 function LoginPage({
-  onAuthenticated,
-  initialError,
+  onNext,
+  busy = false,
 }: {
-  onAuthenticated: (user: AuthUser) => void;
-  initialError?: string | null;
+  onNext: (email: string) => void | Promise<void>;
+  busy?: boolean;
 }) {
-  const [notice, setNotice] = useState<{ type: "error" | "success"; message: string } | null>(
-    initialError ? { type: "error", message: initialError } : null,
-  );
-  const [checking, setChecking] = useState(true);
-  const [starting, setStarting] = useState(false);
   const p = svgPathsLogin;
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const me = await fetchAuthMe();
-        if (!cancelled && me.authenticated && me.user) {
-          onAuthenticated(me.user);
-          return;
-        }
-      } catch {
-        // Stay on login if session check fails.
-      } finally {
-        if (!cancelled) setChecking(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [onAuthenticated]);
-
-  useEffect(() => {
-    if (!notice) return;
-    const timer = window.setTimeout(() => setNotice(null), 5000);
-    return () => window.clearTimeout(timer);
-  }, [notice]);
-
-  const handleLogin = () => {
-    setStarting(true);
-    setNotice(null);
-    startOAuthLogin();
-  };
+  const { register, handleSubmit, formState: { errors } } = useForm<LoginValues>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: { email: "" },
+    mode: "onTouched",
+  });
 
   return (
     <ScaledPage
@@ -599,6 +581,7 @@ function LoginPage({
             background: "#0b0b0b",
           }}
         >
+          {/* Innovation City logo mark + wordmark */}
           <LogoSvg />
         </div>
       }
@@ -607,6 +590,7 @@ function LoginPage({
         className="w-full flex flex-col flex-1"
         style={{ background: "#0b0b0b", fontFamily: "'Montserrat', sans-serif", minHeight: "100%" }}
       >
+        {/* Page body — card centered */}
         <div className="flex flex-1 items-center justify-center p-5 sm:p-6">
           <div
             className="flex flex-col items-center gap-[28px] w-full max-w-[480px] p-6 sm:p-12"
@@ -616,6 +600,7 @@ function LoginPage({
               borderRadius: 20,
             }}
           >
+            {/* Card header — logo mark + text centered */}
             <div className="flex flex-col items-center gap-[16px] w-full">
               <div
                 className="flex items-center justify-center"
@@ -635,54 +620,68 @@ function LoginPage({
               <div className="text-center">
                 <h2 className="text-white font-semibold text-[18px] mb-[8px]">Welcome back</h2>
                 <p style={{ color: "rgba(255,255,255,0.6)", fontSize: 14, fontWeight: 500 }}>
-                  Sign in with Microsoft using your Innovation City account
+                  Enter your email to receive a one-time code
                 </p>
               </div>
             </div>
 
+            {/* Divider */}
             <div style={{ height: 1, background: "rgba(255,255,255,0.1)", width: "100%" }} />
 
-            <div className="flex flex-col gap-[20px] w-full">
-              {notice && (
+            {/* Form */}
+            <form onSubmit={handleSubmit(({ email }) => void onNext(email))} className="flex flex-col gap-[20px] w-full" noValidate>
+              {/* Email field */}
+              <div className="flex flex-col gap-[8px]">
+                <label
+                  className="font-semibold uppercase"
+                  style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", letterSpacing: "0.08em" }}
+                >
+                  Email Address
+                </label>
                 <div
-                  className="rounded-[12px] border px-[14px] py-[12px]"
+                  className="flex items-center gap-[12px]"
                   style={{
-                    background:
-                      notice.type === "error" ? "rgba(248,113,113,0.1)" : "rgba(111,204,221,0.1)",
-                    borderColor:
-                      notice.type === "error" ? "rgba(248,113,113,0.3)" : "rgba(111,204,221,0.3)",
-                    color: notice.type === "error" ? "#fecaca" : "#b7eef5",
-                    fontSize: 13,
-                    fontWeight: 600,
+                    background: "rgba(255,255,255,0.03)",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    borderRadius: 12,
+                    padding: "14px 16px",
                   }}
                 >
-                  {notice.message}
+                  <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                    <path
+                      d={p.pd3d5900}
+                      stroke="rgba(255,255,255,0.6)"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                  <input
+                    type="email"
+                    {...register("email")}
+                    placeholder="you@example.com"
+                    className="flex-1 bg-transparent outline-none font-medium text-[14px]"
+                    style={{ color: "white", caretColor: "#6fccdd" }}
+                    aria-invalid={Boolean(errors.email)}
+                    aria-describedby={errors.email ? "email-error" : undefined}
+                  />
                 </div>
-              )}
+                <ValidationError id="email-error" message={errors.email?.message} />
+              </div>
 
+              {/* Send Code button */}
               <button
-                onClick={handleLogin}
-                disabled={checking || starting}
-                onMouseEnter={(e) => {
-                  if (checking || starting) return;
-                  (e.currentTarget as HTMLButtonElement).style.background = "#8fe3eb";
-                  (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLButtonElement).style.background = "#6fccdd";
-                  (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
-                }}
+                type="submit"
+                disabled={busy}
                 className="w-full flex items-center justify-center gap-[8px] font-semibold text-[14px] uppercase"
                 style={{
                   background: "#6fccdd",
                   color: "#0b0b0b",
                   borderRadius: 12,
                   padding: "16px 0",
-                  opacity: checking || starting ? 0.7 : 1,
-                  cursor: checking || starting ? "wait" : "pointer",
                 }}
               >
-                {checking ? "Checking session?" : starting ? "Redirecting?" : "Sign in with Microsoft"}
+                {busy ? "Checking..." : "Send Code"}
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                   <path
                     d={p.p3bfa7a00}
@@ -693,15 +692,9 @@ function LoginPage({
                   />
                 </svg>
               </button>
+            </form>
 
-              <p
-                className="text-center"
-                style={{ color: "rgba(255,255,255,0.45)", fontSize: 12, fontWeight: 500, lineHeight: 1.5 }}
-              >
-                You will be redirected to Microsoft to sign in. Only
-                @innovationcity.com accounts are allowed.
-              </p>
-            </div>
+            
           </div>
         </div>
       </div>
@@ -709,12 +702,25 @@ function LoginPage({
   );
 }
 
-// ??? PAGE 2: OTP ??????????????????????????????????????????????????????????????
-function OtpPage({ onNext, onBack }: { onNext: () => void; onBack: () => void }) {
+// ─── PAGE 2: OTP ──────────────────────────────────────────────────────────────
+function OtpPage({
+  onNext,
+  onBack,
+  busy = false,
+}: {
+  onNext: (code: string) => void | Promise<void>;
+  onBack: () => void;
+  busy?: boolean;
+}) {
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [focused, setFocused] = useState(0);
 
   const inputRefs = useRef<Array<HTMLInputElement | null>>([]);
+  const { setValue, handleSubmit, formState: { errors } } = useForm<OtpValues>({
+    resolver: zodResolver(otpSchema),
+    defaultValues: { code: "" },
+    mode: "onChange",
+  });
 
   useEffect(() => {
     inputRefs.current[0]?.focus();
@@ -726,6 +732,7 @@ function OtpPage({ onNext, onBack }: { onNext: () => void; onBack: () => void })
     const updated = [...otp];
     updated[index] = value;
     setOtp(updated);
+    setValue("code", updated.join(""), { shouldDirty: true, shouldValidate: true });
 
     if (value && index < 5) {
       inputRefs.current[index + 1]?.focus();
@@ -733,7 +740,7 @@ function OtpPage({ onNext, onBack }: { onNext: () => void; onBack: () => void })
     }
 
     if (updated.every((digit) => digit !== "")) {
-      onNext();
+      void handleSubmit(({ code }) => void onNext(code))();
     }
   };
 
@@ -746,6 +753,7 @@ function OtpPage({ onNext, onBack }: { onNext: () => void; onBack: () => void })
         const updated = [...otp];
         updated[index] = "";
         setOtp(updated);
+        setValue("code", updated.join(""), { shouldDirty: true, shouldValidate: true });
       } else if (index > 0) {
         inputRefs.current[index - 1]?.focus();
         setFocused(index - 1);
@@ -843,6 +851,8 @@ function OtpPage({ onNext, onBack }: { onNext: () => void; onBack: () => void })
 
             </div>
 
+            <ValidationError id="otp-error" message={errors.code?.message} />
+
 
             {/* Divider */}
             <div
@@ -870,6 +880,7 @@ function OtpPage({ onNext, onBack }: { onNext: () => void; onBack: () => void })
                     inputRefs.current[index] = el;
                   }}
                   value={digit}
+                  disabled={busy}
                   maxLength={1}
                   inputMode="numeric"
                   onFocus={() => setFocused(index)}
@@ -910,15 +921,8 @@ function OtpPage({ onNext, onBack }: { onNext: () => void; onBack: () => void })
 
             {/* Verify Button */}
             <button
-              onClick={onNext}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.background = "#8fe3eb";
-                (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.background = "#6fccdd";
-                (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
-              }}
+              onClick={() => void handleSubmit(({ code }) => void onNext(code))()}
+              disabled={busy}
               className="w-full font-semibold text-[14px] uppercase"
               style={{
                 background: "#6fccdd",
@@ -927,7 +931,7 @@ function OtpPage({ onNext, onBack }: { onNext: () => void; onBack: () => void })
                 padding: "16px 0",
               }}
             >
-              Verify Code
+              {busy ? "Verifying..." : "Verify Code"}
             </button>
 
 
@@ -954,20 +958,12 @@ function OtpPage({ onNext, onBack }: { onNext: () => void; onBack: () => void })
 
               <button
                 onClick={onBack}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLButtonElement).style.color = "#6fccdd";
-                  (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.4)";
-                  (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
-                }}
                 className="font-medium text-[13px]"
                 style={{
                   color: "rgba(255,255,255,0.4)",
                 }}
               >
-                ? Back to email
+                ← Back to email
               </button>
 
             </div>
@@ -980,89 +976,74 @@ function OtpPage({ onNext, onBack }: { onNext: () => void; onBack: () => void })
     </ScaledPage>
   );
 }
-// ??? PAGE 3: Questionnaire ????????????????????????????????????????????????????
-function QuestionnairePage({ onNext, onBack, onStepClick, completedUpTo }: { onNext: () => void; onBack: () => void; onStepClick?: (step: number) => void; completedUpTo?: number }) {
+// ─── PAGE 3: Questionnaire ────────────────────────────────────────────────────
+type QuestionnaireForm = QuestionnaireValues;
+
+function QuestionnairePage({ project, onSave, onUpload, onBack, onStepClick, completedUpTo, busy }: {
+  project: ProjectView;
+  onSave: (form: QuestionnaireForm) => Promise<void>;
+  onUpload: (file: File) => Promise<void>;
+  onBack: () => void;
+  onStepClick?: (step: number) => void;
+  completedUpTo?: number;
+  busy: boolean;
+}) {
   const p = svgPathsMerged;
   const [uploadOpen, setUploadOpen] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [uploadError, setUploadError] = useState<string>();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { register, reset, handleSubmit, formState: { errors } } = useForm<QuestionnaireForm>({
+    resolver: zodResolver(questionnaireSchema),
+    defaultValues: {
+      companyName: project.business.companyName,
+      uniqueness: project.business.uvp,
+      customers: project.business.targetAudience,
+      tagline: project.design.tagline,
+      cta: project.design.cta,
+      anythingElse: project.business.notes,
+    },
+    mode: "onTouched",
+  });
 
-  // Upload ? POST /extract ? pre-fill the form from the PDF
-  async function extractFromPdf(file: File) {
-    setUploadedFile(file);
-    setExtracting(true);
-    try {
-      const { fields } = await api.extractPdf(file);
-      setForm((f) => ({
-        companyName: fields.name || f.companyName,
-        uniqueness: fields.unique_selling_point || f.uniqueness,
-        customers: fields.audience || f.customers,
-        tagline: fields.tagline || f.tagline,
-        cta: fields.cta_text || f.cta,
-        anythingElse: fields.extra_context || f.anythingElse,
-      }));
-      saveWizard({
-        extracted: {
-          industry: fields.industry || undefined,
-          description: fields.description || undefined,
-          services: fields.services?.length ? fields.services : undefined,
-          tone: fields.tone || undefined,
-          location: fields.location || undefined,
-          website: fields.website || undefined,
-          contact_email: fields.contact_email || undefined,
-          contact_phone: fields.contact_phone || undefined,
-        },
-      });
-      setUploadOpen(false);
-      setNotice({ type: "success", message: "Details extracted from your document ? review and continue." });
-    } catch (err: any) {
-      const d = err?.detail;
-      setNotice({
-        type: "error",
-        message:
-          (typeof d === "object" && d?.reason) ||
-          (typeof d === "string" && d) ||
-          "Could not read that PDF ? please fill the form manually.",
-      });
-    } finally {
-      setExtracting(false);
+  async function acceptFile(file: File) {
+    const validation = profileFileSchema.safeParse(file);
+    if (!validation.success) {
+      setUploadError(validation.error.issues[0]?.message ?? "Choose a valid profile file.");
+      return;
     }
+    setUploadError(undefined);
+    setUploadedFile(file);
+    setUploadOpen(false);
+    await onUpload(file);
   }
 
   function handleFileDrop(e: React.DragEvent) {
     e.preventDefault();
     setDragOver(false);
     const file = e.dataTransfer.files[0];
-    if (file) extractFromPdf(file);
+    if (file) void acceptFile(file);
   }
   function handleFileChoose(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (file) extractFromPdf(file);
+    if (file) void acceptFile(file);
   }
 
-  const [form, setForm] = useState(() => loadWizard().form);
-  const [extracting, setExtracting] = useState(false);
-  const [notice, setNotice] = useState<{ type: "error" | "success"; message: string } | null>(null);
-
   useEffect(() => {
-    if (!notice) return;
-    const timer = window.setTimeout(() => setNotice(null), 3000);
-    return () => window.clearTimeout(timer);
-  }, [notice]);
+    reset({
+      companyName: project.business.companyName,
+      uniqueness: project.business.uvp,
+      customers: project.business.targetAudience,
+      tagline: project.design.tagline,
+      cta: project.design.cta,
+      anythingElse: project.business.notes,
+    });
+  }, [project.updatedAt, project.business, project.design, reset]);
 
-  const handleNext = () => {
-    const hasEmptyFields = Object.values(form).some((value) => String(value).trim() === "");
-    if (hasEmptyFields) {
-      setNotice({ type: "error", message: "Please fill in all fields before continuing." });
-      return;
-    }
-    setNotice(null);
-    saveWizard({ form });
-    onNext();
-  };
+  const continueQuestionnaire = () => void handleSubmit(onSave)();
 
-  const fields = [
+  const fields: Array<Array<{ key: keyof QuestionnaireForm; label: string; placeholder: string; optional?: boolean }>> = [
     [
       { key: "companyName", label: "Company / Brand Name", placeholder: "e.g. Acme Corp" },
       { key: "uniqueness", label: "What makes your business unique?", placeholder: "e.g. 10 years of expertise, eco-friendly..." },
@@ -1073,7 +1054,7 @@ function QuestionnairePage({ onNext, onBack, onStepClick, completedUpTo }: { onN
     ],
     [
       { key: "cta", label: "Main Call to Action", placeholder: "e.g. Get Started Free" },
-      { key: "anythingElse", label: "Anything Else?", placeholder: "Additional context..." },
+      { key: "anythingElse", label: "Anything Else?", placeholder: "Additional context...", optional: true },
     ],
   ];
 
@@ -1081,7 +1062,7 @@ function QuestionnairePage({ onNext, onBack, onStepClick, completedUpTo }: { onN
     <ScaledPage
       designHeight={1100}
       scrollable
-      header={<><TopHeader /><SubNav activeStep={0} completedUpTo={completedUpTo} onBack={onBack} onNext={handleNext} onStepClick={onStepClick} /></>}
+      header={<><TopHeader /><SubNav activeStep={0} completedUpTo={completedUpTo} onBack={onBack} onNext={busy ? undefined : continueQuestionnaire} onStepClick={onStepClick} /></>}
     >
       <div
         className="w-full min-h-full flex flex-col"
@@ -1117,18 +1098,11 @@ function QuestionnairePage({ onNext, onBack, onStepClick, completedUpTo }: { onN
               className="font-semibold text-[14px] underline"
               style={{ color: "#6fccdd" }}
               onClick={(e) => { e.stopPropagation(); setUploadOpen(true); }}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.color = "#8fe3eb";
-                (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.color = "#6fccdd";
-                (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
-              }}
             >
-              {uploadedFile ? "Change file ?" : "Upload here ?"}
+              {uploadedFile ? "Change file →" : "Upload here →"}
             </button>
           </div>
+          <ValidationError message={uploadError} />
 
           {/* Upload overlay */}
           {uploadOpen && (
@@ -1149,21 +1123,11 @@ function QuestionnairePage({ onNext, onBack, onStepClick, completedUpTo }: { onN
               >
                 {/* Header */}
                 <div className="flex items-center justify-between w-full">
-                  <span className="text-white font-semibold text-[18px]">Upload Portfolio{extracting ? " ? reading your document?" : ""}</span>
+                  <span className="text-white font-semibold text-[18px]">Upload Portfolio</span>
                   <button
                     onClick={() => setUploadOpen(false)}
-                    onMouseEnter={(e) => {
-                      (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.08)";
-                      (e.currentTarget as HTMLButtonElement).style.color = "white";
-                      (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
-                    }}
-                    onMouseLeave={(e) => {
-                      (e.currentTarget as HTMLButtonElement).style.background = "none";
-                      (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.5)";
-                      (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
-                    }}
                     style={{ color: "rgba(255,255,255,0.5)", fontSize: 22, lineHeight: 1, background: "none", border: "none", cursor: "pointer" }}
-                  >?</button>
+                  >×</button>
                 </div>
 
                 {/* Drop zone */}
@@ -1192,14 +1156,14 @@ function QuestionnairePage({ onNext, onBack, onStepClick, completedUpTo }: { onN
                     <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 13, marginTop: 6 }}>or click to browse from your computer</p>
                   </div>
                   <p style={{ color: "rgba(255,255,255,0.3)", fontSize: 12 }}>
-                    PDF ? DOCX ? PPTX ? TXT ? PNG ? JPG ? max 20 MB
+                    PDF · DOCX · PPTX · TXT · PNG · JPG — max 20 MB
                   </p>
                 </div>
 
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept=".pdf,.docx,.pptx,.txt,.png,.jpg,.jpeg"
+                  accept=".pdf,.docx,.pptx,.txt,.md,.png,.jpg,.jpeg"
                   style={{ display: "none" }}
                   onChange={handleFileChoose}
                 />
@@ -1222,14 +1186,6 @@ function QuestionnairePage({ onNext, onBack, onStepClick, completedUpTo }: { onN
                     cursor: "pointer",
                   }}
                   onClick={() => fileInputRef.current?.click()}
-                  onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.background = "#8fe3eb";
-                    (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
-                  }}
-                  onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.background = "#6FCCDD";
-                    (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
-                  }}
                 >
                   Choose File from Computer
                 </button>
@@ -1266,36 +1222,21 @@ function QuestionnairePage({ onNext, onBack, onStepClick, completedUpTo }: { onN
               <div className="w-[8px] h-[8px] rounded-full" style={{ background: "#6fccdd" }} />
             </div>
 
-            {notice && (
-              <div
-                className="rounded-[12px] border px-[14px] py-[12px]"
-                style={{
-                  background: notice.type === "error" ? "rgba(248,113,113,0.1)" : "rgba(111,204,221,0.1)",
-                  borderColor: notice.type === "error" ? "rgba(248,113,113,0.3)" : "rgba(111,204,221,0.25)",
-                  color: notice.type === "error" ? "#fecaca" : "#bdeff3",
-                  fontSize: 13,
-                  fontWeight: 600,
-                }}
-              >
-                {notice.message}
-              </div>
-            )}
-
             {fields.map((row, ri) => (
               <div key={ri} className="grid grid-cols-1 sm:grid-cols-2 gap-[24px]">
-                {row.map(({ key, label, placeholder }) => (
+                {row.map(({ key, label, placeholder, optional }) => (
                   <div key={key} className="flex flex-col gap-[8px]">
                     <label
                       className="font-semibold uppercase"
                       style={{ fontSize: 12, color: "#6fccdd", letterSpacing: "0.08em" }}
                     >
-                      {label}
+                      {label}{optional ? " (Optional)" : " *"}
                     </label>
                     <div
                       className="flex items-center"
                       style={{
                         background: "rgba(255,255,255,0.03)",
-                        border: "1px solid rgba(255,255,255,0.1)",
+                        border: errors[key] ? "1px solid rgba(248,113,113,0.8)" : "1px solid rgba(255,255,255,0.1)",
                         borderRadius: 12,
                         height: 48,
                         padding: "0 16px",
@@ -1305,17 +1246,31 @@ function QuestionnairePage({ onNext, onBack, onStepClick, completedUpTo }: { onN
                         className="w-full bg-transparent outline-none font-medium text-[14px]"
                         style={{ color: "white", caretColor: "#6fccdd" }}
                         placeholder={placeholder}
-                        value={(form as Record<string, string>)[key]}
-                        onChange={(e) =>
-                          setForm((f) => ({ ...f, [key]: e.target.value }))
-                        }
+                        {...register(key)}
+                        aria-invalid={Boolean(errors[key])}
+                        aria-describedby={errors[key] ? `${key}-error` : undefined}
                       />
                     </div>
+                    <ValidationError id={`${key}-error`} message={errors[key]?.message} />
                   </div>
                 ))}
               </div>
             ))}
 
+            {/* Save button */}
+            <button
+              onClick={continueQuestionnaire}
+              disabled={busy}
+              className="w-full font-semibold text-[14px] uppercase"
+              style={{
+                background: "#6fccdd",
+                color: "#0b0b0b",
+                borderRadius: 12,
+                padding: "16px 0",
+              }}
+            >
+              {busy ? "Saving..." : "Save & Continue"}
+            </button>
           </div>
         </div>
       </div>
@@ -1323,11 +1278,11 @@ function QuestionnairePage({ onNext, onBack, onStepClick, completedUpTo }: { onN
   );
 }
 
-// ??? PAGE 4: Category & Mood ??????????????????????????????????????????????????
+// ─── PAGE 4: Category & Mood ──────────────────────────────────────────────────
 const BUSINESS_CATEGORIES = [
   { label: "Corporate Enterprise", desc: "Ideal for established businesses that need a professional online presence to build trust and attract clients." },
   { label: "Bookshop", desc: "Independent or chain bookstore selling physical or digital books to avid readers." },
-  { label: "Coffee Shop", desc: "Caf? or coffeehouse with a warm, inviting atmosphere and specialty drinks." },
+  { label: "Coffee Shop", desc: "Café or coffeehouse with a warm, inviting atmosphere and specialty drinks." },
   { label: "Education", desc: "Schools, tutors, online courses or academic institutions delivering learning experiences." },
   { label: "Healthcare", desc: "Clinics, practices or health & wellness providers serving patients and communities." },
   { label: "Restaurant", desc: "Dining establishments, takeaway or food delivery services for food lovers." },
@@ -1355,35 +1310,62 @@ const ANIMATION_LEVELS = [
   { label: "High", sub: "More dynamic" },
 ];
 
-function CategoryMoodPage({ onNext, onBack, onStepClick, completedUpTo }: { onNext: () => void; onBack: () => void; onStepClick?: (step: number) => void; completedUpTo?: number }) {
-  const [category, setCategory] = useState(() => loadWizard().category || "");
-  const [mood, setMood] = useState(() => loadWizard().mood || "");
-  const [animLevel, setAnimLevel] = useState(() => loadWizard().animLevel);
+function CategoryMoodPage({ project, catalog, onSave, onBack, onStepClick, completedUpTo, busy }: {
+  project: ProjectView;
+  catalog: WizardCatalog;
+  onSave: (categoryId: string, moodId: string, animationId: string) => Promise<void>;
+  onBack: () => void;
+  onStepClick?: (step: number) => void;
+  completedUpTo?: number;
+  busy: boolean;
+}) {
+  const categories = catalog.businessCategories;
+  const moods = catalog.designMoods;
+  const animationLevels = catalog.animationLevels;
+  const [category, setCategory] = useState(
+    categories.find((item) => item.id === project.business.categoryId)?.label ?? categories[0]?.label ?? "",
+  );
+  const [mood, setMood] = useState(
+    moods.find((item) => item.id === project.design.moodId)?.label ?? moods[0]?.label ?? "",
+  );
+  const [animLevel, setAnimLevel] = useState(
+    Math.max(0, animationLevels.findIndex((item) => item.id === project.design.animationId)),
+  );
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showMoodModal, setShowMoodModal] = useState(false);
-  const [notice, setNotice] = useState<{ type: "error" | "success"; message: string } | null>(null);
+  const { reset, setValue, handleSubmit, formState: { errors } } = useForm<DesignSelectionValues>({
+    resolver: zodResolver(designSelectionSchema),
+    defaultValues: {
+      categoryId: categories.find((item) => item.id === project.business.categoryId)?.id ?? categories[0]?.id ?? "",
+      moodId: moods.find((item) => item.id === project.design.moodId)?.id ?? moods[0]?.id ?? "",
+      animationId: animationLevels.find((item) => item.id === project.design.animationId)?.id ?? animationLevels[0]?.id ?? "",
+    },
+    mode: "onChange",
+  });
 
   useEffect(() => {
-    if (!notice) return;
-    const timer = window.setTimeout(() => setNotice(null), 3000);
-    return () => window.clearTimeout(timer);
-  }, [notice]);
+    const categoryChoice = categories.find((item) => item.id === project.business.categoryId) ?? categories[0];
+    const moodChoice = moods.find((item) => item.id === project.design.moodId) ?? moods[0];
+    const animationIndex = Math.max(0, animationLevels.findIndex((item) => item.id === project.design.animationId));
+    setCategory(categoryChoice?.label ?? "");
+    setMood(moodChoice?.label ?? "");
+    setAnimLevel(animationIndex);
+    reset({
+      categoryId: categoryChoice?.id ?? "",
+      moodId: moodChoice?.id ?? "",
+      animationId: animationLevels[animationIndex]?.id ?? "",
+    });
+  }, [project.updatedAt, catalog, categories, moods, animationLevels, reset]);
 
-  const handleNext = () => {
-    if (!category.trim() || !mood.trim()) {
-      setNotice({ type: "error", message: "Please choose both a business category and a design mood before continuing." });
-      return;
-    }
-    setNotice(null);
-    saveWizard({ category, mood, animLevel });
-    onNext();
+  const continueDesign = () => {
+    void handleSubmit(({ categoryId, moodId, animationId }) => onSave(categoryId, moodId, animationId))();
   };
 
   return (
     <ScaledPage
       designHeight={1000}
       scrollable
-      header={<><TopHeader /><SubNav activeStep={1} completedUpTo={completedUpTo} onBack={onBack} onNext={handleNext} onStepClick={onStepClick} /></>}
+      header={<><TopHeader /><SubNav activeStep={1} completedUpTo={completedUpTo} onBack={onBack} onNext={busy ? undefined : continueDesign} onStepClick={onStepClick} /></>}
     >
       <div
         className="w-full min-h-full flex flex-col"
@@ -1391,22 +1373,7 @@ function CategoryMoodPage({ onNext, onBack, onStepClick, completedUpTo }: { onNe
       >
         <div className="px-[clamp(16px,7vw,120px)] py-[clamp(24px,5vw,48px)] flex flex-col gap-[clamp(24px,5vw,48px)]">
 
-          {notice && (
-            <div
-              className="rounded-[12px] border px-[14px] py-[12px]"
-              style={{
-                background: "rgba(248,113,113,0.1)",
-                borderColor: "rgba(248,113,113,0.3)",
-                color: "#fecaca",
-                fontSize: 13,
-                fontWeight: 600,
-              }}
-            >
-              {notice.message}
-            </div>
-          )}
-
-          {/* ?? Cards row ??????????????????????????????????????????????????????? */}
+          {/* ── Cards row ─────────────────────────────────────────────────────── */}
           <div className="flex flex-col sm:flex-row gap-3 w-full">
             {/* Business Category card */}
             <div
@@ -1420,13 +1387,13 @@ function CategoryMoodPage({ onNext, onBack, onStepClick, completedUpTo }: { onNe
                     Business Category
                   </p>
                   <div className="flex flex-col gap-[6px]">
-                    <h3 className="text-white font-semibold text-[16px] sm:text-[18px] leading-[24px] sm:leading-[28px]">{category || "Click here to select a category"}</h3>
+                    <h3 className="text-white font-semibold text-[16px] sm:text-[18px] leading-[24px] sm:leading-[28px]">{category}</h3>
                     <p className="font-medium text-[13px] sm:text-[14px] leading-[18px] sm:leading-[20px]" style={{ color: "rgba(255,255,255,0.6)", maxWidth: 360 }}>
-                      {BUSINESS_CATEGORIES.find((c) => c.label === category)?.desc ?? "Choose your business category to continue."}
+                      {categories.find((c) => c.label === category)?.description ?? ""}
                     </p>
                   </div>
                 </div>
-                {/* Icon chip ? notched bottom-left corner */}
+                {/* Icon chip — notched bottom-left corner */}
                 <div
                   className="flex items-center justify-center shrink-0"
                   style={{ width: 56, height: 56, background: "rgba(255,255,255,0.06)", borderRadius: "16px 16px 0 16px" }}
@@ -1444,18 +1411,10 @@ function CategoryMoodPage({ onNext, onBack, onStepClick, completedUpTo }: { onNe
                 <div style={{ height: 1, background: "rgba(255,255,255,0.1)", marginBottom: 12 }} />
                 <button
                   onClick={() => setShowCategoryModal(true)}
-                  onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.color = "#8fe3eb";
-                    (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
-                  }}
-                  onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.color = "#6fccdd";
-                    (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
-                  }}
                   className="flex items-center gap-[8px] font-medium text-[13px] sm:text-[14px] leading-[18px] sm:leading-[20px] w-fit"
                   style={{ color: "#6fccdd" }}
                 >
-                  Click here to select a category
+                  Choose a different category
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                     <path d="M3.33 8H12.67M9.33 5L12.67 8L9.33 11" stroke="#6fccdd" strokeWidth="1.33" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
@@ -1474,9 +1433,9 @@ function CategoryMoodPage({ onNext, onBack, onStepClick, completedUpTo }: { onNe
                     Design Mood
                   </p>
                   <div className="flex flex-col gap-[6px]">
-                    <h3 className="text-white font-semibold text-[16px] sm:text-[18px] leading-[24px] sm:leading-[28px]">{mood || "Click here to select a design mood"}</h3>
+                    <h3 className="text-white font-semibold text-[16px] sm:text-[18px] leading-[24px] sm:leading-[28px]">{mood}</h3>
                     <p className="font-medium text-[13px] sm:text-[14px] leading-[18px] sm:leading-[20px]" style={{ color: "rgba(255,255,255,0.6)", maxWidth: 360 }}>
-                      {DESIGN_MOODS.find((m) => m.label === mood)?.desc ?? "Choose a design mood to continue."}
+                      {moods.find((m) => m.label === mood)?.description ?? ""}
                     </p>
                   </div>
                 </div>
@@ -1493,18 +1452,10 @@ function CategoryMoodPage({ onNext, onBack, onStepClick, completedUpTo }: { onNe
                 <div style={{ height: 1, background: "rgba(255,255,255,0.1)", marginBottom: 12 }} />
                 <button
                   onClick={() => setShowMoodModal(true)}
-                  onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.color = "#8fe3eb";
-                    (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
-                  }}
-                  onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.color = "#6fccdd";
-                    (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
-                  }}
                   className="flex items-center gap-[8px] font-medium text-[13px] sm:text-[14px] leading-[18px] sm:leading-[20px] w-fit"
                   style={{ color: "#6fccdd" }}
                 >
-                  Click here to select a design mood
+                  Choose a different category
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                     <path d="M3.33 8H12.67M9.33 5L12.67 8L9.33 11" stroke="#6fccdd" strokeWidth="1.33" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
@@ -1513,28 +1464,31 @@ function CategoryMoodPage({ onNext, onBack, onStepClick, completedUpTo }: { onNe
             </div>
           </div>
 
-          {/* ?? Animation Level ????????????????????????????????????????????????? */}
+          {/* ── Animation Level ───────────────────────────────────────────────── */}
           <div className="flex flex-col gap-[32px] w-full">
             <p className="font-semibold uppercase text-[12px]" style={{ color: "rgba(255,255,255,0.5)", letterSpacing: "0.12em" }}>
               Animation Level
             </p>
             <div className="relative flex items-end w-full overflow-x-hidden">
-              {/* Track line ? vertically centered on dots, spans the full row */}
+              {/* Track line — vertically centered on dots, spans the full row */}
               <div
                 className="absolute left-0 right-0 w-full"
                 style={{ bottom: "clamp(8px, 2vw, 11px)", height: 2, background: "rgba(255,255,255,0.1)" }}
               />
-              {ANIMATION_LEVELS.map((lvl, i) => {
+                {animationLevels.map((lvl, i) => {
                 const isActive = i === animLevel;
                 const dotSize = "clamp(18px, 4vw, 24px)";
                 return (
                   <button
                     key={lvl.label}
-                    onClick={() => setAnimLevel(i)}
+                    onClick={() => {
+                      setAnimLevel(i);
+                      setValue("animationId", lvl.id, { shouldDirty: true, shouldValidate: true });
+                    }}
                     className="flex-1 flex flex-col items-center relative z-10"
                     style={{ gap: "clamp(5px, 2vw, 12px)", minWidth: 0, padding: "0 2px" }}
                   >
-                    {/* Label + sub-label above ? clamp() sizing + wrapping so text never gets clipped */}
+                    {/* Label + sub-label above — clamp() sizing + wrapping so text never gets clipped */}
                     <div className="flex flex-col gap-[2px] items-center text-center" style={{ width: "100%" }}>
                       <span
                         style={{
@@ -1562,7 +1516,7 @@ function CategoryMoodPage({ onNext, onBack, onStepClick, completedUpTo }: { onNe
                           display: "block",
                         }}
                       >
-                        {lvl.sub}
+                        {lvl.description}
                       </span>
                     </div>
                     {/* Circle on the track */}
@@ -1580,6 +1534,7 @@ function CategoryMoodPage({ onNext, onBack, onStepClick, completedUpTo }: { onNe
               })}
             </div>
           </div>
+          <ValidationError message={firstValidationError(errors)} />
         </div>
 
         {/* Category Popup */}
@@ -1607,14 +1562,6 @@ function CategoryMoodPage({ onNext, onBack, onStepClick, completedUpTo }: { onNe
                 </h3>
                 <button
                   onClick={() => setShowCategoryModal(false)}
-                  onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.16)";
-                    (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
-                  }}
-                  onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.08)";
-                    (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
-                  }}
                   className="text-white font-bold flex items-center justify-center"
                   style={{
                     fontSize: 20,
@@ -1625,17 +1572,18 @@ function CategoryMoodPage({ onNext, onBack, onStepClick, completedUpTo }: { onNe
                     flexShrink: 0,
                   }}
                 >
-                  ?
+                  ×
                 </button>
               </div>
 
-              {/* Category grid ? 1 col mobile, 3 cols tablet/desktop */}
+              {/* Category grid — 1 col mobile, 3 cols tablet/desktop */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {BUSINESS_CATEGORIES.map((cat) => (
+                  {categories.map((cat) => (
                   <button
                     key={cat.label}
                     onClick={() => {
                       setCategory(cat.label);
+                      setValue("categoryId", cat.id, { shouldDirty: true, shouldValidate: true });
                       setShowCategoryModal(false);
                     }}
                     className="text-left rounded-[12px] transition-all flex flex-col gap-[6px] p-4"
@@ -1654,7 +1602,7 @@ function CategoryMoodPage({ onNext, onBack, onStepClick, completedUpTo }: { onNe
                       className="font-medium leading-[17px]"
                       style={{ fontSize: "clamp(10px, 2vw, 11px)", color: "rgba(255,255,255,0.45)" }}
                     >
-                      {cat.desc}
+                        {cat.description}
                     </p>
                   </button>
                 ))}
@@ -1685,29 +1633,22 @@ function CategoryMoodPage({ onNext, onBack, onStepClick, completedUpTo }: { onNe
                 <h3 className="text-white font-semibold" style={{ fontSize: "clamp(17px, 4vw, 20px)" }}>Choose Design Mood</h3>
                 <button
                   onClick={() => setShowMoodModal(false)}
-                  onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.16)";
-                    (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
-                  }}
-                  onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.08)";
-                    (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
-                  }}
                   className="text-white font-bold text-[20px] w-[32px] h-[32px] flex items-center justify-center"
                   style={{
                     background: "rgba(255,255,255,0.08)",
                     borderRadius: 8,
                   }}
                 >
-                  ?
+                  ×
                 </button>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-[12px]">
-                {DESIGN_MOODS.map((m) => (
+                {moods.map((m) => (
                   <button
                     key={m.label}
                     onClick={() => {
                       setMood(m.label);
+                      setValue("moodId", m.id, { shouldDirty: true, shouldValidate: true });
                       setShowMoodModal(false);
                     }}
                     className="p-[20px] text-left rounded-[12px] transition-all"
@@ -1717,7 +1658,7 @@ function CategoryMoodPage({ onNext, onBack, onStepClick, completedUpTo }: { onNe
                     }}
                   >
                     <p className="font-semibold text-[13px] sm:text-[15px] mb-[4px]" style={{ color: m.label === mood ? "#6fccdd" : "white" }}>{m.label}</p>
-                    <p className="font-medium text-[11px] sm:text-[13px] leading-[16px] sm:leading-[18px]" style={{ color: "rgba(255,255,255,0.4)" }}>{m.desc}</p>
+                    <p className="font-medium text-[11px] sm:text-[13px] leading-[16px] sm:leading-[18px]" style={{ color: "rgba(255,255,255,0.4)" }}>{m.description}</p>
                   </button>
                 ))}
               </div>
@@ -1729,8 +1670,8 @@ function CategoryMoodPage({ onNext, onBack, onStepClick, completedUpTo }: { onNe
   );
 }
 
-// ??? PAGE 5: Colors & Fonts ???????????????????????????????????????????????????
-type PaletteEntry = { name: string; primary: string; secondary: string; background: string; text: string };
+// ─── PAGE 5: Colors & Fonts ───────────────────────────────────────────────────
+type PaletteEntry = { id?: string; name: string; primary: string; secondary: string; background: string; text: string };
 const PALETTES: PaletteEntry[] = [
   { name: "Modern Blue",    primary: "#2563EB", secondary: "#60A5FA", background: "#F8FAFC", text: "#1E293B" },
   { name: "Nature Green",   primary: "#16A34A", secondary: "#86EFAC", background: "#F0FDF4", text: "#14532D" },
@@ -1741,7 +1682,7 @@ const PALETTES: PaletteEntry[] = [
   { name: "Soft Pink",      primary: "#EC4899", secondary: "#F9A8D4", background: "#FDF2F8", text: "#831843" },
 ];
 
-type FontPair = { name: string; heading: string; body: string };
+type FontPair = { id?: string; name: string; heading: string; body: string };
 const FONT_PAIRS: FontPair[] = [
   { name: "Modern Startup",    heading: "Poppins",           body: "Inter" },
   { name: "Elegant Editorial", heading: "Playfair Display",  body: "Source Sans 3" },
@@ -1758,59 +1699,80 @@ const GOOGLE_FONTS_LIST = [
 ];
 
 type CustomPalette = { primary: string; secondary: string; background: string; text: string };
-function ColorsFontsPage({ onNext, onBack, onStepClick, completedUpTo }: { onNext: () => void; onBack: () => void; onStepClick?: (step: number) => void; completedUpTo?: number }) {
-  const [selectedPalette, setSelectedPalette] = useState(() => {
-    const saved = loadWizard().palette;
-    if (!saved) return 0;
-    const i = PALETTES.findIndex((p) => p.name === saved.name);
-    return i >= 0 ? i : PALETTES.length;
-  });
-  const [selectedFont, setSelectedFont] = useState(() => {
-    const saved = loadWizard().font;
-    if (!saved) return 0;
-    const i = FONT_PAIRS.findIndex((f) => f.name === saved.name);
-    return i >= 0 ? i : FONT_PAIRS.length;
-  });
+function ColorsFontsPage({ project, catalog, onSave, onBack, onStepClick, completedUpTo, busy }: {
+  project: ProjectView;
+  catalog: WizardCatalog;
+  onSave: (paletteId: string, customPalette: CustomPalette | null, fontId: string, customFonts: { heading: string; body: string } | null) => Promise<void>;
+  onBack: () => void;
+  onStepClick?: (step: number) => void;
+  completedUpTo?: number;
+  busy: boolean;
+}) {
+  const palettes: PaletteEntry[] = catalog.palettes
+    .filter((item) => item.colors)
+    .map((item) => ({ id: item.id, name: item.label, ...item.colors! }));
+  const fontPairs: FontPair[] = catalog.fontPairings
+    .filter((item) => item.fonts)
+    .map((item) => ({ id: item.id, name: item.label, ...item.fonts! }));
+  const [selectedPalette, setSelectedPalette] = useState(
+    project.design.paletteId === "custom"
+      ? palettes.length
+      : Math.max(0, palettes.findIndex((item) => item.id === project.design.paletteId)),
+  );
+  const [selectedFont, setSelectedFont] = useState(
+    project.design.fontPairingId === "custom"
+      ? fontPairs.length
+      : Math.max(0, fontPairs.findIndex((item) => item.id === project.design.fontPairingId)),
+  );
   const [customModalOpen, setCustomModalOpen] = useState(false);
+  const [customPaletteError, setCustomPaletteError] = useState<string>();
   const [specificColors, setSpecificColors] = useState(false);
-  const [customPalette, setCustomPalette] = useState<CustomPalette | null>(() => {
-    const saved = loadWizard().palette;
-    return saved && saved.name === "Custom"
-      ? { primary: saved.primary, secondary: saved.secondary, background: saved.background, text: saved.text }
-      : null;
-  });
+  const [customPalette, setCustomPalette] = useState<CustomPalette | null>(project.design.customPalette);
   const [customDraft, setCustomDraft] = useState<CustomPalette>({ primary: "", secondary: "", background: "", text: "" });
   const [fontModalOpen, setFontModalOpen] = useState(false);
-  const [customFont, setCustomFont] = useState<FontPair | null>(() => {
-    const saved = loadWizard().font;
-    return saved && saved.name === "Custom" ? { ...saved } : null;
-  });
+  const [customFontError, setCustomFontError] = useState<string>();
+  const [customFont, setCustomFont] = useState<FontPair | null>(
+    project.design.customFonts
+      ? { name: "Custom", ...project.design.customFonts }
+      : null,
+  );
   const [fontDraft, setFontDraft] = useState<{ heading: string; body: string }>({ heading: "", body: "" });
   const [headingSearch, setHeadingSearch] = useState("");
   const [bodySearch, setBodySearch] = useState("");
+  const { setValue, handleSubmit, formState: { errors } } = useForm<ColorFontValues>({
+    resolver: zodResolver(colorFontSchema),
+    defaultValues: {
+      paletteId: project.design.paletteId || palettes[0]?.id || "",
+      customPalette: project.design.customPalette,
+      fontPairingId: project.design.fontPairingId || fontPairs[0]?.id || "",
+      customFonts: project.design.customFonts,
+    },
+    mode: "onChange",
+  });
 
-  const handleNext = () => {
-    const palette =
-      selectedPalette < PALETTES.length
-        ? { ...PALETTES[selectedPalette] }
-        : customPalette
-          ? { name: "Custom", ...customPalette }
-          : null;
-    const font =
-      selectedFont < FONT_PAIRS.length
-        ? { ...FONT_PAIRS[selectedFont] }
-        : customFont
-          ? { name: "Custom", heading: customFont.heading, body: customFont.body }
-          : null;
-    saveWizard({ palette, font });
-    onNext();
+  const continueColors = () => {
+    const paletteId = selectedPalette === palettes.length ? "custom" : palettes[selectedPalette]?.id;
+    const fontId = selectedFont === fontPairs.length ? "custom" : fontPairs[selectedFont]?.id;
+    const customFonts = fontId === "custom" && customFont
+      ? { heading: customFont.heading, body: customFont.body }
+      : null;
+    setValue("paletteId", paletteId ?? "", { shouldDirty: true, shouldValidate: true });
+    setValue("customPalette", paletteId === "custom" ? customPalette : null, { shouldDirty: true, shouldValidate: true });
+    setValue("fontPairingId", fontId ?? "", { shouldDirty: true, shouldValidate: true });
+    setValue("customFonts", customFonts, { shouldDirty: true, shouldValidate: true });
+    void handleSubmit((values) => onSave(
+      values.paletteId,
+      values.customPalette,
+      values.fontPairingId,
+      values.customFonts,
+    ))();
   };
 
   return (
     <ScaledPage
       designHeight={1200}
       scrollable
-      header={<><TopHeader /><SubNav activeStep={2} completedUpTo={completedUpTo} onBack={onBack} onNext={handleNext} onStepClick={onStepClick} /></>}
+      header={<><TopHeader /><SubNav activeStep={2} completedUpTo={completedUpTo} onBack={onBack} onNext={busy ? undefined : continueColors} onStepClick={onStepClick} /></>}
     >
       <div
         className="w-full min-h-full flex flex-col"
@@ -1827,21 +1789,13 @@ function ColorsFontsPage({ onNext, onBack, onStepClick, completedUpTo }: { onNex
             </span>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
               {/* 7 preset palette cards */}
-              {PALETTES.map((palette, i) => {
+              {palettes.map((palette, i) => {
                 const colors = [palette.primary, palette.secondary, palette.background, palette.text];
                 const selected = selectedPalette === i;
                 return (
                   <button
                     key={i}
                     onClick={() => setSelectedPalette(i)}
-                    onMouseEnter={(e) => {
-                      (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
-                      (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 8px 24px rgba(0,0,0,0.2)";
-                    }}
-                    onMouseLeave={(e) => {
-                      (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
-                      (e.currentTarget as HTMLButtonElement).style.boxShadow = "none";
-                    }}
                     className="relative flex flex-col rounded-[8px] overflow-hidden"
                     style={{
                       height: 80,
@@ -1881,18 +1835,14 @@ function ColorsFontsPage({ onNext, onBack, onStepClick, completedUpTo }: { onNex
 
               {/* Custom palette card */}
               {(() => {
-                const CUSTOM_IDX = PALETTES.length;
+                const CUSTOM_IDX = palettes.length;
                 const selected = selectedPalette === CUSTOM_IDX;
                 return (
                   <button
-                    onClick={() => { if (customPalette) setCustomDraft({ ...customPalette }); setCustomModalOpen(true); }}
-                    onMouseEnter={(e) => {
-                      (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
-                      (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 8px 24px rgba(0,0,0,0.2)";
-                    }}
-                    onMouseLeave={(e) => {
-                      (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
-                      (e.currentTarget as HTMLButtonElement).style.boxShadow = "none";
+                    onClick={() => {
+                      setCustomPaletteError(undefined);
+                      if (customPalette) setCustomDraft({ ...customPalette });
+                      setCustomModalOpen(true);
                     }}
                     className="relative flex flex-col rounded-[8px] overflow-hidden"
                     style={{
@@ -1961,7 +1911,7 @@ function ColorsFontsPage({ onNext, onBack, onStepClick, completedUpTo }: { onNex
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-white font-semibold text-[17px]">Custom Palette</span>
-                    <button onClick={() => setCustomModalOpen(false)} style={{ color: "rgba(255,255,255,0.4)", fontSize: 22, background: "none", border: "none", cursor: "pointer", lineHeight: 1 }}>?</button>
+                    <button onClick={() => setCustomModalOpen(false)} style={{ color: "rgba(255,255,255,0.4)", fontSize: 22, background: "none", border: "none", cursor: "pointer", lineHeight: 1 }}>×</button>
                   </div>
 
                   {/* Checkbox */}
@@ -2103,17 +2053,10 @@ function ColorsFontsPage({ onNext, onBack, onStepClick, completedUpTo }: { onNex
                     );
                   })}
 
+                  <ValidationError message={customPaletteError} />
                   <div className="flex gap-[12px]">
                     <button
                       onClick={() => setCustomModalOpen(false)}
-                      onMouseEnter={(e) => {
-                        (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.16)";
-                        (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
-                      }}
-                      onMouseLeave={(e) => {
-                        (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.08)";
-                        (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
-                      }}
                       className="flex-1 font-semibold text-[14px]"
                       style={{ background: "rgba(255,255,255,0.08)", color: "white", border: "none", borderRadius: 10, padding: "12px 0", cursor: "pointer" }}
                     >
@@ -2121,17 +2064,15 @@ function ColorsFontsPage({ onNext, onBack, onStepClick, completedUpTo }: { onNex
                     </button>
                     <button
                       onClick={() => {
-                        setCustomPalette({ ...customDraft });
-                        setSelectedPalette(PALETTES.length);
+                        const validation = customPaletteSchema.safeParse(customDraft);
+                        if (!validation.success) {
+                          setCustomPaletteError(validation.error.issues[0]?.message ?? "Complete the custom palette.");
+                          return;
+                        }
+                        setCustomPaletteError(undefined);
+                        setCustomPalette(validation.data);
+                        setSelectedPalette(palettes.length);
                         setCustomModalOpen(false);
-                      }}
-                      onMouseEnter={(e) => {
-                        (e.currentTarget as HTMLButtonElement).style.background = "#8fe3eb";
-                        (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
-                      }}
-                      onMouseLeave={(e) => {
-                        (e.currentTarget as HTMLButtonElement).style.background = "#6FCCDD";
-                        (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
                       }}
                       className="flex-1 font-semibold text-[14px]"
                       style={{ background: "#6FCCDD", color: "#0b0b0b", border: "none", borderRadius: 10, padding: "12px 0", cursor: "pointer" }}
@@ -2153,30 +2094,23 @@ function ColorsFontsPage({ onNext, onBack, onStepClick, completedUpTo }: { onNex
               Font Pairings
             </span>
 
-            {/* Unified responsive grid ? 2 cols mobile, 3 tablet, 4 desktop. CSS decides the
+            {/* Unified responsive grid — 2 cols mobile, 3 tablet, 4 desktop. CSS decides the
                 column count (Tailwind breakpoints), not JS device detection. */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-              {FONT_PAIRS.map((pair, i) => (
+              {fontPairs.map((pair, i) => (
                 <FontCard key={i} pair={pair} selected={selectedFont === i} onClick={() => setSelectedFont(i)} />
               ))}
               {/* Custom font card */}
               {(() => {
-                const CUSTOM_FONT_IDX = FONT_PAIRS.length;
+                const CUSTOM_FONT_IDX = fontPairs.length;
                 const selected = selectedFont === CUSTOM_FONT_IDX;
                 return (
                   <button
                     onClick={() => {
+                      setCustomFontError(undefined);
                       if (customFont) { setFontDraft({ heading: customFont.heading, body: customFont.body }); setHeadingSearch(customFont.heading); setBodySearch(customFont.body); }
                       else { setFontDraft({ heading: "", body: "" }); setHeadingSearch(""); setBodySearch(""); }
                       setFontModalOpen(true);
-                    }}
-                    onMouseEnter={(e) => {
-                      (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
-                      (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 8px 24px rgba(0,0,0,0.2)";
-                    }}
-                    onMouseLeave={(e) => {
-                      (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
-                      (e.currentTarget as HTMLButtonElement).style.boxShadow = "none";
                     }}
                     className="flex flex-col gap-[10px] p-[16px] text-left"
                     style={{
@@ -2190,7 +2124,7 @@ function ColorsFontsPage({ onNext, onBack, onStepClick, completedUpTo }: { onNex
                     {customFont ? (
                       <>
                         <p className="text-white font-bold text-[14px] sm:text-[16px] leading-tight" style={{ fontFamily: `'${customFont.heading}', serif` }}>{customFont.heading}</p>
-                        <p className="text-[11px] sm:text-[12px] leading-relaxed" style={{ color: "rgba(255,255,255,0.5)", fontFamily: `'${customFont.body}', sans-serif` }}>{customFont.body} ? body text</p>
+                        <p className="text-[11px] sm:text-[12px] leading-relaxed" style={{ color: "rgba(255,255,255,0.5)", fontFamily: `'${customFont.body}', sans-serif` }}>{customFont.body} — body text</p>
                       </>
                     ) : (
                       <div className="flex flex-col items-center justify-center flex-1 gap-[8px]" style={{ minHeight: 60 }}>
@@ -2221,7 +2155,7 @@ function ColorsFontsPage({ onNext, onBack, onStepClick, completedUpTo }: { onNex
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-white font-semibold text-[17px]">Custom Font Pairing</span>
-                    <button onClick={() => setFontModalOpen(false)} style={{ color: "rgba(255,255,255,0.4)", fontSize: 22, background: "none", border: "none", cursor: "pointer", lineHeight: 1 }}>?</button>
+                    <button onClick={() => setFontModalOpen(false)} style={{ color: "rgba(255,255,255,0.4)", fontSize: 22, background: "none", border: "none", cursor: "pointer", lineHeight: 1 }}>×</button>
                   </div>
 
                   {/* Heading font picker */}
@@ -2237,12 +2171,9 @@ function ColorsFontsPage({ onNext, onBack, onStepClick, completedUpTo }: { onNex
                           type="text"
                           value={searchVal}
                           onChange={(e) => setSearch(e.target.value)}
-                          placeholder="Type a font name (e.g. Montserrat)"
+                          placeholder="Search fonts…"
                           style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8, color: "white", fontSize: 14, fontFamily: "'Montserrat',sans-serif", padding: "10px 12px", outline: "none", width: "100%" }}
                         />
-                        <p style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", lineHeight: 1.5 }}>
-                          Type a font name to see Google Fonts suggestions in the dropdown below.
-                        </p>
                         {searchVal && (
                           <div style={{ background: "#1a1a1a", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, maxHeight: 180, overflowY: "auto" }}>
                             {filtered.length === 0 ? (
@@ -2274,16 +2205,21 @@ function ColorsFontsPage({ onNext, onBack, onStepClick, completedUpTo }: { onNex
                     </div>
                   )}
 
+                  <ValidationError message={customFontError} />
                   <div className="flex gap-[12px]">
                     <button onClick={() => setFontModalOpen(false)} className="flex-1 font-semibold text-[14px]" style={{ background: "rgba(255,255,255,0.08)", color: "white", border: "none", borderRadius: 10, padding: "12px 0", cursor: "pointer" }}>Cancel</button>
                     <button
                       onClick={() => {
-                        if (fontDraft.heading && fontDraft.body) {
-                          const pair: FontPair = { name: "Custom", heading: fontDraft.heading, body: fontDraft.body };
-                          setCustomFont(pair);
-                          setSelectedFont(FONT_PAIRS.length);
-                          setFontModalOpen(false);
+                        const validation = customFontsSchema.safeParse(fontDraft);
+                        if (!validation.success) {
+                          setCustomFontError(validation.error.issues[0]?.message ?? "Choose both fonts.");
+                          return;
                         }
+                        setCustomFontError(undefined);
+                        const pair: FontPair = { name: "Custom", ...validation.data };
+                        setCustomFont(pair);
+                        setSelectedFont(fontPairs.length);
+                        setFontModalOpen(false);
                       }}
                       className="flex-1 font-semibold text-[14px]"
                       style={{ background: "#6FCCDD", color: "#0b0b0b", border: "none", borderRadius: 10, padding: "12px 0", cursor: "pointer", opacity: fontDraft.heading && fontDraft.body ? 1 : 0.5 }}
@@ -2293,6 +2229,7 @@ function ColorsFontsPage({ onNext, onBack, onStepClick, completedUpTo }: { onNex
               </div>
             )}
           </div>
+          <ValidationError message={firstValidationError(errors)} />
         </div>
       </div>
     </ScaledPage>
@@ -2327,14 +2264,6 @@ function FontCard({
   return (
     <button
       onClick={onClick}
-      onMouseEnter={(e) => {
-        (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
-        (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 8px 24px rgba(0,0,0,0.2)";
-      }}
-      onMouseLeave={(e) => {
-        (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
-        (e.currentTarget as HTMLButtonElement).style.boxShadow = "none";
-      }}
       className="flex flex-col gap-[10px] p-[16px] text-left"
       style={{
         backdropFilter: "blur(12px)",
@@ -2353,15 +2282,15 @@ function FontCard({
         {pair.heading}
       </p>
       <p className="text-[11px] sm:text-[12px] leading-relaxed" style={{ color: "rgba(255,255,255,0.5)", fontFamily: `'${pair.body}', sans-serif` }}>
-        {pair.body} ? body text
+        {pair.body} — body text
       </p>
     </button>
   );
 }
 
-// ??? PAGE 6: Pick Pages ???????????????????????????????????????????????????????
-type Section = { id: string; name: string; locked?: boolean };
-type PageTemplate = { id: string; name: string; selected: boolean; sections: Section[] };
+// ─── PAGE 6: Pick Pages ───────────────────────────────────────────────────────
+type Section = { id: string; name: string; templateId?: string; locked?: boolean };
+type PageTemplate = { id: string; name: string; slug?: string; selected: boolean; sections: Section[] };
 
 let _sid = 0;
 const sid = () => `s${++_sid}`;
@@ -2458,41 +2387,72 @@ const PAGE_TEMPLATES: PageTemplate[] = [
   },
 ];
 
-function PickPagesPage({ onNext, onBack, onStepClick, completedUpTo }: { onNext: () => void; onBack: () => void; onStepClick?: (step: number) => void; completedUpTo?: number }) {
-  const [pages, setPages] = useState<PageTemplate[]>(() => {
-    const base = PAGE_TEMPLATES.map((p) => ({ ...p, sections: p.sections.map((s) => ({ ...s })) }));
-    const saved = loadWizard().pages;
-    if (!saved.length) return base;
-    return base.map((tpl) => {
-      const match = saved.find((s) => s.name === tpl.name);
-      if (!match) return { ...tpl, selected: false };
-      return {
-        ...tpl,
-        selected: true,
-        sections: [
-          { id: sid(), name: "Navigation", locked: true },
-          ...match.sections.map((name) => ({ id: sid(), name })),
-          { id: sid(), name: "Footer", locked: true },
-        ],
-      };
-    });
+function editorPages(project: ProjectView, catalog: WizardCatalog): PageTemplate[] {
+  const sectionCatalog = new Map(catalog.sectionTemplates.map((item) => [item.id, item]));
+  const saved = new Map(project.pageLayout.pages.map((page) => [page.templateId, page]));
+  return catalog.pageTemplates.map((template) => {
+    const page = saved.get(template.id);
+    const sections = page?.sections ?? template.sectionTemplateIds.map((templateId, index) => ({
+      id: `${template.id}:${templateId}:${index}`,
+      templateId,
+      name: sectionCatalog.get(templateId)?.label ?? templateId,
+      locked: sectionCatalog.get(templateId)?.locked ?? false,
+    }));
+    return {
+      id: template.id,
+      name: page?.name ?? template.label,
+      slug: page?.slug ?? template.slug,
+      selected: Boolean(page),
+      sections: sections.map((section) => ({
+        id: section.id,
+        name: section.name,
+        templateId: section.templateId,
+        locked: section.locked,
+      })),
+    };
   });
+}
 
-  const handleNext = () => {
-    const chosen = pages
-      .filter((p) => p.selected)
-      .map((p) => ({
-        name: p.name,
-        sections: p.sections.filter((s) => !s.locked).map((s) => s.name),
-      }));
-    saveWizard({ pages: chosen });
-    onNext();
-  };
+function PickPagesPage({ project, catalog, onGenerate, onBack, onStepClick, completedUpTo, busy }: {
+  project: ProjectView;
+  catalog: WizardCatalog;
+  onGenerate: (layout: PageLayout) => Promise<void>;
+  onBack: () => void;
+  onStepClick?: (step: number) => void;
+  completedUpTo?: number;
+  busy: boolean;
+}) {
+  const [pages, setPages] = useState<PageTemplate[]>(() => editorPages(project, catalog));
   const [openMenu, setOpenMenu] = useState<{ pageId: string; sectionId: string } | null>(null);
   const [addModal, setAddModal] = useState<string | null>(null); // pageId
   const [renaming, setRenaming] = useState<{ pageId: string; sectionId: string; value: string } | null>(null);
   const [drag, setDrag] = useState<{ pageId: string; sectionId: string } | null>(null);
   const [dragOver, setDragOver] = useState<{ pageId: string; sectionId: string } | null>(null);
+  const { setValue, handleSubmit, formState: { errors } } = useForm<PageLayoutValues>({
+    resolver: zodResolver(pageLayoutSchema),
+    defaultValues: project.pageLayout,
+    mode: "onChange",
+  });
+
+  const unlockedSections = catalog.sectionTemplates.filter((section) => !section.locked);
+  const continueGeneration = () => {
+    const layout: PageLayout = {
+      pages: pages.filter((page) => page.selected).map((page) => ({
+        id: `page:${page.id}`,
+        templateId: page.id,
+        name: page.name,
+        slug: page.slug ?? page.id,
+        sections: page.sections.map((section) => ({
+          id: section.id,
+          templateId: section.templateId ?? unlockedSections.find((item) => item.label === section.name.replace(" (Copy)", ""))?.id ?? "features",
+          name: section.name,
+          locked: Boolean(section.locked),
+        })),
+      })),
+    };
+    setValue("pages", layout.pages, { shouldDirty: true, shouldValidate: true });
+    void handleSubmit((values) => onGenerate(values))();
+  };
 
   const selectedPageCount = pages.filter((p) => p.selected).length;
   const totalContentSections = pages.filter((p) => p.selected).reduce((n, p) => n + p.sections.filter((s) => !s.locked).length, 0);
@@ -2521,7 +2481,11 @@ function PickPagesPage({ onNext, onBack, onStepClick, completedUpTo }: { onNext:
   const addSection = (pageId: string, name: string) => {
     updateSections(pageId, (s) => {
       const footerIdx = s.findIndex((sec) => sec.locked && sec.name === "Footer");
-      const newSec: Section = { id: sid(), name };
+      const newSec: Section = {
+        id: sid(),
+        name,
+        templateId: unlockedSections.find((item) => item.label === name)?.id,
+      };
       if (footerIdx >= 0) return [...s.slice(0, footerIdx), newSec, ...s.slice(footerIdx)];
       return [...s, newSec];
     });
@@ -2593,9 +2557,9 @@ function PickPagesPage({ onNext, onBack, onStepClick, completedUpTo }: { onNext:
             activeStep={3}
             completedUpTo={completedUpTo}
             onBack={onBack}
-            onNext={selectedPageCount > 0 && !hasInvalidPage && !atSectionLimit ? handleNext : undefined}
+            onNext={busy ? undefined : continueGeneration}
             onStepClick={onStepClick}
-            nextLabel="Review &amp; Generate"
+            nextLabel="Review & Generate"
           />
         </>
       }
@@ -2640,19 +2604,7 @@ function PickPagesPage({ onNext, onBack, onStepClick, completedUpTo }: { onNext:
               </div>
             </div>
 
-            {/* Selection summary strip */}
-            <div className="flex flex-col sm:flex-row sm:items-center items-stretch justify-between gap-3 px-[20px] py-[14px] rounded-[12px]" style={{ background: "rgba(111,204,221,0.05)", border: "1px solid rgba(111,204,221,0.15)" }}>
-              <div>
-                <p className="text-white font-semibold text-[14px]">
-                  {pages.filter((p) => p.selected).length} pages ? {totalContentSections} content sections
-                </p>
-                <p className="font-medium text-[12px] mt-[2px]" style={{ color: "rgba(255,255,255,0.4)" }}>
-                  {pages.filter((p) => p.selected).map((p) => p.name).join(", ")}
-                </p>
-              </div>
-            </div>
-
-            {/* Page cards grid ? 1 col mobile, 2 tablet, 3 desktop */}
+            {/* Page cards grid — 1 col mobile, 2 tablet, 3 desktop */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
               {pages.map((page) => (
                 <div
@@ -2683,11 +2635,7 @@ function PickPagesPage({ onNext, onBack, onStepClick, completedUpTo }: { onNext:
                     style={{ borderBottom: "1px solid rgba(255,255,255,0.1)" }}
                   >
                     <span className="text-white font-semibold text-[18px] leading-[28px]">{page.name}</span>
-                    <button onClick={(e) => e.stopPropagation()} onMouseEnter={(e) => {
-                      (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
-                    }} onMouseLeave={(e) => {
-                      (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
-                    }} className="shrink-0">
+                    <button onClick={(e) => e.stopPropagation()} className="shrink-0">
                       {page.selected ? (
                         <svg width="22" height="22" viewBox="0 0 20 20" fill="none">
                           <path d={svgPathsCatMood.p1e585400} fill="#6FCCDD" fillRule="evenodd" clipRule="evenodd" />
@@ -2707,7 +2655,7 @@ function PickPagesPage({ onNext, onBack, onStepClick, completedUpTo }: { onNext:
                     </p>
                   )}
 
-                  {/* Sections list ? drag-and-drop */}
+                  {/* Sections list — drag-and-drop */}
                   <div className="flex flex-col gap-[4px]">
                     {page.sections.map((section) => {
                       const isMenuOpen = openMenu?.pageId === page.id && openMenu?.sectionId === section.id;
@@ -2734,7 +2682,7 @@ function PickPagesPage({ onNext, onBack, onStepClick, completedUpTo }: { onNext:
                             transition: "background 0.15s, border 0.15s, opacity 0.15s",
                           }}
                         >
-                          {/* Drag handle ? hidden for locked sections */}
+                          {/* Drag handle — hidden for locked sections */}
                           {!section.locked && (
                             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ flexShrink: 0, opacity: 0.4 }}>
                               {[2, 6, 10].map((x) => [3, 7, 11].map((y) => (
@@ -2761,21 +2709,13 @@ function PickPagesPage({ onNext, onBack, onStepClick, completedUpTo }: { onNext:
                             </span>
                           )}
 
-                          {/* 3-dot menu ? content sections only, Delete only */}
+                          {/* 3-dot menu — content sections only, Delete only */}
                           {!section.locked && (
                             <div className="relative shrink-0">
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setOpenMenu(isMenuOpen ? null : { pageId: page.id, sectionId: section.id });
-                                }}
-                                onMouseEnter={(e) => {
-                                  (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.08)";
-                                  (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
-                                }}
-                                onMouseLeave={(e) => {
-                                  (e.currentTarget as HTMLButtonElement).style.background = "transparent";
-                                  (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
                                 }}
                                 className="flex items-center justify-center rounded"
                                 style={{ width: 20, height: 20 }}
@@ -2829,7 +2769,7 @@ function PickPagesPage({ onNext, onBack, onStepClick, completedUpTo }: { onNext:
                     })}
                   </div>
 
-                  {/* Add section button ? 24 content-section global limit */}
+                  {/* Add section button — 24 content-section global limit */}
                   {(() => {
                     const totalContent = pages.filter((p) => p.selected).reduce((n, p) => n + p.sections.filter((s) => !s.locked).length, 0);
                     const atContentLimit = totalContent >= 24;
@@ -2872,10 +2812,10 @@ function PickPagesPage({ onNext, onBack, onStepClick, completedUpTo }: { onNext:
                               </p>
                             </div>
                             <div className="flex flex-col max-h-[200px] overflow-y-auto">
-                              {AVAILABLE_SECTIONS.filter((name) => !page.sections.some((s) => s.name === name)).map((name) => (
+                              {unlockedSections.filter((item) => !page.sections.some((s) => s.templateId === item.id)).map((item) => (
                                 <button
-                                  key={name}
-                                  onClick={() => addSection(page.id, name)}
+                                  key={item.id}
+                                  onClick={() => addSection(page.id, item.label)}
                                   className="flex items-center gap-[10px] px-[14px] py-[9px] font-medium text-[13px] text-left w-full"
                                   style={{ color: "rgba(255,255,255,0.8)", background: "transparent" }}
                                   onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(111,204,221,0.08)")}
@@ -2884,7 +2824,7 @@ function PickPagesPage({ onNext, onBack, onStepClick, completedUpTo }: { onNext:
                                   <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
                                     <path d="M6 2v8M2 6h8" stroke="#6fccdd" strokeWidth="1.5" strokeLinecap="round" />
                                   </svg>
-                                  {name}
+                                  {item.label}
                                 </button>
                               ))}
                             </div>
@@ -2917,6 +2857,52 @@ function PickPagesPage({ onNext, onBack, onStepClick, completedUpTo }: { onNext:
               ))}
             </div>
 
+            {/* JSON summary strip */}
+            <div
+              className="flex flex-col sm:flex-row sm:items-center items-stretch justify-between gap-3 px-[20px] py-[14px] rounded-[12px]"
+              style={{ background: "rgba(111,204,221,0.05)", border: "1px solid rgba(111,204,221,0.15)" }}
+            >
+              <div>
+                <p className="text-white font-semibold text-[14px]">
+                  {pages.filter((p) => p.selected).length} pages · {totalContentSections} content sections
+                </p>
+                <p className="font-medium text-[12px] mt-[2px]" style={{ color: "rgba(255,255,255,0.4)" }}>
+                  {pages.filter((p) => p.selected).map((p) => p.name).join(", ")}
+                </p>
+              </div>
+              <div className="flex flex-col items-stretch sm:items-end gap-[6px]">
+                {(() => {
+                  const canGenerate = selectedPageCount > 0 && !hasInvalidPage && !atSectionLimit;
+                  return (
+                    <>
+                      <button
+                        onClick={!busy ? continueGeneration : undefined}
+                        disabled={busy}
+                        className="font-semibold text-[14px] uppercase px-[24px] py-[12px] rounded-[8px] w-full sm:w-auto"
+                        style={{
+                          background: busy ? "rgba(255,255,255,0.08)" : "#6fccdd",
+                          color: busy ? "rgba(255,255,255,0.25)" : "#0b0b0b",
+                          cursor: busy ? "not-allowed" : "pointer",
+                          transition: "background 0.2s, color 0.2s",
+                        }}
+                      >
+                         {busy ? "Saving..." : "Review & Generate"}
+                      </button>
+                      {!canGenerate && (
+                        <p style={{ color: "rgba(248,113,113,0.8)", fontSize: 11, textAlign: "right", maxWidth: 240 }}>
+                          {selectedPageCount === 0
+                            ? "Select at least one page to continue."
+                            : hasInvalidPage
+                            ? "Fix page configuration issues before continuing."
+                            : "Remove sections to stay within the 24-section limit."}
+                        </p>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
+            </div>
+            <ValidationError message={firstValidationError(errors)} />
           </div>
         </div>
       </div>
@@ -2924,137 +2910,22 @@ function PickPagesPage({ onNext, onBack, onStepClick, completedUpTo }: { onNext:
   );
 }
 
-// ??? PAGE 7: Generating ???????????????????????????????????????????????????????
+// ─── PAGE 7: Generating ───────────────────────────────────────────────────────
 const PHASES = [
-  "Reviewing and saving your brand details...",
-  "Tailoring three design directions to your brand...",
-  "Designing your three homepage mockups...",
-  "Designs ready!",
+  "Analyzing your brand inputs...",
+  "Designing page layouts...",
+  "Generating color themes...",
+  "Composing your website...",
 ];
 
-function GeneratingPage({ onNext, onBack }: { onNext: () => void; onBack?: () => void }) {
-  const [progress, setProgress] = useState(0);
-  const [phaseIndex, setPhaseIndex] = useState(0);
-  const [error, setError] = useState<string | null>(null);
-  const [attempt, setAttempt] = useState(0);
-
-  useEffect(() => {
-    let cancelled = false;
-    let poller: ReturnType<typeof setInterval> | null = null;
-
-    async function run() {
-      setError(null);
-      setProgress(4);
-      setPhaseIndex(0);
-      try {
-        // Reset only when inputs actually changed since the last run ? identical
-        // inputs resume the existing pipeline (idempotent, zero v0 cost).
-        const dataStr = JSON.stringify(buildSubmissionData());
-        const prior = loadWizard();
-        if (prior.lastSubmittedData && prior.lastSubmittedData !== dataStr) {
-          resetWizardPipeline();
-        }
-        saveWizard({ lastSubmittedData: dataStr });
-
-        let companyId = loadWizard().companyId;
-        if (!companyId) {
-          const sub = await api.submit(buildSubmissionData());
-          if (cancelled) return;
-          companyId = sub.id;
-          saveWizard({ companyId });
-        }
-        setProgress(15);
-        setPhaseIndex(1);
-
-        const created = await api.createPreviews(companyId);
-        if (cancelled) return;
-        saveWizard({
-          previews: created.versions.map((v) => ({
-            version: v.version, label: v.label, chatId: v.chatId,
-            status: v.status, demoUrl: v.demoUrl ?? null,
-          })),
-        });
-        setProgress(30);
-        setPhaseIndex(2);
-
-        poller = setInterval(async () => {
-          try {
-            const p = await api.getPreviews(companyId!);
-            if (cancelled) return;
-            saveWizard({
-              previews: p.versions.map((v) => ({
-                version: v.version, label: v.label, chatId: v.chatId,
-                status: v.status, demoUrl: v.demoUrl ?? null,
-              })),
-            });
-            const done = p.versions.filter((v) => v.status !== "pending").length;
-            setProgress((cur) => Math.min(95, Math.max(cur + 2, 30 + done * 20)));
-            if (done === p.versions.length) {
-              const ok = p.versions.some((v) => v.status === "completed");
-              if (poller) clearInterval(poller);
-              if (!ok) {
-                setError("All three preview builds failed. Please try again.");
-                return;
-              }
-              setProgress(100);
-              setPhaseIndex(PHASES.length - 1);
-              setTimeout(() => { if (!cancelled) onNext(); }, 400);
-            }
-          } catch { /* transient poll error ? keep polling */ }
-        }, 5000);
-      } catch (err: any) {
-        if (cancelled) return;
-        const d = err?.detail;
-        if (d && typeof d === "object" && (d.rejected || d.flagged)) {
-          setError(d.reason || "Your submission couldn't be accepted.");
-        } else {
-          setError(typeof d === "string" ? d : "Something went wrong while starting the build.");
-        }
-      }
-    }
-
-    run();
-    return () => {
-      cancelled = true;
-      if (poller) clearInterval(poller);
-    };
-  }, [onNext, attempt]);
-
-  if (error) {
-    return (
-      <ScaledPage designHeight={900} header={<TopHeader />}>
-        <div
-          className="w-full flex flex-col flex-1 items-center justify-center gap-[24px] text-center"
-          style={{ background: "#0b0b0b", fontFamily: "'Montserrat', sans-serif", minHeight: "100%", padding: "0 24px" }}
-        >
-          <div className="flex items-center justify-center rounded-full"
-               style={{ width: 56, height: 56, background: "rgba(248,113,113,0.15)", border: "1px solid rgba(248,113,113,0.4)" }}>
-            <span style={{ color: "#f87171", fontSize: 26, fontWeight: 700 }}>!</span>
-          </div>
-          <h2 className="text-white font-semibold text-[22px]">We couldn't generate your website</h2>
-          <p className="font-medium text-[14px]" style={{ color: "rgba(255,255,255,0.6)", maxWidth: 560 }}>{error}</p>
-          <div className="flex gap-[16px] flex-wrap justify-center">
-            {onBack && (
-              <button
-                onClick={onBack}
-                className="font-semibold text-[14px] uppercase px-[24px] py-[12px] rounded-[8px]"
-                style={{ border: "1.5px solid rgba(255,255,255,0.3)", color: "white", background: "transparent" }}
-              >
-                Edit my answers
-              </button>
-            )}
-            <button
-              onClick={() => setAttempt((a) => a + 1)}
-              className="font-semibold text-[14px] uppercase px-[24px] py-[12px] rounded-[8px]"
-              style={{ background: "#6fccdd", color: "#0b0b0b" }}
-            >
-              Try again
-            </button>
-          </div>
-        </div>
-      </ScaledPage>
-    );
-  }
+function GeneratingPage({ operation, error, onRetry }: {
+  operation: OperationView | null;
+  error: string | null;
+  onRetry: () => void;
+}) {
+  const message = operation?.status === "running"
+    ? "Creating three design directions..."
+    : "Preparing your persisted project...";
 
   return (
     <ScaledPage designHeight={900} header={<TopHeader />}>
@@ -3081,29 +2952,19 @@ function GeneratingPage({ onNext, onBack }: { onNext: () => void; onBack?: () =>
               className="font-medium text-[14px]"
               style={{ color: "rgba(255,255,255,0.5)", minHeight: 20 }}
             >
-              {PHASES[Math.min(phaseIndex, PHASES.length - 1)]}
+              {error ?? message}
             </p>
           </div>
 
-          {/* Progress bar */}
-          <div className="flex flex-col items-center gap-[12px]" style={{ width: "min(100%, 360px)" }}>
-            <div
-              className="w-full rounded-full overflow-hidden"
-              style={{ height: 6, background: "rgba(255,255,255,0.08)" }}
+          {error && (
+            <button
+              onClick={onRetry}
+              className="font-semibold text-[14px] px-[24px] py-[12px] rounded-[8px]"
+              style={{ background: "#6fccdd", color: "#0b0b0b" }}
             >
-              <div
-                className="h-full rounded-full"
-                style={{
-                  width: `${progress}%`,
-                  background: "#6fccdd",
-                  transition: "width 0.04s linear",
-                }}
-              />
-            </div>
-            <span className="font-semibold text-[13px]" style={{ color: "rgba(255,255,255,0.5)" }}>
-              {progress}%
-            </span>
-          </div>
+              Try Again
+            </button>
+          )}
         </div>
       </div>
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
@@ -3111,38 +2972,58 @@ function GeneratingPage({ onNext, onBack }: { onNext: () => void; onBack?: () =>
   );
 }
 
-// ??? PAGE 8: Preview ??????????????????????????????????????????????????????????
+// ─── PAGE 8: Preview ──────────────────────────────────────────────────────────
 const VERSIONS = [
   { name: "Version 1", subtitle: "Clean and structured" },
   { name: "Version 2", subtitle: "Bold and contemporary" },
   { name: "Version 3", subtitle: "Simple and focused" },
 ];
 
-function PreviewPage({ onNext, onBack }: { onNext: () => void; onBack: () => void }) {
-  const [previews] = useState(() => loadWizard().previews);
-  const [selected, setSelected] = useState(() => {
-    const i = loadWizard().previews.findIndex((v) => v.status === "completed");
-    return i >= 0 ? i : 0;
+function PreviewPage({ mockups, selectedMockupId, onConfirm, onBack, busy }: {
+  mockups: MockupView[];
+  selectedMockupId: string | null;
+  onConfirm: (mockupId: string) => Promise<void>;
+  onBack: () => void;
+  busy: boolean;
+}) {
+  const [selected, setSelected] = useState(
+    selectedMockupId ?? mockups[0]?.id ?? "",
+  );
+  const [previewHtml, setPreviewHtml] = useState<Record<string, string>>({});
+  const { setValue, handleSubmit, formState: { errors } } = useForm<MockupSelectionValues>({
+    resolver: zodResolver(mockupSelectionSchema),
+    defaultValues: { mockupId: selectedMockupId ?? mockups[0]?.id ?? "" },
+    mode: "onChange",
   });
-  const [confirming, setConfirming] = useState(false);
-  const [confirmError, setConfirmError] = useState<string | null>(null);
 
-  const handleConfirm = async () => {
-    const companyId = loadWizard().companyId;
-    const chosen = previews[selected];
-    if (!companyId || !chosen || chosen.status !== "completed") return;
-    setConfirming(true);
-    setConfirmError(null);
-    try {
-      const res = await api.selectVersion(companyId, chosen.version);
-      saveWizard({ selectedVersion: chosen.version, finalChatId: res.chatId });
-      onNext();
-    } catch (err: any) {
-      const d = err?.detail;
-      setConfirmError(typeof d === "string" ? d : "Could not start the full build ? please try again.");
-      setConfirming(false);
+  useEffect(() => {
+    const nextSelection = selectedMockupId
+      ?? (mockups.some((mockup) => mockup.id === selected) ? selected : mockups[0]?.id ?? "");
+    setSelected(nextSelection);
+    setValue("mockupId", nextSelection, { shouldValidate: true });
+  }, [mockups, selectedMockupId, selected, setValue]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setPreviewHtml({});
+
+    for (const mockup of mockups) {
+      void launchKitApi.getAssetContent(mockup.previewUrl, controller.signal)
+        .then((content) => {
+          if (controller.signal.aborted) return;
+          setPreviewHtml((current) => ({ ...current, [mockup.id]: content }));
+        })
+        .catch((cause) => {
+          if (!controller.signal.aborted) {
+            console.error("Mockup preview could not be loaded", cause);
+          }
+        });
     }
-  };
+
+    return () => {
+      controller.abort();
+    };
+  }, [mockups]);
 
   return (
     <ScaledPage
@@ -3151,7 +3032,7 @@ function PreviewPage({ onNext, onBack }: { onNext: () => void; onBack: () => voi
       header={
         <>
           <TopHeader />
-          {/* Completed steps bar ? full-bleed border, stepper content stays centered with its own padding */}
+          {/* Completed steps bar — full-bleed border, stepper content stays centered with its own padding */}
           <div
             className="w-full flex flex-wrap items-center justify-center gap-x-[clamp(8px,2vw,16px)] gap-y-2 px-[clamp(12px,4vw,32px)] py-2"
             style={{
@@ -3207,222 +3088,205 @@ function PreviewPage({ onNext, onBack }: { onNext: () => void; onBack: () => voi
             </p>
           </div>
 
-          {/* Version cards ? live previews open in a new tab (v0 demos block iframe embedding) */}
+          {/* Version cards — 1 column on mobile (full width, scroll to reach all), 3 on tablet/desktop */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-[20px] w-full">
-            {VERSIONS.map((v, i) => {
-              const pv = previews[i];
-              const ok = pv?.status === "completed" && !!pv.demoUrl;
-              const failed = pv && pv.status !== "completed";
-              return (
-                <button
-                  key={i}
-                  onClick={() => ok && setSelected(i)}
-                  disabled={!ok}
-                  className="flex flex-col gap-[16px] p-[20px] text-left"
-                  style={{
-                    backdropFilter: "blur(12px)",
-                    background: "rgba(255,255,255,0.02)",
-                    borderRadius: 8,
-                    border: selected === i ? "1.5px solid #6fccdd" : "1px solid rgba(255,255,255,0.35)",
-                    minHeight: "clamp(300px, 45vh, 420px)",
-                    opacity: ok ? 1 : 0.55,
-                    cursor: ok ? "pointer" : "not-allowed",
-                  }}
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="text-white font-semibold text-[13px] sm:text-[15px]">{v.name}</div>
-                      {pv?.label && (
-                        <div className="font-medium text-[11px] mt-[2px]" style={{ color: "rgba(255,255,255,0.45)" }}>
-                          {pv.label}
-                        </div>
-                      )}
-                    </div>
-                    <div
-                      className="rounded-full flex items-center justify-center"
-                      style={{
-                        width: 20,
-                        height: 20,
-                        border: selected === i ? "none" : "1.5px solid rgba(255,255,255,0.3)",
-                        background: selected === i ? "#6fccdd" : "transparent",
-                      }}
-                    >
-                      {selected === i && (
-                        <div className="rounded-full" style={{ width: 8, height: 8, background: "#0b0b0b" }} />
-                      )}
-                    </div>
-                  </div>
+            {mockups.map((v, i) => (
+              <button
+                key={v.id}
+                onClick={() => {
+                  setSelected(v.id);
+                  setValue("mockupId", v.id, { shouldDirty: true, shouldValidate: true });
+                }}
+                className="flex flex-col gap-[16px] p-[20px] text-left"
+                style={{
+                  backdropFilter: "blur(12px)",
+                  background: "rgba(255,255,255,0.02)",
+                  borderRadius: 8,
+                  border:
+                    selected === v.id ? "1.5px solid #6fccdd" : "1px solid white",
+                  minHeight: "clamp(360px, 55vh, 520px)",
+                }}
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-white font-semibold text-[13px] sm:text-[15px]">{v.label}</div>
+                    <div className="font-medium text-[11px] mt-[4px]" style={{ color: "rgba(255,255,255,0.45)" }}>{v.direction}</div>
 
+                  </div>
                   <div
-                    className="flex-1 rounded-[8px] overflow-hidden flex flex-col items-center justify-center gap-[14px]"
+                    className="rounded-full flex items-center justify-center"
                     style={{
-                      position: "relative",
-                      background: "linear-gradient(150deg, #0a1a22 0%, #0d2430 55%, #0a1a1a 100%)",
-                      border: selected === i ? "1.5px solid #6fccdd" : "1px solid rgba(255,255,255,0.1)",
+                      width: 20,
+                      height: 20,
+                      border: selected === v.id ? "none" : "1.5px solid rgba(255,255,255,0.3)",
+                      background: selected === v.id ? "#6fccdd" : "transparent",
                     }}
                   >
-                    {ok ? (
-                      <>
-                        {/* live scaled mockup ? served by our backend, so embedding works */}
-                        <div style={{ position: "relative", width: "100%", aspectRatio: "1200 / 700", overflow: "hidden", background: "#fff" }}>
-                          <iframe
-                            src={pv.demoUrl as string}
-                            title={`Design ${i + 1}`}
-                            scrolling="no"
-                            style={{
-                              width: "400%", height: "400%",
-                              border: "none",
-                              transform: "scale(0.25)",
-                              transformOrigin: "top left",
-                              pointerEvents: "none",
-                              background: "white",
-                            }}
-                          />
-                        </div>
-                        <a
-                          href={pv.demoUrl as string}
-                          target="_blank"
-                          rel="noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          className="font-semibold text-[11px] uppercase"
-                          style={{
-                            position: "absolute", right: 10, bottom: 10,
-                            padding: "8px 14px", borderRadius: 8,
-                            background: "rgba(0,0,0,0.7)", color: "#6fccdd",
-                            border: "1px solid rgba(111,204,221,0.4)",
-                          }}
-                        >
-                          Open Full ?
-                        </a>
-                      </>
-                    ) : (
-                      <span className="font-semibold text-[13px]" style={{ color: failed ? "#f87171" : "rgba(255,255,255,0.5)" }}>
-                        {failed ? "This preview failed to build" : "Preview not available"}
-                      </span>
+                    {selected === v.id && (
+                      <div
+                        className="rounded-full"
+                        style={{ width: 8, height: 8, background: "#0b0b0b" }}
+                      />
                     )}
                   </div>
-                </button>
-              );
-            })}
-          </div>
+                </div>
 
-          {confirmError && (
-            <div className="text-center font-medium text-[13px]" style={{ color: "#f87171" }}>
-              {confirmError}
-            </div>
-          )}
+                {/* Preview wireframe */}
+                <div
+                  className="flex-1 rounded-[8px] overflow-hidden flex flex-col"
+                  style={{
+                    background: i === 1 ? "#0a1a1a" : "#111",
+                    border: i === 1 ? "1.5px solid #6fccdd" : "1px solid rgba(255,255,255,0.1)",
+                    position: "relative",
+                  }}
+                >
+                  {previewHtml[v.id] && (
+                    <iframe
+                      srcDoc={previewHtml[v.id]}
+                      title={`${v.label} preview`}
+                      sandbox="allow-scripts"
+                      className="absolute inset-0 w-full h-full border-0"
+                      style={{ background: "white", zIndex: 2 }}
+                    />
+                  )}
+                  {/* Nav bar */}
+                  <div
+                    className="flex items-center gap-[8px] px-[12px]"
+                    style={{ height: 28, background: "rgba(255,255,255,0.05)", borderBottom: "1px solid rgba(255,255,255,0.08)" }}
+                  >
+                    <div style={{ width: 32, height: 6, borderRadius: 3, background: "rgba(255,255,255,0.3)" }} />
+                    <div className="flex-1" />
+                    {[1, 2, 3].map((j) => (
+                      <div key={j} style={{ width: 20, height: 5, borderRadius: 2, background: "rgba(255,255,255,0.15)" }} />
+                    ))}
+                  </div>
+                  {/* Content */}
+                  <div className="flex flex-1">
+                    {/* Sidebar */}
+                    <div
+                      style={{ width: 60, background: "rgba(255,255,255,0.03)", borderRight: "1px solid rgba(255,255,255,0.06)" }}
+                      className="flex flex-col gap-[6px] p-[8px]"
+                    >
+                      {[1, 2, 3, 4].map((k) => (
+                        <div key={k} style={{ height: 8, borderRadius: 4, background: "rgba(255,255,255,0.08)" }} />
+                      ))}
+                    </div>
+                    {/* Main area */}
+                    <div className="flex-1 p-[12px] flex flex-col gap-[10px]">
+                      <div
+                        className="w-full rounded-[6px] flex flex-col items-center justify-center gap-[6px]"
+                        style={{ height: 100, background: i === 1 ? "rgba(111,204,221,0.08)" : "rgba(255,255,255,0.04)" }}
+                      >
+                        <div style={{ width: 80, height: 10, borderRadius: 5, background: "rgba(255,255,255,0.2)" }} />
+                        <div style={{ width: 60, height: 7, borderRadius: 3, background: "rgba(255,255,255,0.1)" }} />
+                      </div>
+                      <div className="grid grid-cols-3 gap-[6px]">
+                        {[1, 2, 3].map((k) => (
+                          <div
+                            key={k}
+                            style={{
+                              height: 48,
+                              borderRadius: 4,
+                              background: i === 1 ? "rgba(111,204,221,0.05)" : "rgba(255,255,255,0.04)",
+                              border: "1px solid rgba(255,255,255,0.06)",
+                            }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
 
           {/* Confirm button */}
           <div className="flex justify-center w-full">
             <button
-              onClick={handleConfirm}
-              disabled={confirming || previews[selected]?.status !== "completed"}
+              onClick={() => void handleSubmit(({ mockupId }) => onConfirm(mockupId))()}
+              disabled={busy}
               className="font-semibold text-[18px] w-full sm:w-auto sm:min-w-[360px]"
               style={{
                 background: "#6fccdd",
                 color: "#090909",
                 borderRadius: 8,
                 padding: "16px 24px",
-                opacity: confirming ? 0.6 : 1,
               }}
             >
-              {confirming ? "Starting your full build?" : "Confirm Selection"}
+              {busy ? "Starting Build..." : "Confirm Selection"}
             </button>
           </div>
+          <ValidationError message={errors.mockupId?.message} />
         </div>
       </div>
     </ScaledPage>
   );
 }
 
-// ??? PAGE 9: Download ?????????????????????????????????????????????????????????
-function DownloadPage({ onBack }: { onBack: () => void }) {
+// ─── PAGE 9: Download ─────────────────────────────────────────────────────────
+function BuildingPage({ build, error, onBack }: {
+  build: BuildView | null;
+  error: string | null;
+  onBack: () => void;
+}) {
+  const terminalError = build && ["failed", "cancelled", "timed_out"].includes(build.status);
+  return (
+    <ScaledPage designHeight={900} header={<TopHeader />}>
+      <div className="w-full flex flex-col flex-1" style={{ background: "#0b0b0b", fontFamily: "'Montserrat', sans-serif" }}>
+        <div className="flex-1 flex flex-col items-center justify-center gap-[28px] px-4 text-center">
+          {!terminalError && !error && (
+            <div className="rounded-full" style={{ width: 72, height: 72, border: "4px solid rgba(111,204,221,0.2)", borderTop: "4px solid #6fccdd", animation: "spin 1s linear infinite" }} />
+          )}
+          <div className="flex flex-col items-center gap-[10px] max-w-[560px]">
+            <h2 className="text-white font-semibold" style={{ fontSize: "clamp(19px, 5vw, 24px)" }}>
+              {terminalError || error ? "Build needs attention" : "Building your website"}
+            </h2>
+            <p className="font-medium text-[14px]" style={{ color: "rgba(255,255,255,0.55)", lineHeight: 1.6 }}>
+              {error ?? build?.message ?? "Queuing the final build..."}
+            </p>
+            {build?.warnings.map((warning) => (
+              <p key={warning} className="font-medium text-[12px]" style={{ color: "rgba(248,180,113,0.9)", lineHeight: 1.5 }}>{warning}</p>
+            ))}
+          </div>
+          {(terminalError || error) && (
+            <button onClick={onBack} className="font-semibold text-[14px] px-[24px] py-[12px] rounded-[8px]" style={{ background: "#6fccdd", color: "#0b0b0b" }}>
+              Return to Designs
+            </button>
+          )}
+        </div>
+      </div>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </ScaledPage>
+  );
+}
+
+function DownloadPage({ build, deployment, onDeploy, onBack, busy }: {
+  build: BuildView;
+  deployment: DeploymentView | null;
+  onDeploy: () => Promise<void>;
+  onBack: () => void;
+  busy: boolean;
+}) {
   const p = svgPathsDl;
-  const chatId = loadWizard().finalChatId;
-  const companyId = loadWizard().companyId;
-  const [downloadNotice, setDownloadNotice] = useState<{ type: "success" | "error"; message: string } | null>(null);
-  const [build, setBuild] = useState<{ status: string; demoUrl: string | null }>({ status: "pending", demoUrl: null });
-  const [buildError, setBuildError] = useState<string | null>(null);
-  const [claim, setClaim] = useState<{ loading: boolean; url: string | null }>({ loading: false, url: null });
-  const [docBusy, setDocBusy] = useState<"brochure" | "portfolio" | null>(null);
+  const [tip, setTip] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
+  const websiteUrl = absoluteApiUrl(build.webUrl ?? build.previewUrl);
 
-  useEffect(() => {
-    if (!downloadNotice) return;
-    const timer = window.setTimeout(() => setDownloadNotice(null), 6000);
-    return () => window.clearTimeout(timer);
-  }, [downloadNotice]);
-
-  // Poll the full-site build until it's genuinely live
-  useEffect(() => {
-    if (!chatId) { setBuildError("No build in progress ? please start from the beginning."); return; }
-    let cancelled = false;
-    const tick = async () => {
-      try {
-        const b = await api.getBuild(chatId);
-        if (cancelled) return;
-        setBuild({ status: b.status, demoUrl: b.demoUrl ?? null });
-        if (b.status === "failed") setBuildError("The website build failed. Please go back and try again.");
-        if (b.status === "completed" || b.status === "failed") clearInterval(timer);
-      } catch { /* transient ? keep polling */ }
-    };
-    const timer = setInterval(tick, 5000);
-    tick();
-    return () => { cancelled = true; clearInterval(timer); };
-  }, [chatId]);
-
-  const ready = build.status === "completed";
-
-  const handleZipDownload = () => {
-    if (!ready || !chatId) {
-      setDownloadNotice({ type: "error", message: "The website is still building ? the source code will be available when it's ready." });
-      return;
-    }
-    window.location.href = api.downloadUrl(chatId);
-  };
-
-  // Brochure / portfolio: generate once (idempotent), then open the PDF
-  const handleDocDownload = async (kind: "brochure" | "portfolio") => {
-    if (!companyId) {
-      setDownloadNotice({ type: "error", message: "No company data found ? please start from the beginning." });
-      return;
-    }
-    if (docBusy) return;
-    setDocBusy(kind);
+  const handleDownload = async () => {
+    if (!build.downloadUrl || downloading) return;
+    setDownloading(true);
+    setDownloadError(null);
     try {
-      await api.generateDocuments(companyId);
-      window.open(api.documentUrl(companyId, kind), "_blank", "noopener");
-      setDownloadNotice({ type: "success", message: `Your ${kind} opened in a new tab.` });
-    } catch (err: any) {
-      const d = err?.detail;
-      setDownloadNotice({
-        type: "error",
-        message: (typeof d === "object" && d?.reason) || (typeof d === "string" && d) || `Could not generate the ${kind} ? please try again.`,
-      });
+      await launchKitApi.downloadBuild(build.downloadUrl);
+    } catch (error) {
+      setDownloadError(
+        error instanceof LaunchKitApiError
+          ? error.message
+          : "The build archive could not be downloaded.",
+      );
     } finally {
-      setDocBusy(null);
-    }
-  };
-
-  const handleClaim = async () => {
-    if (!ready || !chatId || claim.loading) {
-      if (!ready) setDownloadNotice({ type: "error", message: "The website is still building ? claiming unlocks when it's ready." });
-      return;
-    }
-    if (claim.url) {
-      // a code already exists ? reopen it; minting another would invalidate it
-      window.open(claim.url, "_blank", "noopener");
-      return;
-    }
-    setClaim({ loading: true, url: null });
-    try {
-      const res = await api.claimDeploy(chatId);
-      setClaim({ loading: false, url: res.claimUrl });
-      window.open(res.claimUrl, "_blank", "noopener");
-      setDownloadNotice({ type: "success", message: "Claim link opened in a new tab (valid 24 hours). Sign in to Vercel there and click Transfer." });
-    } catch (err: any) {
-      const d = err?.detail;
-      setClaim({ loading: false, url: null });
-      setDownloadNotice({ type: "error", message: typeof d === "string" ? d : "Could not create the claim link ? try again." });
+      setDownloading(false);
     }
   };
 
@@ -3449,20 +3313,39 @@ function DownloadPage({ onBack }: { onBack: () => void }) {
                 />
               </svg>
             </div>
-            <h2 className="text-white font-semibold px-2" style={{ fontSize: "clamp(19px, 5vw, 24px)" }}>{buildError ? "Something went wrong" : ready ? "Your website is ready!" : "Building your full website?"}</h2>
+            <h2 className="text-white font-semibold px-2" style={{ fontSize: "clamp(19px, 5vw, 24px)" }}>Your website is ready!</h2>
             <p className="px-2 max-w-[420px]" style={{ color: "rgba(255,255,255,0.5)", fontSize: "clamp(13px, 3.5vw, 14px)", fontWeight: 500, lineHeight: 1.6 }}>
-              {buildError ? buildError : ready ? "Your AI-generated website is complete and ready to deploy." : "All pages are being generated ? this usually takes a few minutes."}
+              Your AI-generated website is complete and ready to deploy.
             </p>
           </div>
 
           {/* Website Preview */}
           <div className="flex flex-col gap-[16px] w-full max-w-[680px] mx-auto items-center sm:items-stretch">
-            <span
-              className="font-semibold uppercase text-[12px] text-center sm:text-left"
-              style={{ color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em" }}
-            >
-              Website Preview
-            </span>
+            <div className="flex items-center justify-between w-full">
+              <span
+                className="font-semibold uppercase text-[12px] text-left"
+                style={{ color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em" }}
+              >
+                Website Preview
+              </span>
+              <button
+                type="button"
+                onClick={() => websiteUrl && window.open(websiteUrl, "_blank", "noopener,noreferrer")}
+                disabled={!websiteUrl}
+                aria-label="Open website preview in a new tab"
+                title="Open website preview in a new tab"
+                className="flex items-center justify-center rounded-[6px] disabled:opacity-40 disabled:cursor-not-allowed"
+                style={{
+                  width: 28,
+                  height: 28,
+                  color: "#6fccdd",
+                  background: "rgba(111,204,221,0.1)",
+                  border: "1px solid rgba(111,204,221,0.25)",
+                }}
+              >
+                <ExternalLink size={15} strokeWidth={1.8} aria-hidden="true" />
+              </button>
+            </div>
             <div
               className="flex flex-col overflow-hidden w-full"
               style={{
@@ -3506,7 +3389,7 @@ function DownloadPage({ onBack }: { onBack: () => void }) {
                     className="text-[11px] font-medium"
                     style={{ color: "rgba(255,255,255,0.3)" }}
                   >
-                    yourwebsite.com
+                    {build.webUrl ?? "Generated website"}
                   </span>
                 </div>
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
@@ -3521,231 +3404,177 @@ function DownloadPage({ onBack }: { onBack: () => void }) {
               </div>
 
               {/* Preview content */}
-              <div className="flex-1 flex flex-col" style={{ background: "#111" }}>
+              <div className="flex-1 flex flex-col relative" style={{ background: "#111" }}>
+                {build.previewUrl && (
+                  <iframe
+                    src={build.previewUrl}
+                    title="Generated website preview"
+                    className="absolute inset-0 w-full h-full border-0"
+                    style={{ background: "white", zIndex: 2 }}
+                  />
+                )}
+                {/* Hero gradient */}
                 <div
-                  className="flex-1 flex flex-col items-center justify-center gap-[14px]"
-                  style={{ background: "linear-gradient(135deg, #0a1628 0%, #0a1a1a 50%, #111 100%)" }}
+                  className="flex-1 flex flex-col items-center justify-center gap-[8px]"
+                  style={{
+                    background: "linear-gradient(135deg, #0a1628 0%, #0a1a1a 50%, #111 100%)",
+                  }}
                 >
-                  {ready && build.demoUrl ? (
-                    <>
-                      <div className="flex items-center justify-center rounded-full"
-                           style={{ width: 44, height: 44, background: "rgba(111,204,221,0.15)", border: "1px solid rgba(111,204,221,0.5)" }}>
-                        <span style={{ color: "#6fccdd", fontSize: 20, fontWeight: 700 }}>?</span>
-                      </div>
-                      <span className="font-semibold text-[15px]" style={{ color: "white" }}>
-                        Your website is live
-                      </span>
-                      <a
-                        href={build.demoUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="font-semibold text-[13px] uppercase"
-                        style={{ padding: "12px 22px", borderRadius: 8, background: "#6fccdd", color: "#0b0b0b" }}
-                      >
-                        Open Your Website ?
-                      </a>
-                    </>
-                  ) : (
-                    <>
-                      {!buildError && (
-                        <div
-                          className="rounded-full"
-                          style={{
-                            width: 32, height: 32,
-                            border: "3px solid rgba(111,204,221,0.2)",
-                            borderTop: "3px solid #6fccdd",
-                            animation: "spin 1s linear infinite",
-                          }}
-                        />
-                      )}
-                      <span className="font-medium text-[13px]" style={{ color: "rgba(255,255,255,0.45)" }}>
-                        {buildError ? "No preview available" : "Your live preview will appear here when the build finishes"}
-                      </span>
-                      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-                    </>
-                  )}
+                  <div
+                    style={{ width: 120, height: 12, borderRadius: 6, background: "rgba(111,204,221,0.5)" }}
+                  />
+                  <div
+                    style={{ width: 200, height: 8, borderRadius: 4, background: "rgba(255,255,255,0.15)" }}
+                  />
+                  <div
+                    className="flex gap-[8px] mt-[8px]"
+                  >
+                    <div
+                      style={{ width: 64, height: 20, borderRadius: 4, background: "#6fccdd" }}
+                    />
+                    <div
+                      style={{
+                        width: 64,
+                        height: 20,
+                        borderRadius: 4,
+                        border: "1px solid rgba(111,204,221,0.4)",
+                      }}
+                    />
+                  </div>
+                </div>
+                {/* Features grid */}
+                <div
+                  className="grid grid-cols-3 gap-[8px] px-[12px] py-[10px]"
+                  style={{ background: "#0d0d0d" }}
+                >
+                  {[1, 2, 3].map((k) => (
+                    <div
+                      key={k}
+                      style={{
+                        height: 32,
+                        borderRadius: 6,
+                        background: "rgba(255,255,255,0.04)",
+                        border: "1px solid rgba(255,255,255,0.06)",
+                      }}
+                    />
+                  ))}
                 </div>
               </div>
             </div>
           </div>
 
           {/* Next Actions */}
-          <div className="flex flex-col gap-[16px] w-full max-w-[900px] mx-auto items-center">
-            {downloadNotice && (
-              <div
-                className="w-full rounded-[12px] border px-[14px] py-[12px] text-center"
-                style={{
-                  background: downloadNotice.type === "success" ? "rgba(111,204,221,0.12)" : "rgba(248,113,113,0.12)",
-                  borderColor: downloadNotice.type === "success" ? "rgba(111,204,221,0.3)" : "rgba(248,113,113,0.3)",
-                  color: downloadNotice.type === "success" ? "#bdeff3" : "#fecaca",
-                  fontSize: 13,
-                  fontWeight: 600,
-                }}
-              >
-                {downloadNotice.message}
-              </div>
-            )}
+          <div className="flex flex-col gap-[16px] w-full max-w-[680px] mx-auto items-center">
             <span
               className="font-semibold uppercase text-[12px] text-center"
               style={{ color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em" }}
             >
               Next Actions
             </span>
-
-            <div
-              className="w-full rounded-[14px] border border-white/10 bg-[rgba(255,255,255,0.03)] px-[16px] py-[12px] sm:px-[20px]"
-              style={{ color: "rgba(255,255,255,0.75)" }}
-            >
-              <div className="flex items-start gap-[10px]">
-                <div className="mt-[2px] flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#6fccdd]/20">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                    <path d="M12 5v14M12 19l-5-5m5 5 5-5" stroke="#6fccdd" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </div>
-                <div className="text-[12px] sm:text-[13px] leading-[1.6]">
-                  Claiming your website uses Vercel. Clicking "Claim Now" opens a Vercel page where you sign in (or create a free account) and click Transfer ? the whole project moves into your own Vercel account. The link is valid for 24 hours.
-                </div>
-              </div>
-            </div>
-
-            <div className="grid w-full gap-4 sm:grid-cols-2">
-              
-              {/* Download HTML */}
+            <div className="flex flex-col sm:flex-row gap-4 justify-center w-full items-stretch">
+              {/* Download */}
               <div
-                className="flex flex-col gap-[16px] p-[24px] rounded-[16px] w-full min-h-full"
-                style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.12)" }}
+                className="flex flex-col gap-[16px] p-[24px] rounded-[16px] w-full sm:w-[280px] mx-auto"
+                style={{ background: "rgba(111,204,221,0.13)", border: "1px solid rgba(111,204,221,0.2)", minHeight: "100%" }}
               >
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
                   <path d={p.pdba8e90} stroke="#6fccdd" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
                 <div>
-                  <div className="text-white font-semibold text-[14px]">Download Source Code</div>
+                  <div className="text-white font-semibold text-[14px]">Download</div>
                   <div className="font-medium text-[12px] mt-[4px]" style={{ color: "rgba(255,255,255,0.4)" }}>
-                    {ready ? "Complete Next.js project as a ZIP" : "Available when the build finishes"}
+                    Get your complete HTML files
                   </div>
                 </div>
                 <button
-                  className="w-full font-semibold text-[13px] py-[10px] rounded-[8px] uppercase transition-all duration-200"
-                  style={{
-                     border: "1.5px solid #6fccdd",
-                     color: "#6fccdd",
-                    background: "transparent",
-                  }}
-                  onMouseEnter={(e) => {
-                   (e.currentTarget as HTMLButtonElement).style.background = "#6fccdd";
-                   (e.currentTarget as HTMLButtonElement).style.color = "#0b0b0b";
-                   (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
-                  }}
-                  onMouseLeave={(e) => {
-                   (e.currentTarget as HTMLButtonElement).style.background = "transparent";
-                   (e.currentTarget as HTMLButtonElement).style.color = "#6fccdd";
-                   (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
-                  }}
-                  onClick={handleZipDownload}
+                  onClick={() => { void handleDownload(); }}
+                  disabled={!build.downloadUrl || downloading || busy}
+                  className="w-full font-semibold text-[13px] py-[10px] rounded-[8px] disabled:opacity-50"
+                  style={{ background: "#6fccdd", color: "#0b0b0b" }}
                 >
-                  {ready ? "Download ZIP" : "Building?"}
+                  {downloading ? "Downloading…" : "Download"}
                 </button>
-              </div>
-
-              {/* Download Brochure */}
-              <div
-                className="flex flex-col gap-[16px] p-[24px] rounded-[16px] w-full min-h-full"
-                style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.1)" }}
-              >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                  <path d="M7 4h7l4 4v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z" stroke="#6fccdd" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                  <path d="M14 4v4h4" stroke="#6fccdd" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                  <path d="M9 13h6M9 16h4" stroke="#6fccdd" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-                <div>
-                  <div className="text-white font-semibold text-[14px]">Download Brochure</div>
-                  <div className="font-medium text-[12px] mt-[4px]" style={{ color: "rgba(255,255,255,0.4)" }}>
-                    Share your website story in a polished PDF
+                {downloadError && (
+                  <div className="font-medium text-[12px]" style={{ color: "#f87171" }}>
+                    {downloadError}
                   </div>
-                </div>
-                <button
-                  className="w-full font-semibold text-[13px] py-[10px] rounded-[8px] uppercase transition-all duration-200"
-                  style={{ border: "1.5px solid #6fccdd", color: "#6fccdd", background: "transparent" }}
-                  onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.background = "#6fccdd";
-                    (e.currentTarget as HTMLButtonElement).style.color = "#0b0b0b";
-                    (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
-                  }}
-                  onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.background = "transparent";
-                    (e.currentTarget as HTMLButtonElement).style.color = "#6fccdd";
-                    (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
-                  }}
-                  onClick={() => handleDocDownload("brochure")}
-                >
-                  {docBusy === "brochure" ? "Generating?" : "Download Brochure"}
-                </button>
-              </div>
-
-              {/* Download Portfolio */}
-              <div
-                className="flex flex-col gap-[16px] p-[24px] rounded-[16px] w-full min-h-full"
-                style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.12)" }}
-              >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                  <path d="M4 7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7Z" stroke="#6fccdd" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                  <path d="M9 13h6M9 16h4" stroke="#6fccdd" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-                <div>
-                  <div className="text-white font-semibold text-[14px]">Download Portfolio</div>
-                  <div className="font-medium text-[12px] mt-[4px]" style={{ color: "rgba(255,255,255,0.4)" }}>
-                    Export a polished portfolio package
-                  </div>
-                </div>
-                <button
-                  className="w-full font-semibold text-[13px] py-[10px] rounded-[8px] uppercase transition-all duration-200"
-                  style={{ border: "1.5px solid #6fccdd", color: "#6fccdd", background: "transparent" }}
-                  onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.background = "#6fccdd";
-                    (e.currentTarget as HTMLButtonElement).style.color = "#0b0b0b";
-                    (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
-                  }}
-                  onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.background = "transparent";
-                    (e.currentTarget as HTMLButtonElement).style.color = "#6fccdd";
-                    (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
-                  }}
-                  onClick={() => handleDocDownload("portfolio")}
-                >
-                  {docBusy === "portfolio" ? "Generating?" : "Download Portfolio"}
-                </button>
+                )}
               </div>
 
               {/* Deploy */}
               <div
-                className="flex flex-col gap-[16px] p-[24px] rounded-[16px] w-full min-h-full"
-                style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.12)" }}
+                className="flex flex-col gap-[16px] p-[24px] rounded-[16px] w-full sm:w-[280px] mx-auto"
+                style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.1)", minHeight: "100%" }}
               >
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
                   <path d={p.p3d0d0400} stroke="#6fccdd" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
                 <div>
-                  <div className="text-white font-semibold text-[14px]">Claim Your Website</div>
+                  <div className="flex items-center gap-[6px]">
+                    <span className="text-white font-semibold text-[14px]">Deploy to Domain</span>
+
+                        <div style={{ position: "relative", display: "inline-flex" }}>
+                          <button
+                            onMouseEnter={() => setTip(true)}
+                            onMouseLeave={() => setTip(false)}
+                            onClick={() => setTip(v => !v)}
+                            style={{ background: "none", border: "none", padding: 0, cursor: "pointer", width: 16, height: 16, fontSize: 0 }}
+                            aria-label="Vercel deployment information"
+                          >
+                            ⓘ
+                          </button>
+                          <CircleHelp size={16} aria-hidden="true" style={{ position: "absolute", inset: 0, color: "rgba(255,255,255,0.4)", pointerEvents: "none" }} />
+                          {tip && (
+                            <div
+                              style={{
+                                position: "absolute",
+                                bottom: "calc(100% + 8px)",
+                                left: "50%",
+                                transform: "translateX(-50%)",
+                                width: 240,
+                                background: "#1e1e1e",
+                                border: "1px solid rgba(255,255,255,0.12)",
+                                borderRadius: 12,
+                                padding: "12px 14px",
+                                boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
+                                fontSize: 12,
+                                fontWeight: 500,
+                                color: "rgba(255,255,255,0.7)",
+                                lineHeight: 1.6,
+                                zIndex: 100,
+                                pointerEvents: "none",
+                              }}
+                            >
+                              Deploying your website uses Vercel. Clicking 'Deploy Now' will redirect you to Vercel, where you can sign in with your email or create a new account to publish your website.
+                              <div style={{
+                                position: "absolute", bottom: -5, left: "50%", transform: "translateX(-50%)",
+                                width: 10, height: 10, background: "#1e1e1e",
+                                border: "1px solid rgba(255,255,255,0.12)",
+                                borderTop: "none", borderLeft: "none",
+                                rotate: "45deg",
+                              }} />
+                            </div>
+                          )}
+                        </div>
+
+                  </div>
                   <div className="font-medium text-[12px] mt-[4px]" style={{ color: "rgba(255,255,255,0.4)" }}>
-                    Goes live, then transfers to your own Vercel account
+                    Requires a connected domain
                   </div>
                 </div>
                 <button
-                  className="w-full font-semibold text-[13px] py-[10px] rounded-[8px] uppercase transition-all duration-200"
+                  onClick={() => void onDeploy()}
+                  disabled={busy}
+                  className="w-full font-semibold text-[13px] py-[10px] rounded-[8px] uppercase"
                   style={{ border: "1.5px solid #6fccdd", color: "#6fccdd", background: "transparent" }}
-                  onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.background = "#6fccdd";
-                    (e.currentTarget as HTMLButtonElement).style.color = "#0b0b0b";
-                    (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
-                  }}
-                  onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.background = "transparent";
-                    (e.currentTarget as HTMLButtonElement).style.color = "#6fccdd";
-                    (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
-                  }}
-                  onClick={handleClaim}
                 >
-                  {claim.loading ? "Preparing?" : claim.url ? "Claim link ready ?" : ready ? "Claim Now" : "Building?"}
+                  {busy
+                    ? deployment?.message ?? "Deploying..."
+                    : deployment?.status === "ready_to_claim"
+                    ? "Open Vercel Claim"
+                    : deployment?.status === "failed" || deployment?.status === "cancelled"
+                    ? "Try Deployment Again"
+                    : "Deploy Now"}
                 </button>
               </div>
             </div>
@@ -3756,34 +3585,175 @@ function DownloadPage({ onBack }: { onBack: () => void }) {
   );
 }
 
-// ??? App Root ?????????????????????????????????????????????????????????????????
+function formatProjectUpdatedAt(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function ProjectsPage({
+  projects,
+  loading,
+  busy,
+  onCreate,
+  onOpen,
+  onRefresh,
+  onSignOut,
+}: {
+  projects: ProjectSummaryView[];
+  loading: boolean;
+  busy: boolean;
+  onCreate: () => Promise<void>;
+  onOpen: (projectId: string) => Promise<void>;
+  onRefresh: () => Promise<void>;
+  onSignOut: () => void;
+}) {
+  return (
+    <ScaledPage designHeight={900} scrollable header={<TopHeader showProfile={false} />}>
+      <div
+        className="w-full min-h-full flex flex-col"
+        style={{ background: "#0b0b0b", fontFamily: "'Montserrat', sans-serif" }}
+      >
+        <div className="flex-1 flex flex-col px-[clamp(16px,5vw,80px)] py-[clamp(24px,5vw,48px)] gap-[24px] max-w-[880px] mx-auto w-full">
+          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-[16px]">
+            <div className="flex flex-col gap-[8px]">
+              <h1 className="text-white font-semibold" style={{ fontSize: "clamp(22px, 5vw, 28px)" }}>
+                Your websites
+              </h1>
+              <p className="font-medium text-[14px]" style={{ color: "rgba(255,255,255,0.5)", lineHeight: 1.5 }}>
+                Open a previous generation or create a new website.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-[10px]">
+              <button
+                type="button"
+                onClick={() => { void onRefresh(); }}
+                disabled={busy || loading}
+                className="font-semibold text-[13px] px-[14px] py-[10px] rounded-[8px] disabled:opacity-50"
+                style={{
+                  background: "rgba(255,255,255,0.06)",
+                  color: "rgba(255,255,255,0.8)",
+                  border: "1px solid rgba(255,255,255,0.12)",
+                }}
+              >
+                Refresh
+              </button>
+              <button
+                type="button"
+                onClick={() => { void onCreate(); }}
+                disabled={busy || loading}
+                className="font-semibold text-[13px] px-[16px] py-[10px] rounded-[8px] disabled:opacity-50"
+                style={{ background: "#6fccdd", color: "#0b0b0b" }}
+              >
+                {busy ? "Working…" : "Create new website"}
+              </button>
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="flex items-center justify-center py-[64px]">
+              <div
+                className="rounded-full"
+                style={{
+                  width: 40,
+                  height: 40,
+                  border: "3px solid rgba(111,204,221,0.2)",
+                  borderTop: "3px solid #6fccdd",
+                  animation: "spin 1s linear infinite",
+                }}
+              />
+            </div>
+          ) : projects.length === 0 ? (
+            <div
+              className="rounded-[16px] px-[24px] py-[40px] text-center"
+              style={{ border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.03)" }}
+            >
+              <p className="text-white font-semibold text-[15px]">No websites yet</p>
+              <p className="font-medium text-[13px] mt-[8px]" style={{ color: "rgba(255,255,255,0.45)" }}>
+                Create your first site to start the wizard.
+              </p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-[12px]">
+              {projects.map((item) => {
+                const title = item.companyName.trim() || "Untitled website";
+                const buildLabel = item.latestBuildStatus
+                  ? `Build: ${item.latestBuildStatus}`
+                  : "No build yet";
+                return (
+                  <div
+                    key={item.id}
+                    className="flex flex-col sm:flex-row sm:items-center gap-[16px] p-[20px] rounded-[16px]"
+                    style={{
+                      background: "rgba(255,255,255,0.03)",
+                      border: "1px solid rgba(255,255,255,0.1)",
+                    }}
+                  >
+                    <div className="flex-1 min-w-0 flex flex-col gap-[6px]">
+                      <div className="text-white font-semibold text-[15px] truncate">{title}</div>
+                      <div className="font-medium text-[12px]" style={{ color: "rgba(255,255,255,0.45)" }}>
+                        Project: {item.status} · {buildLabel} · Updated {formatProjectUpdatedAt(item.updatedAt)}
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-[8px] shrink-0">
+                      {item.previewUrl && (
+                        <button
+                          type="button"
+                          onClick={() => window.open(item.previewUrl!, "_blank", "noopener,noreferrer")}
+                          className="font-semibold text-[12px] px-[12px] py-[8px] rounded-[8px]"
+                          style={{
+                            background: "rgba(111,204,221,0.12)",
+                            color: "#6fccdd",
+                            border: "1px solid rgba(111,204,221,0.25)",
+                          }}
+                        >
+                          Preview
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => { void onOpen(item.id); }}
+                        disabled={busy}
+                        className="font-semibold text-[12px] px-[14px] py-[8px] rounded-[8px] disabled:opacity-50"
+                        style={{ background: "#6fccdd", color: "#0b0b0b" }}
+                      >
+                        Open
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={onSignOut}
+            className="self-start font-medium text-[12px] mt-[8px]"
+            style={{ color: "rgba(255,255,255,0.4)" }}
+          >
+            Sign out
+          </button>
+        </div>
+      </div>
+    </ScaledPage>
+  );
+}
+
+// ─── App Root ─────────────────────────────────────────────────────────────────
 const LS_STEP_KEY = "ailk_maxReachedStep";
 const LS_PAGE_KEY = "ailk_page";
 
-function authErrorMessage(reason: string | null): string {
-  if (!reason) return "Sign-in failed. Please try again.";
-  const known: Record<string, string> = {
-    access_denied: "Sign-in was cancelled or denied.",
-    state_expired: "Your sign-in session expired. Please try again.",
-    invalid_state: "Your sign-in session was invalid. Please try again.",
-    invalid_response: "Microsoft returned an incomplete response. Please try again.",
-    token_exchange_failed: "We could not complete sign-in. Please try again.",
-    domain_not_allowed: "Only Innovation City email accounts can access this app.",
-    provisioning_failed: "We could not create your session. Please try again.",
-  };
-  return known[reason] ?? reason;
-}
-
-export default function App() {
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [authReady, setAuthReady] = useState(false);
-  const [authError, setAuthError] = useState<string | null>(null);
-
+function LegacyApp() {
   const [page, setPage] = useState<Page>(() => {
     const saved = localStorage.getItem(LS_PAGE_KEY) as Page | null;
-    // Restore any page except the auth screens. Generating resumes its pipeline
-    // idempotently (no duplicate paid builds); preview/download read persisted state.
-    const restorable: Page[] = ["questionnaire", "category-mood", "colors", "pick-pages", "generating", "preview", "download"];
+    // Only restore wizard pages — not login/otp/generating
+    const restorable: Page[] = ["questionnaire", "category-mood", "colors", "pick-pages"];
     return saved && restorable.includes(saved) ? saved : "login";
   });
 
@@ -3797,66 +3767,6 @@ export default function App() {
     localStorage.setItem(LS_PAGE_KEY, p);
   };
 
-  const handleAuthenticated = useCallback((nextUser: AuthUser) => {
-    setUser(nextUser);
-    setAuthError(null);
-    setPage((current) => {
-      if (current === "login" || current === "otp") {
-        localStorage.setItem(LS_PAGE_KEY, "questionnaire");
-        return "questionnaire";
-      }
-      return current;
-    });
-  }, []);
-
-  const handleLogout = useCallback(async () => {
-    try {
-      await logoutSession();
-    } catch {
-      // Clear local state even if revoke fails.
-    }
-    setUser(null);
-    setMaxReachedStep(-1);
-    localStorage.removeItem(LS_STEP_KEY);
-    localStorage.setItem(LS_PAGE_KEY, "login");
-    setPage("login");
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const { status, reason } = consumeAuthQueryParams();
-      if (status === "error") {
-        setAuthError(authErrorMessage(reason));
-      } else if (status === "logged_out") {
-        setAuthError(null);
-        setUser(null);
-      }
-
-      try {
-        const me = await fetchAuthMe();
-        if (cancelled) return;
-        if (me.authenticated && me.user) {
-          handleAuthenticated(me.user);
-        } else if (page !== "login" && page !== "otp") {
-          setPage("login");
-          localStorage.setItem(LS_PAGE_KEY, "login");
-        }
-      } catch {
-        if (!cancelled && page !== "login" && page !== "otp") {
-          setPage("login");
-        }
-      } finally {
-        if (!cancelled) setAuthReady(true);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-    // Intentionally run once on mount for session bootstrap.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [handleAuthenticated]);
-
   // Persist maxReachedStep whenever it changes
   useEffect(() => {
     localStorage.setItem(LS_STEP_KEY, String(maxReachedStep));
@@ -3864,6 +3774,7 @@ export default function App() {
 
   const ORDER: Page[] = [
     "login",
+    "otp",
     "questionnaire",
     "category-mood",
     "colors",
@@ -3873,7 +3784,7 @@ export default function App() {
     "download",
   ];
 
-  // Step index ? page mapping (the 4 wizard steps in the breadcrumb)
+  // Step index → page mapping (the 4 wizard steps in the breadcrumb)
   const STEP_PAGES: Page[] = ["questionnaire", "category-mood", "colors", "pick-pages"];
 
   const goNext = () => {
@@ -3881,9 +3792,10 @@ export default function App() {
     if (i < ORDER.length - 1) {
       const nextPage = ORDER[i + 1];
       setPage(nextPage);
-      localStorage.setItem(LS_PAGE_KEY, nextPage);
+      // Update maxReachedStep when advancing to a new step page
       const nextStep = STEP_PAGES.indexOf(nextPage);
       if (nextStep > maxReachedStep) setMaxReachedStep(nextStep);
+      // When leaving a step page, mark that step as completed
       const currentStep = STEP_PAGES.indexOf(page);
       if (currentStep >= 0 && currentStep > maxReachedStep) setMaxReachedStep(currentStep);
     }
@@ -3892,14 +3804,14 @@ export default function App() {
   const goBack = () => {
     const i = ORDER.indexOf(page);
     if (i > 0) {
+      // Mark current step complete before going back
       const currentStep = STEP_PAGES.indexOf(page);
       if (currentStep > maxReachedStep) setMaxReachedStep(currentStep);
-      const prev = ORDER[i - 1];
-      setPage(prev);
-      localStorage.setItem(LS_PAGE_KEY, prev);
+      setPage(ORDER[i - 1]);
     }
   };
 
+  // Only allow navigating to a step that the user has already reached (no skipping forward)
   const goToStep = (step: number) => {
     const target = STEP_PAGES[step];
     if (!target) return;
@@ -3909,33 +3821,12 @@ export default function App() {
       const currentStep = STEP_PAGES.indexOf(page);
       if (currentStep > maxReachedStep) setMaxReachedStep(currentStep);
       setPage(target);
-      localStorage.setItem(LS_PAGE_KEY, target);
     }
   };
 
+  // completedUpTo: the highest step index the user has fully passed through
   const currentStep = STEP_PAGES.indexOf(page);
   const completedUpTo = Math.max(maxReachedStep, currentStep - 1);
-
-  if (!authReady) {
-    return (
-      <div
-        style={{
-          minHeight: "100vh",
-          width: "100%",
-          background: "#0b0b0b",
-          color: "rgba(255,255,255,0.6)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontFamily: "'Montserrat', sans-serif",
-          fontSize: 14,
-          fontWeight: 500,
-        }}
-      >
-        Loading?
-      </div>
-    );
-  }
 
   return (
     <div
@@ -3958,24 +3849,419 @@ export default function App() {
           flexDirection: "column",
         }}
       >
-        {page === "login" && (
-          <LoginPage onAuthenticated={handleAuthenticated} initialError={authError} />
+        {page === "login" && <LoginPage onNext={goNext} />}
+        {page === "otp" && <OtpPage onNext={goNext} onBack={goBack} />}
+        {page === "questionnaire" && <QuestionnairePage {...({ onNext: goNext, onBack: goBack, onStepClick: goToStep, completedUpTo } as any)} />}
+        {page === "category-mood" && <CategoryMoodPage {...({ onNext: goNext, onBack: goBack, onStepClick: goToStep, completedUpTo } as any)} />}
+        {page === "colors" && <ColorsFontsPage {...({ onNext: goNext, onBack: goBack, onStepClick: goToStep, completedUpTo } as any)} />}
+        {page === "pick-pages" && <PickPagesPage {...({ onNext: goNext, onBack: goBack, onStepClick: goToStep, completedUpTo } as any)} />}
+        {page === "generating" && <GeneratingPage {...({ onNext: goNext } as any)} />}
+        {page === "preview" && <PreviewPage {...({ onNext: goNext, onBack: goBack } as any)} />}
+        {page === "download" && <DownloadPage {...({ onBack: () => go("login") } as any)} />}
+      </div>
+    </div>
+  );
+}
+
+const LS_PROJECT_KEY = "ailk_projectId";
+const LS_OPERATION_KEY = "ailk_operationId";
+const WIZARD_PAGES: Page[] = ["questionnaire", "category-mood", "colors", "pick-pages"];
+const ACTIVE_BUILD_STATUSES: BuildView["status"][] = [
+  "queued",
+  "submitting",
+  "running",
+  "processing_result",
+];
+
+function clearProjectSessionState() {
+  [LS_PROJECT_KEY, LS_OPERATION_KEY, LS_STEP_KEY].forEach((key) => localStorage.removeItem(key));
+}
+
+function resumePageForProject(
+  project: ProjectView,
+  build: BuildView | null,
+  mockups: MockupView[],
+): { page: Page; maxReachedStep: number } {
+  if (build?.status === "completed") {
+    return { page: "download", maxReachedStep: WIZARD_PAGES.length - 1 };
+  }
+  if (build && ACTIVE_BUILD_STATUSES.includes(build.status)) {
+    return { page: "building", maxReachedStep: WIZARD_PAGES.length - 1 };
+  }
+  if (mockups.length > 0 || project.selectedMockupId) {
+    return { page: "preview", maxReachedStep: WIZARD_PAGES.length - 1 };
+  }
+  const hasCompany = Boolean(project.business.companyName.trim());
+  if (!hasCompany) {
+    return { page: "questionnaire", maxReachedStep: -1 };
+  }
+  return { page: "questionnaire", maxReachedStep: 0 };
+}
+
+export default function App() {
+  const [page, setPage] = useState<Page>(() => (hasAccessToken() ? "projects" : "login"));
+  const [maxReachedStep, setMaxReachedStep] = useState(() => {
+    const saved = localStorage.getItem(LS_STEP_KEY);
+    return saved === null ? -1 : Number.parseInt(saved, 10);
+  });
+  const [catalog, setCatalog] = useState<WizardCatalog | null>(null);
+  const [project, setProject] = useState<ProjectView | null>(null);
+  const [projects, setProjects] = useState<ProjectSummaryView[]>([]);
+  const [projectsLoading, setProjectsLoading] = useState(false);
+  const [operation, setOperation] = useState<OperationView | null>(null);
+  const [mockups, setMockups] = useState<MockupView[]>([]);
+  const [build, setBuild] = useState<BuildView | null>(null);
+  const [deployment, setDeployment] = useState<DeploymentView | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [booting, setBooting] = useState(true);
+  const [loginEmail, setLoginEmail] = useState("test@innovationcity.com");
+
+  const go = useCallback((next: Page) => {
+    setPage(next);
+    localStorage.setItem(LS_PAGE_KEY, next);
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem(LS_STEP_KEY, String(maxReachedStep));
+  }, [maxReachedStep]);
+
+  const refreshProject = async (projectId: string) => {
+    const refreshed = await launchKitApi.getProject(projectId);
+    setProject(refreshed);
+    return refreshed;
+  };
+
+  const refreshProjects = async () => {
+    setProjectsLoading(true);
+    try {
+      setProjects(await launchKitApi.listProjects());
+    } finally {
+      setProjectsLoading(false);
+    }
+  };
+
+  const clearActiveProject = () => {
+    clearProjectSessionState();
+    setProject(null);
+    setOperation(null);
+    setMockups([]);
+    setBuild(null);
+    setDeployment(null);
+    setMaxReachedStep(-1);
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    const boot = async () => {
+      if (!hasAccessToken()) {
+        setPage("login");
+        if (!cancelled) setBooting(false);
+        try {
+          const loadedCatalog = await launchKitApi.getCatalog();
+          if (!cancelled) setCatalog(loadedCatalog);
+        } catch {
+          // Catalog is only required after sign-in; login still works without it.
+        }
+        return;
+      }
+
+      try {
+        const loadedCatalog = await launchKitApi.getCatalog();
+        if (cancelled) return;
+        setCatalog(loadedCatalog);
+        go("projects");
+        setProjects(await launchKitApi.listProjects());
+      } catch (cause) {
+        if (cause instanceof LaunchKitApiError && cause.status === 401) {
+          clearAccessToken();
+          setPage("login");
+          setError("Your staging session expired. Sign in again to continue.");
+          return;
+        }
+        setError(cause instanceof Error ? cause.message : "Could not load your projects.");
+        go("projects");
+      } finally {
+        if (!cancelled) setBooting(false);
+      }
+    };
+    void boot();
+    return () => { cancelled = true; };
+  }, [go]);
+
+  useEffect(() => {
+    if (build?.status === "completed" && page === "building") go("download");
+  }, [build?.status, page, go]);
+
+  useEffect(() => {
+    if (!build || !ACTIVE_BUILD_STATUSES.includes(build.status)) return;
+
+    const controller = new AbortController();
+    void watchBuild(
+      build,
+      (next) => {
+        if (controller.signal.aborted) return;
+        setBuild(next);
+        setError(null);
+      },
+      controller.signal,
+    ).catch((cause) => {
+      if (controller.signal.aborted) return;
+      if (cause instanceof LaunchKitApiError && cause.status === 401) {
+        clearAccessToken();
+        setPage("login");
+      }
+      setError(cause instanceof Error ? cause.message : "Build status could not be refreshed.");
+    });
+    return () => controller.abort();
+  }, [build?.id]);
+
+  const perform = async (action: () => Promise<void>) => {
+    setBusy(true);
+    setError(null);
+    try {
+      await action();
+    } catch (cause) {
+      if (cause instanceof LaunchKitApiError && cause.status === 401) {
+        clearAccessToken();
+        setPage("login");
+      }
+      setError(cause instanceof Error ? cause.message : "The request could not be completed.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const ensureProject = async () => {
+    if (project) return project;
+    const savedProjectId = localStorage.getItem(LS_PROJECT_KEY);
+    if (savedProjectId) {
+      try {
+        const savedProject = await launchKitApi.getProject(savedProjectId);
+        setProject(savedProject);
+        return savedProject;
+      } catch (cause) {
+        if (!(cause instanceof LaunchKitApiError) || cause.status !== 404) throw cause;
+        localStorage.removeItem(LS_PROJECT_KEY);
+      }
+    }
+    throw new LaunchKitApiError(
+      "Create or open a website from your projects list first.",
+      400,
+      "project_required",
+    );
+  };
+
+  const requestAccessCode = (email: string) => perform(async () => {
+    await launchKitApi.requestAccessCode(email);
+    setLoginEmail(email.trim().toLowerCase());
+    go("otp");
+  });
+
+  const verifyAccessCode = (code: string) => perform(async () => {
+    const session = await launchKitApi.verifyAccessCode(loginEmail, code);
+    setAccessToken(session.accessToken);
+    clearActiveProject();
+    await refreshProjects();
+    go("projects");
+  });
+
+  const createWebsite = () => perform(async () => {
+    clearActiveProject();
+    const created = await launchKitApi.createProject();
+    localStorage.setItem(LS_PROJECT_KEY, created.id);
+    setProject(created);
+    setMaxReachedStep(-1);
+    go("questionnaire");
+  });
+
+  const openProject = (projectId: string) => perform(async () => {
+    const loadedProject = await launchKitApi.getProject(projectId);
+    localStorage.setItem(LS_PROJECT_KEY, loadedProject.id);
+    localStorage.removeItem(LS_OPERATION_KEY);
+    setProject(loadedProject);
+    setOperation(null);
+    const loadedMockups = await launchKitApi.getMockups(projectId);
+    setMockups(loadedMockups);
+    let loadedBuild: BuildView | null = null;
+    if (loadedProject.latestBuildId) {
+      loadedBuild = await launchKitApi.getBuild(loadedProject.latestBuildId);
+      setBuild(loadedBuild);
+    } else {
+      setBuild(null);
+    }
+    if (loadedProject.latestDeploymentId) {
+      setDeployment(await launchKitApi.getDeployment(loadedProject.latestDeploymentId));
+    } else {
+      setDeployment(null);
+    }
+    const resume = resumePageForProject(loadedProject, loadedBuild, loadedMockups);
+    setMaxReachedStep(resume.maxReachedStep);
+    go(resume.page);
+  });
+
+  const returnToProjects = () => perform(async () => {
+    clearActiveProject();
+    await refreshProjects();
+    go("projects");
+  });
+
+  const signOut = () => {
+    clearAccessToken();
+    clearActiveProject();
+    setProjects([]);
+    setError(null);
+    go("login");
+  };
+
+  const saveBusiness = (form: QuestionnaireForm) => perform(async () => {
+    const current = await ensureProject();
+    const updated = await launchKitApi.patchProject(current.id, {
+      business: {
+        companyName: form.companyName,
+        uvp: form.uniqueness,
+        targetAudience: form.customers,
+        notes: form.anythingElse,
+      },
+      design: { tagline: form.tagline, cta: form.cta },
+    });
+    setProject(updated);
+    setMaxReachedStep(Math.max(1, maxReachedStep));
+    go("category-mood");
+  });
+
+  const uploadProfile = (file: File) => perform(async () => {
+    const current = await ensureProject();
+    const queued = await launchKitApi.uploadProfile(current.id, file);
+    setOperation(queued);
+    await waitForOperation(queued.id, setOperation);
+    await refreshProject(current.id);
+  });
+
+  const saveDesign = (categoryId: string, moodId: string, animationId: string) => perform(async () => {
+    const current = await ensureProject();
+    const updated = await launchKitApi.patchProject(current.id, {
+      business: { categoryId },
+      design: { moodId, animationId },
+    });
+    setProject(updated);
+    setMaxReachedStep(Math.max(2, maxReachedStep));
+    go("colors");
+  });
+
+  const saveColors = (
+    paletteId: string,
+    customPalette: CustomPalette | null,
+    fontPairingId: string,
+    customFonts: { heading: string; body: string } | null,
+  ) => perform(async () => {
+    const current = await ensureProject();
+    const updated = await launchKitApi.patchProject(current.id, {
+      design: { paletteId, customPalette, fontPairingId, customFonts },
+    });
+    setProject(updated);
+    setMaxReachedStep(Math.max(3, maxReachedStep));
+    go("pick-pages");
+  });
+
+  const generateMockups = (layout: PageLayout) => perform(async () => {
+    const current = await ensureProject();
+    const updated = await launchKitApi.patchProject(current.id, { pageLayout: layout });
+    setProject(updated);
+    go("generating");
+    const queued = await launchKitApi.createMockups(current.id, createIdempotencyKey("mockups"));
+    localStorage.setItem(LS_OPERATION_KEY, queued.id);
+    setOperation(queued);
+    await waitForOperation(queued.id, setOperation);
+    localStorage.removeItem(LS_OPERATION_KEY);
+    setMockups(await launchKitApi.getMockups(current.id));
+    await refreshProject(current.id);
+    go("preview");
+  });
+
+  const startBuild = (mockupId: string) => perform(async () => {
+    const current = await ensureProject();
+    await launchKitApi.selectMockup(current.id, mockupId);
+    const queued = await launchKitApi.createBuild(current.id, createIdempotencyKey("build"));
+    setProject({ ...current, selectedMockupId: mockupId, latestBuildId: queued.id });
+    setBuild(queued);
+    go("building");
+  });
+
+  const deploy = async () => {
+    if (!build) return;
+    if (deployment?.status === "ready_to_claim" && deployment.claimUrl) {
+      window.open(deployment.claimUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
+    await perform(async () => {
+      const queued = await launchKitApi.createDeployment(build.id, createIdempotencyKey("deployment"));
+      setDeployment(queued);
+      await waitForDeployment(queued.id, setDeployment);
+    });
+  };
+
+  const goBack = () => {
+    if (page === "questionnaire") {
+      void returnToProjects();
+      return;
+    }
+    const order: Page[] = ["login", "otp", "projects", ...WIZARD_PAGES, "generating", "preview", "building", "download"];
+    const index = order.indexOf(page);
+    if (index > 0) go(order[index - 1]);
+  };
+
+  const goToStep = (step: number) => {
+    const target = WIZARD_PAGES[step];
+    if (!target) return;
+    if (WIZARD_PAGES.indexOf(target) <= WIZARD_PAGES.indexOf(page)) go(target);
+  };
+
+  const currentStep = WIZARD_PAGES.indexOf(page);
+  const completedUpTo = Math.max(maxReachedStep, currentStep - 1);
+  const isAuthPage = page === "login" || page === "otp";
+  const isHubPage = page === "projects";
+  const needsProject = !isAuthPage && !isHubPage;
+  const needsCatalog = needsProject;
+
+  if (!isAuthPage && !isHubPage && (booting || (needsCatalog && !catalog) || (needsProject && !project))) {
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center" style={{ background: "#0b0b0b" }}>
+        <div className="rounded-full" style={{ width: 48, height: 48, border: "3px solid rgba(111,204,221,0.2)", borderTop: "3px solid #6fccdd", animation: "spin 1s linear infinite" }} />
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ minHeight: "100vh", width: "100%", background: "#0b0b0b", display: "flex", justifyContent: "center", alignItems: "stretch" }}>
+      <div style={{ width: "100%", maxWidth: 1440, minHeight: "100vh", margin: "0 auto", display: "flex", flexDirection: "column" }}>
+        {page === "login" && <LoginPage onNext={requestAccessCode} busy={busy} />}
+        {page === "otp" && <OtpPage onNext={verifyAccessCode} onBack={goBack} busy={busy} />}
+        {error && (
+          <div className="fixed top-[96px] left-1/2 -translate-x-1/2 z-[10000] max-w-[calc(100%-32px)] px-4 py-3 rounded-[8px] flex items-center gap-3" style={{ background: "#2b1717", border: "1px solid rgba(248,113,113,0.5)", color: "white", fontFamily: "'Montserrat', sans-serif" }}>
+            <span className="text-[13px] font-medium">{error}</span>
+            <button onClick={() => setError(null)} aria-label="Dismiss error" className="text-[18px] leading-none">×</button>
+          </div>
         )}
-        {page === "questionnaire" && user && (
-          <QuestionnairePage onNext={goNext} onBack={handleLogout} onStepClick={goToStep} completedUpTo={completedUpTo} />
+        {page === "projects" && (
+          <ProjectsPage
+            projects={projects}
+            loading={projectsLoading || booting}
+            busy={busy}
+            onCreate={createWebsite}
+            onOpen={openProject}
+            onRefresh={refreshProjects}
+            onSignOut={signOut}
+          />
         )}
-        {page === "category-mood" && user && (
-          <CategoryMoodPage onNext={goNext} onBack={goBack} onStepClick={goToStep} completedUpTo={completedUpTo} />
-        )}
-        {page === "colors" && user && (
-          <ColorsFontsPage onNext={goNext} onBack={goBack} onStepClick={goToStep} completedUpTo={completedUpTo} />
-        )}
-        {page === "pick-pages" && user && (
-          <PickPagesPage onNext={goNext} onBack={goBack} onStepClick={goToStep} completedUpTo={completedUpTo} />
-        )}
-        {page === "generating" && user && <GeneratingPage onNext={goNext} onBack={goBack} />}
-        {page === "preview" && user && <PreviewPage onNext={goNext} onBack={goBack} />}
-        {page === "download" && user && <DownloadPage onBack={() => void handleLogout()} />}
+        {page === "questionnaire" && project && <QuestionnairePage project={project} onSave={saveBusiness} onUpload={uploadProfile} busy={busy} onBack={goBack} onStepClick={goToStep} completedUpTo={completedUpTo} />}
+        {page === "category-mood" && project && catalog && <CategoryMoodPage project={project} catalog={catalog} onSave={saveDesign} busy={busy} onBack={goBack} onStepClick={goToStep} completedUpTo={completedUpTo} />}
+        {page === "colors" && project && catalog && <ColorsFontsPage project={project} catalog={catalog} onSave={saveColors} busy={busy} onBack={goBack} onStepClick={goToStep} completedUpTo={completedUpTo} />}
+        {page === "pick-pages" && project && catalog && <PickPagesPage project={project} catalog={catalog} onGenerate={generateMockups} busy={busy} onBack={goBack} onStepClick={goToStep} completedUpTo={completedUpTo} />}
+        {page === "generating" && <GeneratingPage operation={operation} error={error} onRetry={() => project && void generateMockups(project.pageLayout)} />}
+        {page === "preview" && project && <PreviewPage mockups={mockups} selectedMockupId={project.selectedMockupId} onConfirm={startBuild} busy={busy} onBack={() => go("pick-pages")} />}
+        {page === "building" && <BuildingPage build={build} error={error} onBack={() => go("preview")} />}
+        {page === "download" && build?.status === "completed" && <DownloadPage build={build} deployment={deployment} onDeploy={deploy} busy={busy} onBack={() => { void returnToProjects(); }} />}
       </div>
     </div>
   );

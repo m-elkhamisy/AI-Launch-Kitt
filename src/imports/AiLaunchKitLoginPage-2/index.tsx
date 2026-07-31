@@ -142,7 +142,7 @@ function Header() {
     <div className="absolute h-[84px] left-0 top-0 w-[1440px]" data-name="header">
       <svg className="absolute block inset-0 size-full" fill="none" preserveAspectRatio="none" viewBox="0 0 1440 84">
         <foreignObject height="164" width="1520" x="-40" y="-40">
-          <div style={{ backdropFilter: "blur(20px)", clipPath: "url(#bgblur_0_119_112_clip_path)", height: "100%", width: "100%" }} xmlns="http://www.w3.org/1999/xhtml" />
+          <div style={{ backdropFilter: "blur(20px)", clipPath: "url(#bgblur_0_119_112_clip_path)", height: "100%", width: "100%" }} />
         </foreignObject>
         <g id="header" data-figma-bg-blur-radius="40">
           <mask fill="white" id="path-1-inside-1_119_112">

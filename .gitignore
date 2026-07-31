@@ -9,12 +9,15 @@ build/
 # Environment files
 .env
 .env.*
+!.env.example
 
 # Logs
 npm-debug.log*
 pnpm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+vite.out.log
+vite.err.log
 
 # Editor / OS files
 .vscode/
@@ -24,5 +27,3 @@ Thumbs.db
 
 # Test / coverage
 coverage/
-node_modules/
-node_modules/

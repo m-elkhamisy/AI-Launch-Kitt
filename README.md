@@ -1,15 +1,32 @@
+# AI Launch Kit Frontend 
 
-  # Website Builder with Login
+The React client for the V1 AI Launch Kit workflow. It uses the backend as the
+source of truth for projects, wizard catalogs, uploads, mockups, builds, and
+Vercel deployments.
 
-  This is a code bundle for Website Builder with Login. The original project is available at https://www.figma.com/design/TNgm67jxnSudfULAcSeXqM/Website-Builder-with-Login.
+## Local setup
 
-  ## Running the code
+1. Start the backend and its worker as described in the backend README.
+2. Copy `.env.example` to `.env.local` and adjust `VITE_API_BASE_URL` if needed.
+3. Install dependencies with `npm install`.
+4. Start Vite with `npm run dev`.
 
-  Run `npm i` to install the dependencies.
+Local backend testing may still use `LAUNCHKIT_TESTING_USER_ID`. Restricted AWS
+staging uses the backend-enforced fixed email/code mode and an expiring bearer
+session. This gate is not the production identity design. A project ID and the
+current wizard step are saved in browser storage so a refresh resumes the durable
+server-side project.
 
-  Run `npm run dev` to start the development server.
+## Quality checks
 
-  ## GitHub workflow
+Run `npm test`, `npm run typecheck`, `npm run build`, and `npm audit` before
+shipping. The production API URL must be supplied at build time through
+`VITE_API_BASE_URL`.
 
-  This repository uses a feature-branch workflow. Changes should be proposed through a pull request into `main`.
-  
+AWS Amplify uses `amplify.yml` to install from the lockfile, run all frontend
+checks, and publish `dist`. Set `VITE_API_BASE_URL` to the Dokploy API HTTPS
+origin in Amplify before building the staging branch.
+
+Provider configuration and recovery behavior are deliberate: missing v0,
+OpenRouter, or Vercel credentials produce a safe error with a retry action;
+the UI never invents progress or a successful deployment.
