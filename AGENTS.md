@@ -15,7 +15,7 @@ is in [`docs/frontend-review.md`](docs/frontend-review.md).
 | UI          | React 18.3, TypeScript `strict` (`tsc --noEmit` gate)         |
 | Styling     | Tailwind CSS v4 via `@tailwindcss/vite` + inline `style={{}}`  |
 | Forms       | `react-hook-form` + `zod` via `@hookform/resolvers`            |
-| Icons       | `lucide-react` for new UI; Figma `<path>` data on old screens  |
+| Icons       | `lucide-react` throughout; only the logo is raw path data      |
 | Tests       | Vitest + jsdom + Testing Library                              |
 | Components  | shadcn/ui on Radix — present but **dormant, zero importers**   |
 | Font        | Montserrat (Google Fonts, `src/styles/fonts.css`)              |
@@ -66,7 +66,6 @@ src/
       ui/                       47 shadcn components — dormant, leave alone
       figma/                    ImageWithFallback — dormant
     test/                       fixtures.ts (factories), setup.ts
-  imports/                      Figma SVG path dictionaries — see below
   styles/                       index.css → fonts.css, tailwind.css, theme.css
 ```
 
@@ -104,20 +103,28 @@ There is no router; `react-router` is not installed. Anything a later page needs
 Session keys: `ailk_accessToken` (owned by `launchkit-api`), plus `ailk_projectId`,
 `ailk_operationId`, `ailk_maxReachedStep` behind `lib/storage`.
 
-## `src/imports/`
+## Icons and the logo
 
-Five SVG path dictionaries, flattened and renamed from Figma's generated hashes to `login-paths`,
-`category-mood-paths`, `merged-flow-paths`, `download-paths`, `nav-paths`. The original component
-trees and unused dictionaries were deleted — nothing imported them, and Tailwind's `@source` glob was
-scanning them, shipping every class in ~7,700 lines of dead markup as CSS.
+**Icons are `lucide-react` components.** There is no `src/imports/` any more — it held 146 raw SVG
+path strings from Figma Make, of which only 52 rendered and 40 of 61 distinct keys were duplicated
+across files. Use a lucide icon for anything new; don't paste path data.
 
-**A Figma re-export writes hash-named files again.** Keep the five clean names and re-apply the
-rename, rather than leaving both sets side by side. Never hand-edit the path data itself.
+**The logo is the one exception.** lucide has no Innovation City wordmark, so the 18 brand paths live
+in `components/common/logo-paths.ts` as `LOGO_MARK`, `LOGO_WORDMARK` and `LOGO_GLYPH`, beside
+`LogoSvg` which draws them. Don't hand-edit the coordinates, and don't try to substitute a stock
+glyph. `LogoSvg.test.tsx` asserts all 16 shapes carry real geometry, because a missing key renders
+`<path d={undefined} />` without throwing.
+
+A few small inline `<svg>` literals remain in page markup (the address-bar cross, a couple of
+wireframe strokes). Those are decoration rather than icons; replace them with lucide only if you are
+already editing that block.
 
 ## Conventions
 
 - **Styling is mixed** — inline `style={{}}` alongside `className`, often on one node. Match the
   surrounding block; a wholesale conversion is its own change.
+- **Icons come from `lucide-react`.** Size with `size`, colour with `color`, and pass
+  `aria-hidden="true"` unless the icon is the only label.
 - **Colors are hardcoded hex.** Dark app (`#0b0b0b`) with brand teal `#6fccdd` — prefer lowercase.
   `theme.css` tokens are an unused *light* shadcn palette; do not assume they apply.
 - **Keep Tailwind utility names out of prose comments.** The v4 scanner reads comment text as class
