@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { OtpPage } from "../../App";
+import { OtpPage } from "./OtpPage";
 
 describe("OtpPage", () => {
   it("renders six code inputs and the verify action", () => {
