@@ -47,14 +47,10 @@ import svgPathsLogin from "@/imports/AiLaunchKitLoginPage/svg-8vlpvs8i0v";
 import svgPathsDl from "@/imports/AiLaunchKitDownloadingGeneratedWebsitesPage/svg-7argp47g3q";
 import svgPathsMerged from "@/imports/AiLaunchKitMainPageMergedFlow/svg-9l4sd51871";
 import svgPathsCatMood from "@/imports/AiLaunchKitDesignCategoryMood/svg-aiiheluzwm";
-import svgPathsColors from "@/imports/AiLaunchKitColorsFonts/svg-f4nnorilyc";
-import svgPathsPages from "@/imports/AiLaunchKitPickPages/svg-w96mex1cgs";
-import { imgLight } from "@/imports/AiLaunchKitDesignCategoryMood/svg-x4lhq";
 import svgPathsNav from "@/imports/Frame1410068676/svg-96pcbqyjjo";
 
 type Page =
   | "login"
-  | "otp"
   | "projects"
   | "questionnaire"
   | "category-mood"
@@ -90,12 +86,10 @@ function firstValidationError(value: unknown): string | undefined {
 export function ScaledPage({
   children,
   header,
-  designHeight: _designHeight = 900,
   scrollable = false,
 }: {
   children: React.ReactNode;
   header?: React.ReactNode;
-  designHeight?: number;
   scrollable?: boolean;
 }) {
   return (
@@ -177,7 +171,7 @@ export function LogoSvg() {
 }
 
 // ─── Top Header ───────────────────────────────────────────────────────────────
-export function TopHeader({ showProfile = true }: { showProfile?: boolean }) {
+export function TopHeader() {
   const p = svgPathsLogin;
   return (
     <div
@@ -566,7 +560,6 @@ export function LoginPage({
 
   return (
     <ScaledPage
-      designHeight={900}
       header={
         <div
           className="flex items-center px-4 sm:px-[40px]"
@@ -730,7 +723,6 @@ export function OtpPage({
 
   return (
     <ScaledPage
-      designHeight={900}
       header={
         <div
           className="flex items-center px-4 sm:px-[40px]"
@@ -1017,7 +1009,6 @@ export function QuestionnairePage({ project, onSave, onUpload, onBack, onStepCli
 
   return (
     <ScaledPage
-      designHeight={1100}
       scrollable
       header={<><TopHeader /><SubNav activeStep={0} completedUpTo={completedUpTo} onBack={onBack} onNext={busy ? undefined : continueQuestionnaire} onStepClick={onStepClick} /></>}
     >
@@ -1236,37 +1227,6 @@ export function QuestionnairePage({ project, onSave, onUpload, onBack, onStepCli
 }
 
 // ─── PAGE 4: Category & Mood ──────────────────────────────────────────────────
-const BUSINESS_CATEGORIES = [
-  { label: "Corporate Enterprise", desc: "Ideal for established businesses that need a professional online presence to build trust and attract clients." },
-  { label: "Bookshop", desc: "Independent or chain bookstore selling physical or digital books to avid readers." },
-  { label: "Coffee Shop", desc: "Café or coffeehouse with a warm, inviting atmosphere and specialty drinks." },
-  { label: "Education", desc: "Schools, tutors, online courses or academic institutions delivering learning experiences." },
-  { label: "Healthcare", desc: "Clinics, practices or health & wellness providers serving patients and communities." },
-  { label: "Restaurant", desc: "Dining establishments, takeaway or food delivery services for food lovers." },
-  { label: "Retail / E-commerce", desc: "Online or physical stores selling products directly to consumers." },
-  { label: "Tech / SaaS", desc: "Software products, apps and technology companies solving modern problems." },
-  { label: "Creative Agency", desc: "Design, marketing, branding and creative studios delivering bold ideas." },
-  { label: "Fitness / Wellness", desc: "Gyms, studios, personal trainers and wellness coaches helping people thrive." },
-  { label: "Real Estate", desc: "Property listings, agents or real estate developers connecting people with homes." },
-  { label: "Non-Profit", desc: "Charities, foundations and community organizations making a difference." },
-];
-const DESIGN_MOODS = [
-  { label: "Minimalist", desc: "Clean, airy and uncluttered. Let the content breathe and speak for itself." },
-  { label: "Elegant", desc: "Refined typography, subtle luxury and understated sophistication throughout." },
-  { label: "Bold", desc: "High contrast, strong typography and striking visuals that demand attention." },
-  { label: "Playful", desc: "Fun colors, friendly shapes and an approachable, energetic vibe." },
-  { label: "Professional & Trustworthy", desc: "Clean and credible design focused on building confidence, strengthening reputation, and driving engagement." },
-  { label: "Dark & Modern", desc: "Deep backgrounds, neon accents and a futuristic, high-tech feel." },
-  { label: "Warm & Inviting", desc: "Earth tones, cozy textures and a welcoming atmosphere that feels like home." },
-  { label: "Editorial", desc: "Magazine-style layouts with strong typographic hierarchy and bold imagery." },
-];
-const ANIMATION_LEVELS = [
-  { label: "Minimal", sub: "Subtle & clean" },
-  { label: "Low", sub: "Light movements" },
-  { label: "Balanced", sub: "Recommended" },
-  { label: "High", sub: "More dynamic" },
-];
-
 export function CategoryMoodPage({ project, catalog, onSave, onBack, onStepClick, completedUpTo, busy }: {
   project: ProjectView;
   catalog: WizardCatalog;
@@ -1320,7 +1280,6 @@ export function CategoryMoodPage({ project, catalog, onSave, onBack, onStepClick
 
   return (
     <ScaledPage
-      designHeight={1000}
       scrollable
       header={<><TopHeader /><SubNav activeStep={1} completedUpTo={completedUpTo} onBack={onBack} onNext={busy ? undefined : continueDesign} onStepClick={onStepClick} /></>}
     >
@@ -1629,26 +1588,8 @@ export function CategoryMoodPage({ project, catalog, onSave, onBack, onStepClick
 
 // ─── PAGE 5: Colors & Fonts ───────────────────────────────────────────────────
 type PaletteEntry = { id?: string; name: string; primary: string; secondary: string; background: string; text: string };
-const PALETTES: PaletteEntry[] = [
-  { name: "Modern Blue",    primary: "#2563EB", secondary: "#60A5FA", background: "#F8FAFC", text: "#1E293B" },
-  { name: "Nature Green",   primary: "#16A34A", secondary: "#86EFAC", background: "#F0FDF4", text: "#14532D" },
-  { name: "Elegant Purple", primary: "#7C3AED", secondary: "#C4B5FD", background: "#FAF5FF", text: "#312E81" },
-  { name: "Warm Orange",    primary: "#EA580C", secondary: "#FDBA74", background: "#FFF7ED", text: "#7C2D12" },
-  { name: "Minimal",        primary: "#111827", secondary: "#6B7280", background: "#FFFFFF", text: "#111827" },
-  { name: "Luxury Gold",    primary: "#D4AF37", secondary: "#F5D76E", background: "#1C1C1C", text: "#F9FAFB" },
-  { name: "Soft Pink",      primary: "#EC4899", secondary: "#F9A8D4", background: "#FDF2F8", text: "#831843" },
-];
 
 type FontPair = { id?: string; name: string; heading: string; body: string };
-const FONT_PAIRS: FontPair[] = [
-  { name: "Modern Startup",    heading: "Poppins",           body: "Inter" },
-  { name: "Elegant Editorial", heading: "Playfair Display",  body: "Source Sans 3" },
-  { name: "Corporate",         heading: "Montserrat",        body: "Open Sans" },
-  { name: "Professional Blog", heading: "Merriweather",      body: "Lato" },
-  { name: "Tech & SaaS",       heading: "Space Grotesk",     body: "Inter" },
-  { name: "Luxury Brand",      heading: "DM Serif Display",  body: "Manrope" },
-  { name: "Creative Studio",   heading: "Bebas Neue",        body: "Nunito Sans" },
-];
 
 // Top-200 Google Fonts for the custom font search
 const GOOGLE_FONTS_LIST = [
@@ -1727,7 +1668,6 @@ export function ColorsFontsPage({ project, catalog, onSave, onBack, onStepClick,
 
   return (
     <ScaledPage
-      designHeight={1200}
       scrollable
       header={<><TopHeader /><SubNav activeStep={2} completedUpTo={completedUpTo} onBack={onBack} onNext={busy ? undefined : continueColors} onStepClick={onStepClick} /></>}
     >
@@ -2252,98 +2192,6 @@ type PageTemplate = { id: string; name: string; slug?: string; selected: boolean
 let _sid = 0;
 const sid = () => `s${++_sid}`;
 
-const AVAILABLE_SECTIONS = [
-  "Hero Section", "Features", "Testimonials", "Pricing", "FAQ",
-  "Gallery", "CTA", "Team", "Stats", "Blog Posts", "Partners",
-  "Newsletter", "Map / Location", "Contact Form", "Video",
-];
-
-const PAGE_TEMPLATES: PageTemplate[] = [
-  {
-    id: "home", name: "Home", selected: true,
-    sections: [
-      { id: sid(), name: "Navigation", locked: true },
-      { id: sid(), name: "Hero Section" },
-      { id: sid(), name: "Features" },
-      { id: sid(), name: "Testimonials" },
-      { id: sid(), name: "Call To Action" },
-      { id: sid(), name: "Footer", locked: true },
-    ],
-  },
-  {
-    id: "about", name: "About Us", selected: true,
-    sections: [
-      { id: sid(), name: "Navigation", locked: true },
-      { id: sid(), name: "About Hero" },
-      { id: sid(), name: "Our Story" },
-      { id: sid(), name: "Team Members" },
-      { id: sid(), name: "Values" },
-      { id: sid(), name: "Footer", locked: true },
-    ],
-  },
-  {
-    id: "services", name: "Services", selected: false,
-    sections: [
-      { id: sid(), name: "Navigation", locked: true },
-      { id: sid(), name: "Services Hero" },
-      { id: sid(), name: "Service Cards" },
-      { id: sid(), name: "Pricing" },
-      { id: sid(), name: "FAQ" },
-      { id: sid(), name: "Footer", locked: true },
-    ],
-  },
-  {
-    id: "portfolio", name: "Portfolio", selected: false,
-    sections: [
-      { id: sid(), name: "Navigation", locked: true },
-      { id: sid(), name: "Portfolio Hero" },
-      { id: sid(), name: "Gallery" },
-      { id: sid(), name: "Case Studies" },
-      { id: sid(), name: "Footer", locked: true },
-    ],
-  },
-  {
-    id: "blog", name: "Blog", selected: false,
-    sections: [
-      { id: sid(), name: "Navigation", locked: true },
-      { id: sid(), name: "Blog Hero" },
-      { id: sid(), name: "Blog Posts" },
-      { id: sid(), name: "Newsletter" },
-      { id: sid(), name: "Footer", locked: true },
-    ],
-  },
-  {
-    id: "contact", name: "Contact", selected: true,
-    sections: [
-      { id: sid(), name: "Navigation", locked: true },
-      { id: sid(), name: "Contact Hero" },
-      { id: sid(), name: "Contact Form" },
-      { id: sid(), name: "Map / Location" },
-      { id: sid(), name: "Footer", locked: true },
-    ],
-  },
-  {
-    id: "landing", name: "Landing Page", selected: false,
-    sections: [
-      { id: sid(), name: "Navigation", locked: true },
-      { id: sid(), name: "Hero Section" },
-      { id: sid(), name: "Features" },
-      { id: sid(), name: "CTA" },
-      { id: sid(), name: "Footer", locked: true },
-    ],
-  },
-  {
-    id: "pricing", name: "Pricing", selected: false,
-    sections: [
-      { id: sid(), name: "Navigation", locked: true },
-      { id: sid(), name: "Pricing Hero" },
-      { id: sid(), name: "Pricing" },
-      { id: sid(), name: "FAQ" },
-      { id: sid(), name: "Footer", locked: true },
-    ],
-  },
-];
-
 function editorPages(project: ProjectView, catalog: WizardCatalog): PageTemplate[] {
   const sectionCatalog = new Map(catalog.sectionTemplates.map((item) => [item.id, item]));
   const saved = new Map(project.pageLayout.pages.map((page) => [page.templateId, page]));
@@ -2505,7 +2353,6 @@ export function PickPagesPage({ project, catalog, onGenerate, onBack, onStepClic
 
   return (
     <ScaledPage
-      designHeight={1200}
       scrollable
       header={
         <>
@@ -2868,13 +2715,6 @@ export function PickPagesPage({ project, catalog, onGenerate, onBack, onStepClic
 }
 
 // ─── PAGE 7: Generating ───────────────────────────────────────────────────────
-const PHASES = [
-  "Analyzing your brand inputs...",
-  "Designing page layouts...",
-  "Generating color themes...",
-  "Composing your website...",
-];
-
 export function GeneratingPage({ operation, error, onRetry }: {
   operation: OperationView | null;
   error: string | null;
@@ -2885,7 +2725,7 @@ export function GeneratingPage({ operation, error, onRetry }: {
     : "Preparing your persisted project...";
 
   return (
-    <ScaledPage designHeight={900} header={<TopHeader />}>
+    <ScaledPage header={<TopHeader />}>
       <div
         className="w-full flex flex-col flex-1"
         style={{ background: "#0b0b0b", fontFamily: "'Montserrat', sans-serif", minHeight: "100%" }}
@@ -2930,12 +2770,6 @@ export function GeneratingPage({ operation, error, onRetry }: {
 }
 
 // ─── PAGE 8: Preview ──────────────────────────────────────────────────────────
-const VERSIONS = [
-  { name: "Version 1", subtitle: "Clean and structured" },
-  { name: "Version 2", subtitle: "Bold and contemporary" },
-  { name: "Version 3", subtitle: "Simple and focused" },
-];
-
 export function PreviewPage({ mockups, selectedMockupId, onConfirm, onBack, busy }: {
   mockups: MockupView[];
   selectedMockupId: string | null;
@@ -2984,7 +2818,6 @@ export function PreviewPage({ mockups, selectedMockupId, onConfirm, onBack, busy
 
   return (
     <ScaledPage
-      designHeight={900}
       scrollable
       header={
         <>
@@ -3188,7 +3021,7 @@ export function BuildingPage({ build, error, onBack }: {
 }) {
   const terminalError = build && ["failed", "cancelled", "timed_out"].includes(build.status);
   return (
-    <ScaledPage designHeight={900} header={<TopHeader />}>
+    <ScaledPage header={<TopHeader />}>
       <div className="w-full flex flex-col flex-1" style={{ background: "#0b0b0b", fontFamily: "'Montserrat', sans-serif" }}>
         <div className="flex-1 flex flex-col items-center justify-center gap-[28px] px-4 text-center">
           {!terminalError && !error && (
@@ -3248,7 +3081,7 @@ export function DownloadPage({ build, deployment, onDeploy, onBack, busy }: {
   };
 
   return (
-    <ScaledPage designHeight={1100} scrollable header={<TopHeader />}>
+    <ScaledPage scrollable header={<TopHeader />}>
       <div
         className="w-full min-h-full flex flex-col"
         style={{ background: "#0b0b0b", fontFamily: "'Montserrat', sans-serif" }}
@@ -3571,7 +3404,7 @@ export function ProjectsPage({
   onSignOut: () => void;
 }) {
   return (
-    <ScaledPage designHeight={900} scrollable header={<TopHeader showProfile={false} />}>
+    <ScaledPage scrollable header={<TopHeader />}>
       <div
         className="w-full min-h-full flex flex-col"
         style={{ background: "#0b0b0b", fontFamily: "'Montserrat', sans-serif" }}
@@ -3704,121 +3537,6 @@ export function ProjectsPage({
 
 // ─── App Root ─────────────────────────────────────────────────────────────────
 const LS_STEP_KEY = "ailk_maxReachedStep";
-const LS_PAGE_KEY = "ailk_page";
-
-function LegacyApp() {
-  const [page, setPage] = useState<Page>(() => {
-    const saved = localStorage.getItem(LS_PAGE_KEY) as Page | null;
-    // Only restore wizard pages — not login/otp/generating
-    const restorable: Page[] = ["questionnaire", "category-mood", "colors", "pick-pages"];
-    return saved && restorable.includes(saved) ? saved : "login";
-  });
-
-  const [maxReachedStep, setMaxReachedStep] = useState<number>(() => {
-    const saved = localStorage.getItem(LS_STEP_KEY);
-    return saved !== null ? parseInt(saved, 10) : -1;
-  });
-
-  const go = (p: Page) => {
-    setPage(p);
-    localStorage.setItem(LS_PAGE_KEY, p);
-  };
-
-  // Persist maxReachedStep whenever it changes
-  useEffect(() => {
-    localStorage.setItem(LS_STEP_KEY, String(maxReachedStep));
-  }, [maxReachedStep]);
-
-  const ORDER: Page[] = [
-    "login",
-    "otp",
-    "questionnaire",
-    "category-mood",
-    "colors",
-    "pick-pages",
-    "generating",
-    "preview",
-    "download",
-  ];
-
-  // Step index → page mapping (the 4 wizard steps in the breadcrumb)
-  const STEP_PAGES: Page[] = ["questionnaire", "category-mood", "colors", "pick-pages"];
-
-  const goNext = () => {
-    const i = ORDER.indexOf(page);
-    if (i < ORDER.length - 1) {
-      const nextPage = ORDER[i + 1];
-      setPage(nextPage);
-      // Update maxReachedStep when advancing to a new step page
-      const nextStep = STEP_PAGES.indexOf(nextPage);
-      if (nextStep > maxReachedStep) setMaxReachedStep(nextStep);
-      // When leaving a step page, mark that step as completed
-      const currentStep = STEP_PAGES.indexOf(page);
-      if (currentStep >= 0 && currentStep > maxReachedStep) setMaxReachedStep(currentStep);
-    }
-  };
-
-  const goBack = () => {
-    const i = ORDER.indexOf(page);
-    if (i > 0) {
-      // Mark current step complete before going back
-      const currentStep = STEP_PAGES.indexOf(page);
-      if (currentStep > maxReachedStep) setMaxReachedStep(currentStep);
-      setPage(ORDER[i - 1]);
-    }
-  };
-
-  // Only allow navigating to a step that the user has already reached (no skipping forward)
-  const goToStep = (step: number) => {
-    const target = STEP_PAGES[step];
-    if (!target) return;
-    const currentIndex = ORDER.indexOf(page);
-    const targetIndex = ORDER.indexOf(target);
-    if (targetIndex < currentIndex) {
-      const currentStep = STEP_PAGES.indexOf(page);
-      if (currentStep > maxReachedStep) setMaxReachedStep(currentStep);
-      setPage(target);
-    }
-  };
-
-  // completedUpTo: the highest step index the user has fully passed through
-  const currentStep = STEP_PAGES.indexOf(page);
-  const completedUpTo = Math.max(maxReachedStep, currentStep - 1);
-
-  return (
-    <div
-      style={{
-        minHeight: "100vh",
-        width: "100%",
-        background: "#0b0b0b",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "stretch",
-      }}
-    >
-      <div
-        style={{
-          width: "100%",
-          maxWidth: 1440,
-          minHeight: "100vh",
-          margin: "0 auto",
-          display: "flex",
-          flexDirection: "column",
-        }}
-      >
-        {page === "login" && <LoginPage onNext={goNext} />}
-        {page === "otp" && <OtpPage onNext={goNext} onBack={goBack} />}
-        {page === "questionnaire" && <QuestionnairePage {...({ onNext: goNext, onBack: goBack, onStepClick: goToStep, completedUpTo } as any)} />}
-        {page === "category-mood" && <CategoryMoodPage {...({ onNext: goNext, onBack: goBack, onStepClick: goToStep, completedUpTo } as any)} />}
-        {page === "colors" && <ColorsFontsPage {...({ onNext: goNext, onBack: goBack, onStepClick: goToStep, completedUpTo } as any)} />}
-        {page === "pick-pages" && <PickPagesPage {...({ onNext: goNext, onBack: goBack, onStepClick: goToStep, completedUpTo } as any)} />}
-        {page === "generating" && <GeneratingPage {...({ onNext: goNext } as any)} />}
-        {page === "preview" && <PreviewPage {...({ onNext: goNext, onBack: goBack } as any)} />}
-        {page === "download" && <DownloadPage {...({ onBack: () => go("login") } as any)} />}
-      </div>
-    </div>
-  );
-}
 
 const LS_PROJECT_KEY = "ailk_projectId";
 const LS_OPERATION_KEY = "ailk_operationId";
@@ -3875,7 +3593,6 @@ export default function App() {
 
   const go = useCallback((next: Page) => {
     setPage(next);
-    localStorage.setItem(LS_PAGE_KEY, next);
   }, []);
 
   useEffect(() => {
@@ -4197,7 +3914,7 @@ export default function App() {
       void returnToProjects();
       return;
     }
-    const order: Page[] = ["login", "otp", "projects", ...WIZARD_PAGES, "generating", "preview", "building", "download"];
+    const order: Page[] = ["login", "projects", ...WIZARD_PAGES, "generating", "preview", "building", "download"];
     const index = order.indexOf(page);
     if (index > 0) go(order[index - 1]);
   };
@@ -4210,7 +3927,7 @@ export default function App() {
 
   const currentStep = WIZARD_PAGES.indexOf(page);
   const completedUpTo = Math.max(maxReachedStep, currentStep - 1);
-  const isAuthPage = page === "login" || page === "otp";
+  const isAuthPage = page === "login";
   const isHubPage = page === "projects";
   const needsProject = !isAuthPage && !isHubPage;
   const needsCatalog = needsProject;
