@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { LoginPage } from "../../App";
+import { LoginPage } from "./LoginPage";
 
 describe("LoginPage", () => {
   it("renders the Innovation City sign-in card", () => {

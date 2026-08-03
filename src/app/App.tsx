@@ -42,6 +42,9 @@ import {
 } from "./wizard-validation";
 
 import { ErrorToast } from "./components/common/ErrorToast";
+import { GeneratingPage } from "./pages/Generating/GeneratingPage";
+import { BuildingPage } from "./pages/Building/BuildingPage";
+import { LoginPage } from "./pages/Login/LoginPage";
 import { LogoSvg } from "./components/common/LogoSvg";
 import { ScaledPage } from "./components/common/ScaledPage";
 import { Spinner } from "./components/common/Spinner";
@@ -66,109 +69,6 @@ type Page =
   | "building"
   | "download";
 
-// ─── PAGE 1: Login ────────────────────────────────────────────────────────────
-export function LoginPage({
-  onNext,
-  busy = false,
-}: {
-  onNext: () => void | Promise<void>;
-  busy?: boolean;
-}) {
-  const p = svgPathsLogin;
-
-  return (
-    <ScaledPage
-      header={
-        <div
-          className="flex items-center px-4 sm:px-[40px]"
-          style={{
-            height: 84,
-            borderBottom: "1px solid rgba(255,255,255,0.1)",
-            backdropFilter: "blur(20px)",
-            background: "#0b0b0b",
-          }}
-        >
-          {/* Innovation City logo mark + wordmark */}
-          <LogoSvg />
-        </div>
-      }
-    >
-      <div
-        className="w-full flex flex-col flex-1"
-        style={{ background: "#0b0b0b", fontFamily: "'Montserrat', sans-serif", minHeight: "100%" }}
-      >
-        {/* Page body — card centered */}
-        <div className="flex flex-1 items-center justify-center p-5 sm:p-6">
-          <div
-            className="flex flex-col items-center gap-[28px] w-full max-w-[480px] p-6 sm:p-12"
-            style={{
-              background: "#131313",
-              border: "1px solid rgba(255,255,255,0.1)",
-              borderRadius: 20,
-            }}
-          >
-            {/* Card header — logo mark + text centered */}
-            <div className="flex flex-col items-center gap-[16px] w-full">
-              <div
-                className="flex items-center justify-center"
-                style={{
-                  width: 52,
-                  height: 52,
-                  background: "rgba(255,255,255,0.06)",
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  borderRadius: 14,
-                }}
-              >
-                <svg width="28" height="28" viewBox="10 14 32 24" fill="none">
-                  <path d={p.pdbfe710} fill="#5752A3" />
-                  <path d={p.p389a4180} fill="#5752A3" />
-                </svg>
-              </div>
-              <div className="text-center">
-                <h2 className="text-white font-semibold text-[18px] mb-[8px]">Welcome back</h2>
-                <p style={{ color: "rgba(255,255,255,0.6)", fontSize: 14, fontWeight: 500 }}>
-                  Sign in with your Innovation City account to continue
-                </p>
-              </div>
-            </div>
-
-            {/* Divider */}
-            <div style={{ height: 1, background: "rgba(255,255,255,0.1)", width: "100%" }} />
-
-            {/* Continue with Innovation City */}
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => void onNext()}
-              className="w-full flex items-center justify-center gap-[8px] font-semibold text-[14px] uppercase"
-              style={{
-                background: "#6fccdd",
-                color: "#0b0b0b",
-                borderRadius: 12,
-                padding: "16px 0",
-              }}
-            >
-              {busy ? "Redirecting..." : "Continue with Innovation City"}
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <path
-                  d={p.p3bfa7a00}
-                  stroke="#0b0b0b"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </button>
-
-            <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, fontWeight: 500, textAlign: "center" }}>
-              You will be redirected to the secure Innovation City login.
-            </p>
-          </div>
-        </div>
-      </div>
-    </ScaledPage>
-  );
-}
 
 // ─── PAGE 3: Questionnaire ────────────────────────────────────────────────────
 type QuestionnaireForm = QuestionnaireValues;
@@ -1959,51 +1859,6 @@ export function PickPagesPage({ project, catalog, onGenerate, onBack, onStepClic
   );
 }
 
-// ─── PAGE 7: Generating ───────────────────────────────────────────────────────
-export function GeneratingPage({ operation, error, onRetry }: {
-  operation: OperationView | null;
-  error: string | null;
-  onRetry: () => void;
-}) {
-  const message = operation?.status === "running"
-    ? "Creating three design directions..."
-    : "Preparing your persisted project...";
-
-  return (
-    <ScaledPage header={<TopHeader />}>
-      <div
-        className="w-full flex flex-col flex-1"
-        style={{ background: "#0b0b0b", fontFamily: "'Montserrat', sans-serif", minHeight: "100%" }}
-      >
-        <div className="flex-1 flex flex-col items-center justify-center gap-[32px]">
-          {/* Spinner */}
-          <Spinner size={72} borderWidth={4} />
-
-          <div className="flex flex-col items-center gap-[12px]">
-            <h2 className="text-white font-semibold" style={{ fontSize: "clamp(19px, 5vw, 24px)" }}>Building your website</h2>
-            <p
-              className="font-medium text-[14px]"
-              style={{ color: "rgba(255,255,255,0.5)", minHeight: 20 }}
-            >
-              {error ?? message}
-            </p>
-          </div>
-
-          {error && (
-            <button
-              onClick={onRetry}
-              className="font-semibold text-[14px] px-[24px] py-[12px] rounded-[8px]"
-              style={{ background: "#6fccdd", color: "#0b0b0b" }}
-            >
-              Try Again
-            </button>
-          )}
-        </div>
-      </div>
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-    </ScaledPage>
-  );
-}
 
 // ─── PAGE 8: Preview ──────────────────────────────────────────────────────────
 export function PreviewPage({ mockups, selectedMockupId, onConfirm, onBack, busy }: {
@@ -2249,42 +2104,6 @@ export function PreviewPage({ mockups, selectedMockupId, onConfirm, onBack, busy
   );
 }
 
-// ─── PAGE 9: Download ─────────────────────────────────────────────────────────
-export function BuildingPage({ build, error, onBack }: {
-  build: BuildView | null;
-  error: string | null;
-  onBack: () => void;
-}) {
-  const terminalError = build && ["failed", "cancelled", "timed_out"].includes(build.status);
-  return (
-    <ScaledPage header={<TopHeader />}>
-      <div className="w-full flex flex-col flex-1" style={{ background: "#0b0b0b", fontFamily: "'Montserrat', sans-serif" }}>
-        <div className="flex-1 flex flex-col items-center justify-center gap-[28px] px-4 text-center">
-          {!terminalError && !error && (
-            <Spinner size={72} borderWidth={4} />
-          )}
-          <div className="flex flex-col items-center gap-[10px] max-w-[560px]">
-            <h2 className="text-white font-semibold" style={{ fontSize: "clamp(19px, 5vw, 24px)" }}>
-              {terminalError || error ? "Build needs attention" : "Building your website"}
-            </h2>
-            <p className="font-medium text-[14px]" style={{ color: "rgba(255,255,255,0.55)", lineHeight: 1.6 }}>
-              {error ?? build?.message ?? "Queuing the final build..."}
-            </p>
-            {build?.warnings.map((warning) => (
-              <p key={warning} className="font-medium text-[12px]" style={{ color: "rgba(248,180,113,0.9)", lineHeight: 1.5 }}>{warning}</p>
-            ))}
-          </div>
-          {(terminalError || error) && (
-            <button onClick={onBack} className="font-semibold text-[14px] px-[24px] py-[12px] rounded-[8px]" style={{ background: "#6fccdd", color: "#0b0b0b" }}>
-              Return to Designs
-            </button>
-          )}
-        </div>
-      </div>
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-    </ScaledPage>
-  );
-}
 
 export function DownloadPage({ build, deployment, onDeploy, onBack, busy }: {
   build: BuildView;

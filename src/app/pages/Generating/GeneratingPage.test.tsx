@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { GeneratingPage } from "../../App";
+import { GeneratingPage } from "./GeneratingPage";
 import { makeOperation } from "../../test/fixtures";
 
 describe("GeneratingPage", () => {
