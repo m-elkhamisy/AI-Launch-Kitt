@@ -23,6 +23,7 @@ import {
 } from "./launchkit-api";
 import { ErrorToast } from "./components/common/ErrorToast";
 import { Spinner } from "./components/common/Spinner";
+import { clearProjectSession, readSession, removeSession, SESSION_KEYS, writeSession } from "./lib/storage";
 import { BuildingPage } from "./pages/Building/BuildingPage";
 import { CategoryMoodPage } from "./pages/CategoryMood/CategoryMoodPage";
 import { ColorsFontsPage } from "./pages/ColorsFonts/ColorsFontsPage";
@@ -51,10 +52,6 @@ type Page =
 
 
 // ─── App Root ─────────────────────────────────────────────────────────────────
-const LS_STEP_KEY = "ailk_maxReachedStep";
-
-const LS_PROJECT_KEY = "ailk_projectId";
-const LS_OPERATION_KEY = "ailk_operationId";
 const WIZARD_PAGES: Page[] = ["questionnaire", "category-mood", "colors", "pick-pages"];
 const ACTIVE_BUILD_STATUSES: BuildView["status"][] = [
   "queued",
@@ -62,10 +59,6 @@ const ACTIVE_BUILD_STATUSES: BuildView["status"][] = [
   "running",
   "processing_result",
 ];
-
-function clearProjectSessionState() {
-  [LS_PROJECT_KEY, LS_OPERATION_KEY, LS_STEP_KEY].forEach((key) => localStorage.removeItem(key));
-}
 
 function resumePageForProject(
   project: ProjectView,
@@ -91,7 +84,7 @@ function resumePageForProject(
 export default function App() {
   const [page, setPage] = useState<Page>(() => (hasAccessToken() ? "projects" : "login"));
   const [maxReachedStep, setMaxReachedStep] = useState(() => {
-    const saved = localStorage.getItem(LS_STEP_KEY);
+    const saved = readSession(SESSION_KEYS.maxReachedStep);
     return saved === null ? -1 : Number.parseInt(saved, 10);
   });
   const [catalog, setCatalog] = useState<WizardCatalog | null>(null);
@@ -111,7 +104,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem(LS_STEP_KEY, String(maxReachedStep));
+    writeSession(SESSION_KEYS.maxReachedStep, String(maxReachedStep));
   }, [maxReachedStep]);
 
   const refreshProject = async (projectId: string) => {
@@ -130,7 +123,7 @@ export default function App() {
   };
 
   const clearActiveProject = () => {
-    clearProjectSessionState();
+    clearProjectSession();
     setProject(null);
     setOperation(null);
     setMockups([]);
@@ -256,7 +249,7 @@ export default function App() {
 
   const ensureProject = async () => {
     if (project) return project;
-    const savedProjectId = localStorage.getItem(LS_PROJECT_KEY);
+    const savedProjectId = readSession(SESSION_KEYS.projectId);
     if (savedProjectId) {
       try {
         const savedProject = await launchKitApi.getProject(savedProjectId);
@@ -264,7 +257,7 @@ export default function App() {
         return savedProject;
       } catch (cause) {
         if (!(cause instanceof LaunchKitApiError) || cause.status !== 404) throw cause;
-        localStorage.removeItem(LS_PROJECT_KEY);
+        removeSession(SESSION_KEYS.projectId);
       }
     }
     throw new LaunchKitApiError(
@@ -282,7 +275,7 @@ export default function App() {
     clearActiveProject();
     try {
       const created = await launchKitApi.createProject();
-      localStorage.setItem(LS_PROJECT_KEY, created.id);
+      writeSession(SESSION_KEYS.projectId, created.id);
       setProject(created);
       setMaxReachedStep(-1);
       go("questionnaire");
@@ -299,8 +292,8 @@ export default function App() {
 
   const openProject = (projectId: string) => perform(async () => {
     const loadedProject = await launchKitApi.getProject(projectId);
-    localStorage.setItem(LS_PROJECT_KEY, loadedProject.id);
-    localStorage.removeItem(LS_OPERATION_KEY);
+    writeSession(SESSION_KEYS.projectId, loadedProject.id);
+    removeSession(SESSION_KEYS.operationId);
     setProject(loadedProject);
     setOperation(null);
     const loadedMockups = await launchKitApi.getMockups(projectId);
@@ -393,10 +386,10 @@ export default function App() {
     setProject(updated);
     go("generating");
     const queued = await launchKitApi.createMockups(current.id, createIdempotencyKey("mockups"));
-    localStorage.setItem(LS_OPERATION_KEY, queued.id);
+    writeSession(SESSION_KEYS.operationId, queued.id);
     setOperation(queued);
     await waitForOperation(queued.id, setOperation);
-    localStorage.removeItem(LS_OPERATION_KEY);
+    removeSession(SESSION_KEYS.operationId);
     setMockups(await launchKitApi.getMockups(current.id));
     await refreshProject(current.id);
     go("preview");

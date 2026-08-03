@@ -8,6 +8,7 @@ import { TopHeader } from "../../components/common/TopHeader";
 import { firstValidationError, ValidationError } from "../../components/common/ValidationError";
 import { GOOGLE_FONTS_LIST } from "../../data/google-fonts";
 import { ProjectView, WizardCatalog } from "../../launchkit-api";
+import { derivePaletteFromPrimary, parseHexChannels } from "../../lib/colors";
 import { loadGoogleFont } from "../../lib/fonts";
 import { colorFontSchema, ColorFontValues, customFontsSchema, customPaletteSchema } from "../../wizard-validation";
 import { FontCard } from "./FontCard";
@@ -235,19 +236,10 @@ export function ColorsFontsPage({ project, catalog, onSave, onBack, onStepClick,
                         setSpecificColors(next);
                         if (!next) {
                           // Regenerate derived colors from current primary
-                          const hex = customDraft.primary.replace("#", "");
-                          if (hex.length === 6) {
-                            const r = parseInt(hex.slice(0,2),16), g = parseInt(hex.slice(2,4),16), b = parseInt(hex.slice(4,6),16);
-                            const mix = (c: number, w: number) => Math.round(c+(255-c)*w);
-                            const toHex = (r: number,g: number,b: number) => "#"+[r,g,b].map(v=>v.toString(16).padStart(2,"0")).join("");
-                            setCustomDraft(d => ({
-                              ...d,
-                              secondary: toHex(mix(r,.5),mix(g,.5),mix(b,.5)),
-                              background: toHex(mix(r,.88),mix(g,.88),mix(b,.88)),
-                              text: (0.299*r+0.587*g+0.114*b)/255 > 0.45
-                                ? toHex(Math.round(r*.15),Math.round(g*.15),Math.round(b*.15))
-                                : toHex(mix(r,.92),mix(g,.92),mix(b,.92)),
-                            }));
+                          const channels = parseHexChannels(customDraft.primary);
+                          if (channels) {
+                            const derived = derivePaletteFromPrimary(channels.r, channels.g, channels.b);
+                            setCustomDraft(d => ({ ...d, ...derived }));
                           }
                         }
                       }}
@@ -287,20 +279,12 @@ export function ColorsFontsPage({ project, catalog, onSave, onBack, onStepClick,
                               value={customDraft[field] || "#333333"}
                               onChange={(e) => {
                                 const val = e.target.value;
-                                if (field === "primary" && !specificColors) {
-                                  const hex = val.replace("#","");
-                                  const r = parseInt(hex.slice(0,2),16), g = parseInt(hex.slice(2,4),16), b = parseInt(hex.slice(4,6),16);
-                                  const mix = (c: number, w: number) => Math.round(c+(255-c)*w);
-                                  const toHex = (r: number,g: number,b: number) => "#"+[r,g,b].map(v=>v.toString(16).padStart(2,"0")).join("");
-                                  setCustomDraft(d => ({
-                                    ...d,
-                                    primary: val,
-                                    secondary: toHex(mix(r,.5),mix(g,.5),mix(b,.5)),
-                                    background: toHex(mix(r,.88),mix(g,.88),mix(b,.88)),
-                                    text: (0.299*r+0.587*g+0.114*b)/255 > 0.45
-                                      ? toHex(Math.round(r*.15),Math.round(g*.15),Math.round(b*.15))
-                                      : toHex(mix(r,.92),mix(g,.92),mix(b,.92)),
-                                  }));
+                                const channels = field === "primary" && !specificColors
+                                  ? parseHexChannels(val)
+                                  : null;
+                                if (channels) {
+                                  const derived = derivePaletteFromPrimary(channels.r, channels.g, channels.b);
+                                  setCustomDraft(d => ({ ...d, primary: val, ...derived }));
                                 } else {
                                   setCustomDraft(d => ({ ...d, [field]: val }));
                                 }
@@ -324,20 +308,10 @@ export function ColorsFontsPage({ project, catalog, onSave, onBack, onStepClick,
                             onChange={(e) => {
                               const val = e.target.value;
                               if (field === "primary" && !specificColors) {
-                                const hex = val.replace("#","");
-                                if (hex.length === 6) {
-                                  const r = parseInt(hex.slice(0,2),16), g = parseInt(hex.slice(2,4),16), b = parseInt(hex.slice(4,6),16);
-                                  const mix = (c: number, w: number) => Math.round(c+(255-c)*w);
-                                  const toHex = (r: number,g: number,b: number) => "#"+[r,g,b].map(v=>v.toString(16).padStart(2,"0")).join("");
-                                  setCustomDraft(d => ({
-                                    ...d,
-                                    primary: val,
-                                    secondary: toHex(mix(r,.5),mix(g,.5),mix(b,.5)),
-                                    background: toHex(mix(r,.88),mix(g,.88),mix(b,.88)),
-                                    text: (0.299*r+0.587*g+0.114*b)/255 > 0.45
-                                      ? toHex(Math.round(r*.15),Math.round(g*.15),Math.round(b*.15))
-                                      : toHex(mix(r,.92),mix(g,.92),mix(b,.92)),
-                                  }));
+                                const channels = parseHexChannels(val);
+                                if (channels) {
+                                  const derived = derivePaletteFromPrimary(channels.r, channels.g, channels.b);
+                                  setCustomDraft(d => ({ ...d, primary: val, ...derived }));
                                 } else {
                                   setCustomDraft(d => ({ ...d, primary: val }));
                                 }
