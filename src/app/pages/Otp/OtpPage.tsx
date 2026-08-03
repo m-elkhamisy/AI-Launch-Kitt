@@ -9,7 +9,7 @@ import { useEffect, useRef, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 
-import svgPathsLogin from "@/imports/AiLaunchKitLoginPage/svg-8vlpvs8i0v";
+import svgPathsLogin from "@/imports/login-paths";
 
 import { LogoSvg } from "../../components/common/LogoSvg";
 import { ScaledPage } from "../../components/common/ScaledPage";

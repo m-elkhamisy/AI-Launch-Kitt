@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { CircleHelp, ExternalLink } from "lucide-react";
 
-import svgPathsDl from "@/imports/AiLaunchKitDownloadingGeneratedWebsitesPage/svg-7argp47g3q";
+import svgPathsDl from "@/imports/download-paths";
 
 import { ScaledPage } from "../../components/common/ScaledPage";
 import { TopHeader } from "../../components/common/TopHeader";

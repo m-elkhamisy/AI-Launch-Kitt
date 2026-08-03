@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 
-import svgPathsCatMood from "@/imports/AiLaunchKitDesignCategoryMood/svg-aiiheluzwm";
+import svgPathsCatMood from "@/imports/category-mood-paths";
 
 import { ScaledPage } from "../../components/common/ScaledPage";
 import { SubNav } from "../../components/common/SubNav";

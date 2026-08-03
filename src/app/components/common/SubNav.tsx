@@ -1,4 +1,4 @@
-import svgPathsNav from "@/imports/Frame1410068676/svg-96pcbqyjjo";
+import svgPathsNav from "@/imports/nav-paths";
 
 const STEPS = [
   { label: "Business", iconKey: "building" },

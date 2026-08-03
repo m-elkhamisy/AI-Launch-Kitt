@@ -1,4 +1,4 @@
-import svgPathsLogin from "@/imports/AiLaunchKitLoginPage/svg-8vlpvs8i0v";
+import svgPathsLogin from "@/imports/login-paths";
 
 export function LogoSvg() {
   const p = svgPathsLogin;
