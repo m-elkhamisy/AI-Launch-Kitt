@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { CategoryMoodPage } from "../../App";
+import { CategoryMoodPage } from "./CategoryMoodPage";
 import { makeCatalog, makeProject } from "../../test/fixtures";
 
 describe("CategoryMoodPage", () => {
