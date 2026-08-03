@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
+import { Building2, CircleCheck, Sparkles } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-
-import svgPathsCatMood from "@/imports/category-mood-paths";
 
 import { ScaledPage } from "../../components/common/ScaledPage";
 import { SubNav } from "../../components/common/SubNav";
@@ -98,12 +97,7 @@ export function CategoryMoodPage({ project, catalog, onSave, onBack, onStepClick
                   className="flex items-center justify-center shrink-0"
                   style={{ width: 56, height: 56, background: "rgba(255,255,255,0.06)", borderRadius: "16px 16px 0 16px" }}
                 >
-                  <svg width="24" height="24" viewBox="0 0 20 19.83" fill="none">
-                    <path d={svgPathsCatMood.p19985800} fill="#85D2DB" fillRule="evenodd" clipRule="evenodd" />
-                    <path d={svgPathsCatMood.p3370aa80} fill="#85D2DB" />
-                    <path d={svgPathsCatMood.p16ca8900} fill="#85D2DB" />
-                    <path d={svgPathsCatMood.p148cf200} fill="#85D2DB" />
-                  </svg>
+                  <Building2 size={24} color="#85D2DB" strokeWidth={1.75} aria-hidden="true" />
                 </div>
               </div>
               {/* Divider + link */}
@@ -143,9 +137,7 @@ export function CategoryMoodPage({ project, catalog, onSave, onBack, onStepClick
                   className="flex items-center justify-center shrink-0"
                   style={{ width: 56, height: 56, background: "rgba(255,255,255,0.06)", borderRadius: "16px 16px 0 16px" }}
                 >
-                  <svg width="18" height="20" viewBox="0 0 18 20" fill="none">
-                    <path d={svgPathsCatMood.p2c9a4a00} fill="#6FCCDD" fillRule="evenodd" clipRule="evenodd" />
-                  </svg>
+                  <Sparkles size={24} color="#6FCCDD" strokeWidth={1.75} aria-hidden="true" />
                 </div>
               </div>
               <div className="flex flex-col">
@@ -221,9 +213,7 @@ export function CategoryMoodPage({ project, catalog, onSave, onBack, onStepClick
                     </div>
                     {/* Circle on the track */}
                     {isActive ? (
-                      <svg width={dotSize} height={dotSize} viewBox="0 0 20 20" fill="none">
-                        <path d={svgPathsCatMood.p1e585400} fill="#6FCCDD" fillRule="evenodd" clipRule="evenodd" />
-                      </svg>
+                      <CircleCheck size={dotSize} color="#6FCCDD" aria-hidden="true" />
                     ) : (
                       <svg width={dotSize} height={dotSize} viewBox="0 0 24 24" fill="none">
                         <circle cx="12" cy="12" r="8" fill="rgba(255,255,255,0.2)" />

@@ -1,10 +1,21 @@
-import svgPathsNav from "@/imports/nav-paths";
+import {
+  ArrowLeft,
+  Building2,
+  ChevronRight,
+  CircleCheck,
+  FileText,
+  LayoutGrid,
+  Palette,
+  type LucideIcon,
+} from "lucide-react";
 
-const STEPS = [
-  { label: "Business", iconKey: "building" },
-  { label: "Design Category & Mood", iconKey: "widget" },
-  { label: "Colors & Fonts", iconKey: "palette" },
-  { label: "Pick Pages", iconKey: "document" },
+// Each step carries its own icon component, so there is no iconKey string to
+// keep in sync with a switch.
+const STEPS: Array<{ label: string; Icon: LucideIcon }> = [
+  { label: "Business", Icon: Building2 },
+  { label: "Design Category & Mood", Icon: LayoutGrid },
+  { label: "Colors & Fonts", Icon: Palette },
+  { label: "Pick Pages", Icon: FileText },
 ];
 
 export function SubNav({
@@ -23,106 +34,32 @@ export function SubNav({
   nextLabel?: string;
 }) {
   const completedUpTo = completedUpToProp ?? activeStep - 1;
-  const n = svgPathsNav;
 
-  // Colours per state matching the Figma design exactly:
+  // Per-state colour, preserved from the Figma design:
   //   done (completed)  → teal check-circle
   //   active (current)  → teal icon  #6FCCDD
-  //   future            → dimmed white/grey icon
-  function StepIcon({ iconKey, done, active }: { iconKey: string; done: boolean; active: boolean }) {
-    if (done) {
-      // Teal filled check-circle (same path used across all Figma screens)
-      return (
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-          <path
-            d="M20 10C20 15.5228 15.5228 20 10 20C4.47715 20 0 15.5228 0 10C0 4.47715 4.47715 0 10 0C15.5228 0 20 4.47715 20 10ZM14.0303 6.96967C14.3232 7.26256 14.3232 7.73744 14.0303 8.03033L9.03033 13.0303C8.73744 13.3232 8.26256 13.3232 7.96967 13.0303L5.96967 11.0303C5.67678 10.7374 5.67678 10.2626 5.96967 9.96967C6.26256 9.67678 6.73744 9.67678 7.03033 9.96967L8.5 11.4393L13.0303 6.96967C13.3232 6.67678 13.7374 6.67678 14.0303 6.96967Z"
-            fill="#6FCCDD" fillRule="evenodd" clipRule="evenodd"
-          />
-        </svg>
-      );
-    }
-
-    const teal = "#6FCCDD";
-    // Active step → full teal; future step → dimmed
-    const fill = active ? teal : undefined;
-    const opacity = active ? 1 : undefined;
-
-    if (iconKey === "building") {
-      // Full building icon with clipPath, matching Figma Frame3 exactly
-      const buildingFill = active ? teal : "rgba(111,204,221,0.4)";
-      return (
-        <svg width="24" height="24" viewBox="0 0 30 30" fill="none">
-          <defs>
-            <clipPath id="navBuildingClip">
-              <rect width="30" height="30" fill="white" />
-            </clipPath>
-          </defs>
-          <g clipPath="url(#navBuildingClip)">
-            <path d={n.p31acad00} fill={buildingFill} />
-            <path d={n.p24d84880} fill={buildingFill} />
-            <path d={n.p2f6ca200} fill={buildingFill} />
-            <path d={n.p14afe180} fill={buildingFill} />
-            <path d={n.p246d7e00} fill={buildingFill} />
-            <path d={n.p3ac58200} fill={buildingFill} />
-            <path d={n.pf9b2500}  fill={buildingFill} />
-            <path d={n.p8f38f00}  fill={buildingFill} />
-            <path d={n.pebfc700}  fill={buildingFill} />
-            <path d={n.p3a7fa900} fill={buildingFill} />
-            <path d={n.p2a40b680} fill={buildingFill} />
-            <path d={n.p3a1f8980} fill={buildingFill} />
-            <path d={n.p3a795a40} fill={buildingFill} />
-          </g>
-        </svg>
-      );
-    }
-
-    if (iconKey === "widget") {
-      // Widget 2 icon — Figma Frame5
-      const wFill = active ? teal : "rgba(128,128,128,0.55)";
-      return (
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-          <path d={n.p2679c280} fill={wFill} fillRule="evenodd" clipRule="evenodd" />
-          <path d={n.p35bacd00} fill={wFill} fillRule="evenodd" clipRule="evenodd" />
-          <path d={n.p2fcdb978} fill={wFill} />
-          <path d={n.p3947a280} fill={wFill} />
-        </svg>
-      );
-    }
-
-    if (iconKey === "palette") {
-      // Palette icon — Figma Frame6
-      const pFill = active ? teal : "rgba(255,255,255,0.2)";
-      return (
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-          <path d={n.p34bed280} fill={pFill} fillRule="evenodd" clipRule="evenodd" />
-        </svg>
-      );
-    }
-
-    if (iconKey === "document") {
-      // Document Text icon — Figma Frame8
-      const dFill = active ? teal : "rgba(255,255,255,0.2)";
-      return (
-        <svg width="18" height="20" viewBox="0 0 18 20" fill="none">
-          <path d={n.p33f2580} fill={dFill} fillRule="evenodd" clipRule="evenodd" />
-        </svg>
-      );
-    }
-
-    return null;
+  //   future            → dimmed, and the second step sits dimmer still
+  function StepIcon({ Icon, done, active }: { Icon: LucideIcon; done: boolean; active: boolean }) {
+    if (done) return <CircleCheck size={20} color="#6FCCDD" aria-hidden="true" />;
+    return (
+      <Icon
+        size={20}
+        color={active ? "#6FCCDD" : "rgba(255,255,255,0.4)"}
+        strokeWidth={active ? 2 : 1.75}
+        aria-hidden="true"
+      />
+    );
   }
 
   // ── Shared chevron connector ────────────────────────────────────────────
   const Chevron = ({ small }: { small?: boolean }) => (
-    <svg
-      width={small ? 6 : 8}
-      height={small ? 6 : 8}
-      viewBox="0 0 4.5 7.5"
-      fill="none"
+    <ChevronRight
+      size={small ? 12 : 14}
+      color="#6FCCDD"
+      strokeWidth={1.5}
+      aria-hidden="true"
       style={{ flexShrink: 0, opacity: 0.5 }}
-    >
-      <path d={n.pb873b80} stroke="#6FCCDD" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
+    />
   );
 
   // Both layouts render together; Tailwind's `md:` breakpoint (CSS media query, not JS)
@@ -166,9 +103,7 @@ export function SubNav({
               cursor: "pointer",
             }}
           >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path d={n.p8122280} fill="white" />
-            </svg>
+            <ArrowLeft size={16} color="white" strokeWidth={2} aria-hidden="true" />
           </button>
 
           {/* Center: page title */}
@@ -249,7 +184,7 @@ export function SubNav({
                     transition: "background 0.15s, border-color 0.15s",
                   }}
                 >
-                  <StepIcon iconKey={step.iconKey} done={done && !active} active={active} />
+                  <StepIcon Icon={step.Icon} done={done && !active} active={active} />
                   {active && (
                     <span
                       style={{
@@ -289,9 +224,7 @@ export function SubNav({
       {/* Left: Back + separator + title */}
       <div className="flex items-center gap-[12px] pl-[24px]">
         <button onClick={onBack} className="flex items-center justify-center">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path d={n.p8122280} fill="white" />
-          </svg>
+          <ArrowLeft size={16} color="white" strokeWidth={2} aria-hidden="true" />
         </button>
         <div style={{ width: 1, height: 22.5, background: "rgba(255,255,255,0.1)" }} />
         <span className="text-white font-semibold text-[18px]">AI Launch Kit</span>
@@ -313,14 +246,14 @@ export function SubNav({
                     ? "rgba(255,255,255,1)"
                     : done
                     ? "#6FCCDD"
-                    : step.iconKey === "widget"
+                    : i === 1
                     ? "rgba(128,128,128,0.55)"
                     : "rgba(255,255,255,0.4)",
                   background: active ? "rgba(111,204,221,0.08)" : "transparent",
                   cursor: clickable ? "pointer" : "default",
                 }}
               >
-                <StepIcon iconKey={step.iconKey} done={done && !active} active={active} />
+                <StepIcon Icon={step.Icon} done={done && !active} active={active} />
                 <span className="font-semibold text-[13px]">{step.label}</span>
               </div>
               {i < STEPS.length - 1 && <Chevron />}

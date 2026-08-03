@@ -1,6 +1,7 @@
-import svgPathsLogin from "@/imports/login-paths";
+import { ArrowRight } from "lucide-react";
 
 import { LogoSvg } from "../../components/common/LogoSvg";
+import { LOGO_GLYPH } from "../../components/common/logo-paths";
 import { ScaledPage } from "../../components/common/ScaledPage";
 
 export function LoginPage({
@@ -10,7 +11,6 @@ export function LoginPage({
   onNext: () => void | Promise<void>;
   busy?: boolean;
 }) {
-  const p = svgPathsLogin;
 
   return (
     <ScaledPage
@@ -56,8 +56,8 @@ export function LoginPage({
                 }}
               >
                 <svg width="28" height="28" viewBox="10 14 32 24" fill="none">
-                  <path d={p.pdbfe710} fill="#5752A3" />
-                  <path d={p.p389a4180} fill="#5752A3" />
+                  <path d={LOGO_GLYPH.pdbfe710} fill="#5752A3" />
+                  <path d={LOGO_GLYPH.p389a4180} fill="#5752A3" />
                 </svg>
               </div>
               <div className="text-center">
@@ -85,15 +85,7 @@ export function LoginPage({
               }}
             >
               {busy ? "Redirecting..." : "Continue with Innovation City"}
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <path
-                  d={p.p3bfa7a00}
-                  stroke="#0b0b0b"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
+              <ArrowRight size={16} color="#0b0b0b" strokeWidth={2} aria-hidden="true" />
             </button>
 
             <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, fontWeight: 500, textAlign: "center" }}>

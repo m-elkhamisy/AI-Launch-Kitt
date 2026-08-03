@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
+import { ChevronRight } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-
-import svgPathsMerged from "@/imports/merged-flow-paths";
 
 import { ScaledPage } from "../../components/common/ScaledPage";
 import { TopHeader } from "../../components/common/TopHeader";
@@ -91,14 +90,7 @@ export function PreviewPage({ mockups, selectedMockupId, onConfirm, onBack, busy
                   {step}
                 </span>
                 {step !== "Pick Pages" && (
-                  <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
-                    <path
-                      d={svgPathsMerged.pb873b80}
-                      stroke="rgba(255,255,255,0.3)"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                    />
-                  </svg>
+                  <ChevronRight size={12} color="rgba(255,255,255,0.3)" strokeWidth={1.5} aria-hidden="true" />
                 )}
               </div>
             ))}

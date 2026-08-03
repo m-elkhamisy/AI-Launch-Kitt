@@ -1,7 +1,5 @@
 import { useState } from "react";
-import { CircleHelp, ExternalLink } from "lucide-react";
-
-import svgPathsDl from "@/imports/download-paths";
+import { Check, CircleHelp, Download, ExternalLink, Globe, RotateCw } from "lucide-react";
 
 import { ScaledPage } from "../../components/common/ScaledPage";
 import { TopHeader } from "../../components/common/TopHeader";
@@ -14,7 +12,6 @@ export function DownloadPage({ build, deployment, onDeploy, onBack, busy }: {
   onBack: () => void;
   busy: boolean;
 }) {
-  const p = svgPathsDl;
   const [tip, setTip] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
@@ -50,15 +47,7 @@ export function DownloadPage({ build, deployment, onDeploy, onBack, busy }: {
               className="flex items-center justify-center rounded-full"
               style={{ width: 56, height: 56, background: "#6fccdd" }}
             >
-              <svg width="24" height="24" viewBox="0 0 28 24" fill="none">
-                <path
-                  d={p.pf2a7e00}
-                  stroke="white"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
+              <Check size={24} color="white" strokeWidth={2.5} aria-hidden="true" />
             </div>
             <h2 className="text-white font-semibold px-2" style={{ fontSize: "clamp(19px, 5vw, 24px)" }}>Your website is ready!</h2>
             <p className="px-2 max-w-[420px]" style={{ color: "rgba(255,255,255,0.5)", fontSize: "clamp(13px, 3.5vw, 14px)", fontWeight: 500, lineHeight: 1.6 }}>
@@ -139,15 +128,7 @@ export function DownloadPage({ build, deployment, onDeploy, onBack, busy }: {
                     {build.webUrl ?? "Generated website"}
                   </span>
                 </div>
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                  <path
-                    d={p.p10b47de0}
-                    stroke="rgba(255,255,255,0.3)"
-                    strokeWidth="1.3"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
+                <RotateCw size={14} color="rgba(255,255,255,0.3)" strokeWidth={1.3} aria-hidden="true" />
               </div>
 
               {/* Preview content */}
@@ -229,9 +210,7 @@ export function DownloadPage({ build, deployment, onDeploy, onBack, busy }: {
                 className="flex flex-col gap-[16px] p-[24px] rounded-[16px] w-full sm:w-[280px] mx-auto"
                 style={{ background: "rgba(111,204,221,0.13)", border: "1px solid rgba(111,204,221,0.2)", minHeight: "100%" }}
               >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                  <path d={p.pdba8e90} stroke="#6fccdd" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
+                <Download size={24} color="#6fccdd" strokeWidth={1.5} aria-hidden="true" />
                 <div>
                   <div className="text-white font-semibold text-[14px]">Download</div>
                   <div className="font-medium text-[12px] mt-[4px]" style={{ color: "rgba(255,255,255,0.4)" }}>
@@ -258,9 +237,7 @@ export function DownloadPage({ build, deployment, onDeploy, onBack, busy }: {
                 className="flex flex-col gap-[16px] p-[24px] rounded-[16px] w-full sm:w-[280px] mx-auto"
                 style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.1)", minHeight: "100%" }}
               >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                  <path d={p.p3d0d0400} stroke="#6fccdd" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
+                <Globe size={24} color="#6fccdd" strokeWidth={1.5} aria-hidden="true" />
                 <div>
                   <div className="flex items-center gap-[6px]">
                     <span className="text-white font-semibold text-[14px]">Deploy to Domain</span>

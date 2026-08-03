@@ -1,8 +1,7 @@
 import { useState } from "react";
+import { CircleCheck } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-
-import svgPathsCatMood from "@/imports/category-mood-paths";
 
 import { ScaledPage } from "../../components/common/ScaledPage";
 import { SubNav } from "../../components/common/SubNav";
@@ -266,9 +265,7 @@ export function PickPagesPage({ project, catalog, onGenerate, onBack, onStepClic
                     <span className="text-white font-semibold text-[18px] leading-[28px]">{page.name}</span>
                     <button onClick={(e) => e.stopPropagation()} className="shrink-0">
                       {page.selected ? (
-                        <svg width="22" height="22" viewBox="0 0 20 20" fill="none">
-                          <path d={svgPathsCatMood.p1e585400} fill="#6FCCDD" fillRule="evenodd" clipRule="evenodd" />
-                        </svg>
+                        <CircleCheck size={22} color="#6FCCDD" aria-hidden="true" />
                       ) : (
                         <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
                           <circle cx="11" cy="11" r="10" stroke="rgba(255,255,255,0.3)" strokeWidth="1.5" />

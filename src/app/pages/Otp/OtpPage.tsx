@@ -9,9 +9,8 @@ import { useEffect, useRef, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 
-import svgPathsLogin from "@/imports/login-paths";
-
 import { LogoSvg } from "../../components/common/LogoSvg";
+import { LOGO_GLYPH } from "../../components/common/logo-paths";
 import { ScaledPage } from "../../components/common/ScaledPage";
 import { ValidationError } from "../../components/common/ValidationError";
 import { otpSchema, OtpValues } from "../../wizard-validation";
@@ -139,8 +138,8 @@ export function OtpPage({
                 }}
               >
                 <svg width="28" height="28" viewBox="10 14 32 24" fill="none">
-                  <path d={svgPathsLogin.pdbfe710} fill="#5752A3" />
-                  <path d={svgPathsLogin.p389a4180} fill="#5752A3" />
+                  <path d={LOGO_GLYPH.pdbfe710} fill="#5752A3" />
+                  <path d={LOGO_GLYPH.p389a4180} fill="#5752A3" />
                 </svg>
               </div>
 

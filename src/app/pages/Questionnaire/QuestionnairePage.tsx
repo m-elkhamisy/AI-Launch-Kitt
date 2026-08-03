@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from "react";
+import { Upload } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-
-import svgPathsMerged from "@/imports/merged-flow-paths";
 
 import { ScaledPage } from "../../components/common/ScaledPage";
 import { SubNav } from "../../components/common/SubNav";
@@ -22,7 +21,6 @@ export function QuestionnairePage({ project, onSave, onUpload, onBack, onStepCli
   completedUpTo?: number;
   busy: boolean;
 }) {
-  const p = svgPathsMerged;
   const [uploadOpen, setUploadOpen] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
@@ -114,15 +112,7 @@ export function QuestionnairePage({ project, onSave, onUpload, onBack, onStepCli
             onClick={() => setUploadOpen(true)}
           >
             <div className="flex items-center gap-[12px]">
-              <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-                <path
-                  d={p.p2c12f480}
-                  stroke="#6FCCDD"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
+              <Upload size={18} color="#6FCCDD" strokeWidth={2} aria-hidden="true" />
               <span className="text-white font-semibold text-[14px]">
                 {uploadedFile ? `Uploaded: ${uploadedFile.name}` : "Prefer to upload your portfolio instead?"}
               </span>
