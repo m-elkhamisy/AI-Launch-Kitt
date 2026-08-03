@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { QuestionnairePage } from "../../App";
+import { QuestionnairePage } from "./QuestionnairePage";
 import { makeProject } from "../../test/fixtures";
 
 describe("QuestionnairePage", () => {

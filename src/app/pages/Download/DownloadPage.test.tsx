@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { DownloadPage } from "../../App";
+import { DownloadPage } from "./DownloadPage";
 import { makeBuild, makeDeployment } from "../../test/fixtures";
 
 describe("DownloadPage", () => {
