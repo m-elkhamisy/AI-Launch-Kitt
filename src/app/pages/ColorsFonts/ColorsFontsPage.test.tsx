@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { ColorsFontsPage } from "../../App";
+import { ColorsFontsPage } from "./ColorsFontsPage";
 import { makeCatalog, makeProject } from "../../test/fixtures";
 
 describe("ColorsFontsPage", () => {
