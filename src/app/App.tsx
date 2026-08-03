@@ -65,7 +65,7 @@ type Page =
   | "building"
   | "download";
 
-function ValidationError({ id, message }: { id?: string; message?: string }) {
+export function ValidationError({ id, message }: { id?: string; message?: string }) {
   if (!message) return null;
   return (
     <p id={id} role="alert" className="font-medium text-[12px]" style={{ color: "#fca5a5", lineHeight: 1.5 }}>
@@ -87,7 +87,7 @@ function firstValidationError(value: unknown): string | undefined {
 // ─── Page Wrapper ─────────────────────────────────────────────────────────────
 // Fluid container (w-full, capped at a max design width) — content reflows
 // at every viewport size instead of being locked to a fixed-width canvas.
-function ScaledPage({
+export function ScaledPage({
   children,
   header,
   designHeight: _designHeight = 900,
@@ -139,7 +139,7 @@ function ScaledPage({
 }
 
 // ─── Logo SVG ─────────────────────────────────────────────────────────────────
-function LogoSvg() {
+export function LogoSvg() {
   const p = svgPathsLogin;
   const whiteLetters = [
     p.p2fa07e00, p.p2f3d3c70, p.pe78e200, p.p27836100, p.p2fc8e300,
@@ -177,7 +177,7 @@ function LogoSvg() {
 }
 
 // ─── Top Header ───────────────────────────────────────────────────────────────
-function TopHeader({ showProfile = true }: { showProfile?: boolean }) {
+export function TopHeader({ showProfile = true }: { showProfile?: boolean }) {
   const p = svgPathsLogin;
   return (
     <div
@@ -212,7 +212,7 @@ const STEPS = [
   { label: "Pick Pages", iconKey: "document" },
 ];
 
-function SubNav({
+export function SubNav({
   activeStep,
   completedUpTo: completedUpToProp,
   onBack,
@@ -555,7 +555,7 @@ function SubNav({
 }
 
 // ─── PAGE 1: Login ────────────────────────────────────────────────────────────
-function LoginPage({
+export function LoginPage({
   onNext,
   busy = false,
 }: {
@@ -660,7 +660,7 @@ function LoginPage({
 }
 
 // ─── PAGE 2: OTP ──────────────────────────────────────────────────────────────
-function OtpPage({
+export function OtpPage({
   onNext,
   onBack,
   busy = false,
@@ -936,7 +936,7 @@ function OtpPage({
 // ─── PAGE 3: Questionnaire ────────────────────────────────────────────────────
 type QuestionnaireForm = QuestionnaireValues;
 
-function QuestionnairePage({ project, onSave, onUpload, onBack, onStepClick, completedUpTo, busy }: {
+export function QuestionnairePage({ project, onSave, onUpload, onBack, onStepClick, completedUpTo, busy }: {
   project: ProjectView;
   onSave: (form: QuestionnaireForm) => Promise<void>;
   onUpload: (file: File) => Promise<void>;
@@ -1267,7 +1267,7 @@ const ANIMATION_LEVELS = [
   { label: "High", sub: "More dynamic" },
 ];
 
-function CategoryMoodPage({ project, catalog, onSave, onBack, onStepClick, completedUpTo, busy }: {
+export function CategoryMoodPage({ project, catalog, onSave, onBack, onStepClick, completedUpTo, busy }: {
   project: ProjectView;
   catalog: WizardCatalog;
   onSave: (categoryId: string, moodId: string, animationId: string) => Promise<void>;
@@ -1656,7 +1656,7 @@ const GOOGLE_FONTS_LIST = [
 ];
 
 type CustomPalette = { primary: string; secondary: string; background: string; text: string };
-function ColorsFontsPage({ project, catalog, onSave, onBack, onStepClick, completedUpTo, busy }: {
+export function ColorsFontsPage({ project, catalog, onSave, onBack, onStepClick, completedUpTo, busy }: {
   project: ProjectView;
   catalog: WizardCatalog;
   onSave: (paletteId: string, customPalette: CustomPalette | null, fontId: string, customFonts: { heading: string; body: string } | null) => Promise<void>;
@@ -2370,7 +2370,7 @@ function editorPages(project: ProjectView, catalog: WizardCatalog): PageTemplate
   });
 }
 
-function PickPagesPage({ project, catalog, onGenerate, onBack, onStepClick, completedUpTo, busy }: {
+export function PickPagesPage({ project, catalog, onGenerate, onBack, onStepClick, completedUpTo, busy }: {
   project: ProjectView;
   catalog: WizardCatalog;
   onGenerate: (layout: PageLayout) => Promise<void>;
@@ -2875,7 +2875,7 @@ const PHASES = [
   "Composing your website...",
 ];
 
-function GeneratingPage({ operation, error, onRetry }: {
+export function GeneratingPage({ operation, error, onRetry }: {
   operation: OperationView | null;
   error: string | null;
   onRetry: () => void;
@@ -2936,7 +2936,7 @@ const VERSIONS = [
   { name: "Version 3", subtitle: "Simple and focused" },
 ];
 
-function PreviewPage({ mockups, selectedMockupId, onConfirm, onBack, busy }: {
+export function PreviewPage({ mockups, selectedMockupId, onConfirm, onBack, busy }: {
   mockups: MockupView[];
   selectedMockupId: string | null;
   onConfirm: (mockupId: string) => Promise<void>;
@@ -3181,7 +3181,7 @@ function PreviewPage({ mockups, selectedMockupId, onConfirm, onBack, busy }: {
 }
 
 // ─── PAGE 9: Download ─────────────────────────────────────────────────────────
-function BuildingPage({ build, error, onBack }: {
+export function BuildingPage({ build, error, onBack }: {
   build: BuildView | null;
   error: string | null;
   onBack: () => void;
@@ -3217,7 +3217,7 @@ function BuildingPage({ build, error, onBack }: {
   );
 }
 
-function DownloadPage({ build, deployment, onDeploy, onBack, busy }: {
+export function DownloadPage({ build, deployment, onDeploy, onBack, busy }: {
   build: BuildView;
   deployment: DeploymentView | null;
   onDeploy: () => Promise<void>;
@@ -3553,7 +3553,7 @@ function formatProjectUpdatedAt(value: string): string {
   });
 }
 
-function ProjectsPage({
+export function ProjectsPage({
   projects,
   loading,
   busy,
