@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import {
+  ACTIVE_BUILD_STATUSES,
   beginInnovationCityLogin,
   BuildView,
   clearAccessToken,
@@ -23,6 +24,13 @@ import {
 } from "./launchkit-api";
 import { ErrorToast } from "./components/common/ErrorToast";
 import { Spinner } from "./components/common/Spinner";
+import {
+  completedUpTo,
+  Page,
+  previousPage,
+  resumePageForProject,
+  stepTarget,
+} from "./lib/navigation";
 import { clearProjectSession, readSession, removeSession, SESSION_KEYS, writeSession } from "./lib/storage";
 import { BuildingPage } from "./pages/Building/BuildingPage";
 import { CategoryMoodPage } from "./pages/CategoryMood/CategoryMoodPage";
@@ -35,51 +43,6 @@ import { PickPagesPage } from "./pages/PickPages/PickPagesPage";
 import { PreviewPage } from "./pages/Preview/PreviewPage";
 import { ProjectsPage } from "./pages/Projects/ProjectsPage";
 import { QuestionnaireForm, QuestionnairePage } from "./pages/Questionnaire/QuestionnairePage";
-
-type Page =
-  | "login"
-  | "projects"
-  | "questionnaire"
-  | "category-mood"
-  | "colors"
-  | "pick-pages"
-  | "generating"
-  | "preview"
-  | "building"
-  | "download";
-
-
-
-
-// ─── App Root ─────────────────────────────────────────────────────────────────
-const WIZARD_PAGES: Page[] = ["questionnaire", "category-mood", "colors", "pick-pages"];
-const ACTIVE_BUILD_STATUSES: BuildView["status"][] = [
-  "queued",
-  "submitting",
-  "running",
-  "processing_result",
-];
-
-function resumePageForProject(
-  project: ProjectView,
-  build: BuildView | null,
-  mockups: MockupView[],
-): { page: Page; maxReachedStep: number } {
-  if (build?.status === "completed") {
-    return { page: "download", maxReachedStep: WIZARD_PAGES.length - 1 };
-  }
-  if (build && ACTIVE_BUILD_STATUSES.includes(build.status)) {
-    return { page: "building", maxReachedStep: WIZARD_PAGES.length - 1 };
-  }
-  if (mockups.length > 0 || project.selectedMockupId) {
-    return { page: "preview", maxReachedStep: WIZARD_PAGES.length - 1 };
-  }
-  const hasCompany = Boolean(project.business.companyName.trim());
-  if (!hasCompany) {
-    return { page: "questionnaire", maxReachedStep: -1 };
-  }
-  return { page: "questionnaire", maxReachedStep: 0 };
-}
 
 export default function App() {
   const [page, setPage] = useState<Page>(() => (hasAccessToken() ? "projects" : "login"));
@@ -209,7 +172,7 @@ export default function App() {
   }, [build?.status, page, go]);
 
   useEffect(() => {
-    if (!build || !ACTIVE_BUILD_STATUSES.includes(build.status)) return;
+    if (!build || !ACTIVE_BUILD_STATUSES.has(build.status)) return;
 
     const controller = new AbortController();
     void watchBuild(
@@ -422,19 +385,16 @@ export default function App() {
       void returnToProjects();
       return;
     }
-    const order: Page[] = ["login", "projects", ...WIZARD_PAGES, "generating", "preview", "building", "download"];
-    const index = order.indexOf(page);
-    if (index > 0) go(order[index - 1]);
+    const previous = previousPage(page);
+    if (previous) go(previous);
   };
 
   const goToStep = (step: number) => {
-    const target = WIZARD_PAGES[step];
-    if (!target) return;
-    if (WIZARD_PAGES.indexOf(target) <= WIZARD_PAGES.indexOf(page)) go(target);
+    const target = stepTarget(page, step);
+    if (target) go(target);
   };
 
-  const currentStep = WIZARD_PAGES.indexOf(page);
-  const completedUpTo = Math.max(maxReachedStep, currentStep - 1);
+  const completedSteps = completedUpTo(page, maxReachedStep);
   const isAuthPage = page === "login";
   const isHubPage = page === "projects";
   const needsProject = !isAuthPage && !isHubPage;
@@ -464,10 +424,10 @@ export default function App() {
             onSignOut={signOut}
           />
         )}
-        {page === "questionnaire" && project && <QuestionnairePage project={project} onSave={saveBusiness} onUpload={uploadProfile} busy={busy} onBack={goBack} onStepClick={goToStep} completedUpTo={completedUpTo} />}
-        {page === "category-mood" && project && catalog && <CategoryMoodPage project={project} catalog={catalog} onSave={saveDesign} busy={busy} onBack={goBack} onStepClick={goToStep} completedUpTo={completedUpTo} />}
-        {page === "colors" && project && catalog && <ColorsFontsPage project={project} catalog={catalog} onSave={saveColors} busy={busy} onBack={goBack} onStepClick={goToStep} completedUpTo={completedUpTo} />}
-        {page === "pick-pages" && project && catalog && <PickPagesPage project={project} catalog={catalog} onGenerate={generateMockups} busy={busy} onBack={goBack} onStepClick={goToStep} completedUpTo={completedUpTo} />}
+        {page === "questionnaire" && project && <QuestionnairePage project={project} onSave={saveBusiness} onUpload={uploadProfile} busy={busy} onBack={goBack} onStepClick={goToStep} completedUpTo={completedSteps} />}
+        {page === "category-mood" && project && catalog && <CategoryMoodPage project={project} catalog={catalog} onSave={saveDesign} busy={busy} onBack={goBack} onStepClick={goToStep} completedUpTo={completedSteps} />}
+        {page === "colors" && project && catalog && <ColorsFontsPage project={project} catalog={catalog} onSave={saveColors} busy={busy} onBack={goBack} onStepClick={goToStep} completedUpTo={completedSteps} />}
+        {page === "pick-pages" && project && catalog && <PickPagesPage project={project} catalog={catalog} onGenerate={generateMockups} busy={busy} onBack={goBack} onStepClick={goToStep} completedUpTo={completedSteps} />}
         {page === "generating" && <GeneratingPage operation={operation} error={error} onRetry={() => project && void generateMockups(project.pageLayout)} />}
         {page === "preview" && project && <PreviewPage mockups={mockups} selectedMockupId={project.selectedMockupId} onConfirm={startBuild} busy={busy} onBack={() => go("pick-pages")} />}
         {page === "building" && <BuildingPage build={build} error={error} onBack={() => go("preview")} />}
