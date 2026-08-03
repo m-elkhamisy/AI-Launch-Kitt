@@ -34,7 +34,6 @@ export function BuildingPage({ build, error, onBack }: {
           )}
         </div>
       </div>
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </ScaledPage>
   );
 }

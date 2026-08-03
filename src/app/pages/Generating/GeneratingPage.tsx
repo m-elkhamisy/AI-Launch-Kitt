@@ -43,7 +43,6 @@ export function GeneratingPage({ operation, error, onRetry }: {
           )}
         </div>
       </div>
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </ScaledPage>
   );
 }

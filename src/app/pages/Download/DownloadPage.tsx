@@ -156,6 +156,11 @@ export function DownloadPage({ build, deployment, onDeploy, onBack, busy }: {
                   <iframe
                     src={build.previewUrl}
                     title="Generated website preview"
+                    // Matches the mockup preview. Generated pages may need scripts;
+                    // everything else (top-level navigation, popups, form submission)
+                    // stays blocked. Verify a real completed build still renders if
+                    // the generator starts emitting richer output.
+                    sandbox="allow-scripts"
                     className="absolute inset-0 w-full h-full border-0"
                     style={{ background: "white", zIndex: 2 }}
                   />

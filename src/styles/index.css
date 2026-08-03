@@ -30,3 +30,13 @@ body {
 * {
   box-sizing: border-box;
 }
+
+/* Drives the shared <Spinner>. Defined here rather than injected by a component,
+   so loading states that mount on their own — the boot gate and the projects
+   list — animate too. Tailwind emits no `spin` keyframes unless the animate-spin
+   utility is used, and it isn't. */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
