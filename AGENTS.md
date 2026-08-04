@@ -5,7 +5,10 @@ around a real backend: the API is the source of truth for projects, wizard catal
 mockups, builds, and Vercel deployments.
 
 The review that drove the current structure — with verified findings and what is still outstanding —
-is in [`docs/frontend-review.md`](docs/frontend-review.md).
+is in [`docs/frontend-review.md`](docs/frontend-review.md). The non-negotiable rules this guide
+describes are also stated as principles in
+[`.specify/memory/constitution.md`](.specify/memory/constitution.md); the two must agree, so amending
+one means amending the other in the same change.
 
 ## Stack
 
@@ -188,6 +191,32 @@ already editing that block.
 10. Dormant by design: `figmaAssetResolver` in `vite.config.ts` (maps to a non-existent
     `src/assets/`), `src/styles/globals.css` (empty, unimported), `guidelines/Guidelines.md`
     (unedited Figma template), `README-frontend.md` (stale — `README.md` is current).
+
+## Spec-driven development
+
+New features go through [GitHub Spec Kit](https://github.com/github/spec-kit) rather than starting
+from a prompt and a diff:
+
+```
+/speckit-specify   → specs/<NNN>-<short-name>/spec.md   (what and why, no tech)
+/speckit-clarify   → optional; resolves ambiguity before planning
+/speckit-plan      → plan.md, checked against the constitution
+/speckit-tasks     → tasks.md, dependency-ordered
+/speckit-analyze   → optional; cross-artifact consistency check
+/speckit-implement → executes tasks.md
+```
+
+A change small enough to describe in one sentence and verify with one test does not need a spec.
+
+`.specify/` and `specs/` are **committed** — the constitution, templates, and specs are reviewed
+artifacts, and Spec Kit's upgrade path assumes they are in version control. Only local state is
+ignored (see `.gitignore`). The scripts are PowerShell (`--script ps`), matching the platform.
+
+Re-run the CLI through `uvx` rather than installing it globally:
+
+```bash
+uvx --from git+https://github.com/github/spec-kit.git specify check
+```
 
 ## Working agreements
 
