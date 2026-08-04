@@ -3749,10 +3749,11 @@ function PreviewPage({ mockups, selectedMockupId, onConfirm, onBack, busy }: {
 }
 
 // ─── PAGE 9: Download ─────────────────────────────────────────────────────────
-function BuildingPage({ build, error, onBack }: {
+function BuildingPage({ build, error, onBack, onProjects }: {
   build: BuildView | null;
   error: string | null;
   onBack: () => void;
+  onProjects: () => void;
 }) {
   const terminalError = build && ["failed", "cancelled", "timed_out"].includes(build.status);
   return (
@@ -3773,10 +3774,24 @@ function BuildingPage({ build, error, onBack }: {
               <p key={warning} className="font-medium text-[12px]" style={{ color: "rgba(248,180,113,0.9)", lineHeight: 1.5 }}>{warning}</p>
             ))}
           </div>
-          {(terminalError || error) && (
+          {(terminalError || error) ? (
             <button onClick={onBack} className="font-semibold text-[14px] px-[24px] py-[12px] rounded-[8px]" style={{ background: "#6fccdd", color: "#0b0b0b" }}>
               Return to Designs
             </button>
+          ) : (
+            <div className="flex flex-col items-center gap-[10px]">
+              <button
+                onClick={onProjects}
+                className="font-semibold text-[13px] px-[20px] py-[11px] rounded-[8px]"
+                style={{ background: "transparent", color: "#6fccdd", border: "1px solid rgba(111,204,221,0.5)" }}
+              >
+                Continue in background
+              </button>
+              <p className="font-medium text-[12px]" style={{ color: "rgba(255,255,255,0.35)", maxWidth: 420, lineHeight: 1.5 }}>
+                The build keeps running on the server. You can close this tab or browse your
+                websites — the status is saved and you can reopen the project anytime.
+              </p>
+            </div>
           )}
         </div>
       </div>
@@ -4551,6 +4566,24 @@ export default function App() {
     if (build?.status === "completed" && page === "building") go("download");
   }, [build?.status, page, go]);
 
+  // While a build is running in the background, keep the projects list statuses live
+  // (quiet refresh, no loading spinner) so a returning user sees current progress.
+  useEffect(() => {
+    if (page !== "projects") return;
+    const hasActiveBuild = projects.some(
+      (item) =>
+        item.latestBuildStatus &&
+        (ACTIVE_BUILD_STATUSES as string[]).includes(item.latestBuildStatus),
+    );
+    if (!hasActiveBuild) return;
+    const timer = setInterval(() => {
+      launchKitApi.listProjects().then(setProjects).catch(() => {
+        // Keep the last known statuses when a poll fails; the next tick retries.
+      });
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [page, projects]);
+
   useEffect(() => {
     if (!build || !ACTIVE_BUILD_STATUSES.includes(build.status)) return;
 
@@ -4888,7 +4921,7 @@ export default function App() {
         {page === "pick-pages" && project && catalog && <PickPagesPage project={project} catalog={catalog} onGenerate={generateMockups} busy={busy} onBack={goBack} onStepClick={goToStep} completedUpTo={completedUpTo} />}
         {page === "generating" && <GeneratingPage operation={operation} error={error} onRetry={() => project && void generateMockups(project.pageLayout)} />}
         {page === "preview" && project && <PreviewPage mockups={mockups} selectedMockupId={project.selectedMockupId} onConfirm={startBuild} busy={busy} onBack={() => go("pick-pages")} />}
-        {page === "building" && <BuildingPage build={build} error={error} onBack={() => go("preview")} />}
+        {page === "building" && <BuildingPage build={build} error={error} onBack={() => go("preview")} onProjects={() => { void returnToProjects(); }} />}
         {page === "download" && build?.status === "completed" && <DownloadPage build={build} deployment={deployment} onDeploy={deploy} busy={busy} onBack={() => { void returnToProjects(); }} />}
       </div>
     </div>
