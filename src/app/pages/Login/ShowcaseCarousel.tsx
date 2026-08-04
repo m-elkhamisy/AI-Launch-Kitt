@@ -7,6 +7,7 @@ import {
   type CarouselApi,
 } from "../../components/ui/carousel";
 import { SHOWCASE_SLIDES, type ShowcaseSlide } from "./showcase-slides";
+import { ShowcaseIndicators } from "./ShowcaseIndicators";
 import { ShowcaseSlideView } from "./ShowcaseSlideView";
 import { useAutoAdvance } from "./useAutoAdvance";
 
@@ -37,7 +38,17 @@ export function ShowcaseCarousel({
     };
   }, [api]);
 
-  useAutoAdvance(api, { intervalMs });
+  const { stop } = useAutoAdvance(api, { intervalMs });
+
+  // Steering the carousel hands control over for good — it does not resume after
+  // a pause, which is what makes the auto-advance dismissable rather than merely
+  // interruptible.
+  const selectSlide = (index: number) => {
+    stop();
+    api?.scrollTo(index);
+  };
+
+  const accent = slides[selectedIndex]?.accent ?? slides[0]?.accent ?? "#ffffff";
 
   return (
     <Carousel
@@ -54,6 +65,14 @@ export function ShowcaseCarousel({
           </CarouselItem>
         ))}
       </CarouselContent>
+      <div className="absolute bottom-[32px] left-0 flex w-full justify-center">
+        <ShowcaseIndicators
+          count={slides.length}
+          selectedIndex={selectedIndex}
+          accent={accent}
+          onSelect={selectSlide}
+        />
+      </div>
     </Carousel>
   );
 }

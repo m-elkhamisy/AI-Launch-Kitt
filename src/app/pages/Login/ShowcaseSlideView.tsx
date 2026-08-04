@@ -19,9 +19,13 @@ export function ShowcaseSlideView({
   const [mockupFailed, setMockupFailed] = useState(false);
   const loading = eager ? "eager" : "lazy";
 
+  // Bottom padding is 82px rather than 32px: the indicator strip is positioned over
+  // the panel by ShowcaseCarousel — one set for all slides, rather than the
+  // per-panel copy Figma draws — so each slide reserves the 32px panel padding plus
+  // the 42px column gap and the 8px dots.
   return (
     <div
-      className="relative flex h-full w-full flex-col items-center justify-center gap-[42px] overflow-hidden px-6 py-8 lg:px-[48px] lg:py-[32px]"
+      className="relative flex h-full w-full flex-col items-center justify-center gap-[42px] overflow-hidden px-6 pt-8 pb-[82px] lg:px-[48px] lg:pt-[32px]"
       style={{ background: "rgba(255,255,255,0.08)" }}
     >
       {/* Tinted grid texture, one per capability. Decorative, so it stays out of the a11y tree. */}
