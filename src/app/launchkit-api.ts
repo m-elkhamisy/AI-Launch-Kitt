@@ -413,7 +413,8 @@ export const launchKitApi = {
     request<DeploymentView>(`/deployments/${deploymentId}`),
 };
 
-const ACTIVE_BUILD_STATUSES = new Set<BuildView["status"]>([
+/** Statuses that mean a build is still in flight. Also drives the UI's resume logic. */
+export const ACTIVE_BUILD_STATUSES = new Set<BuildView["status"]>([
   "queued",
   "submitting",
   "running",

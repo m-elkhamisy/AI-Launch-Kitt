@@ -27,3 +27,13 @@ Thumbs.db
 
 # Test / coverage
 coverage/
+
+# Agent-local state. Spec Kit's own repo ignores all of .specify/, but that is a
+# dogfooding exception it documents as such — consumer projects commit .specify/
+# and specs/ so the constitution, templates, and specs are reviewed artifacts.
+# Only genuinely local or generated paths belong here.
+.claude/settings.local.json
+.specify/extensions/.cache/
+.specify/extensions/.backup/
+.specify/extensions/.registry
+.specify/extensions/*/*.local.yml
