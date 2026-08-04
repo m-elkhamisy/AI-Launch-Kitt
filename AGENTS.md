@@ -38,6 +38,12 @@ npm test && npm run typecheck && npm run build && npm audit
 All four pass on `main` and must stay passing — CI (`.github/workflows/ci.yml`) runs exactly these;
 Amplify (`amplify.yml`) runs the first three. `VITE_API_BASE_URL` must be set at build time.
 
+**`npm audit` is a publication-sensitive gate.** It fails on any advisory at any severity, including
+ones in dev-only transitive packages that never ship — a new advisory turns CI red with no code
+change. When that happens, `npm audit fix` and commit the lockfile; only investigate properly if the
+package actually reaches the bundle. Worth replacing with `--audit-level=high --omit=dev`, or a
+scheduled job rather than a build gate (finding E1).
+
 `npm run check:repo` is a no-op that prints a string; it verifies nothing.
 
 ## Layout
