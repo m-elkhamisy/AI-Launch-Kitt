@@ -23,6 +23,7 @@ one means amending the other in the same change.
 | Components  | shadcn/ui on Radix — present but **dormant, zero importers**   |
 | Font        | Montserrat (Google Fonts, `src/styles/fonts.css`)              |
 | Platform    | Windows / PowerShell                                           |
+| Node        | **≥ 22.12** required to run the tests — see below              |
 
 ```bash
 npm i
@@ -31,6 +32,13 @@ npm run dev
 ```
 
 Start the backend and its worker first, or every API call fails.
+
+**Node 22.12 is a floor for `npm test`, not a preference.** `jsdom` reaches
+`html-encoding-sniffer` → `@exodus/bytes`, which is ESM-only, so on Node < 22.12 — where
+`require(esm)` is still behind a flag — all 18 test files fail to start a worker with
+`ERR_REQUIRE_ESM` and vitest reports `no tests` rather than a failure. Nothing is wrong with the
+repo when that happens. CI pins `node-version: "22"`, which resolves to the latest 22.x and is
+unaffected.
 
 ## Quality gates
 
