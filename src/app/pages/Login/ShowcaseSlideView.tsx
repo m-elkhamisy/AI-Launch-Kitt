@@ -70,10 +70,14 @@ export function ShowcaseSlideView({
         </div>
       </div>
 
-      {/* Fixed box, reserved whether or not the image arrives, so nothing below shifts. */}
+      {/* The mockup absorbs the leftover height instead of forcing its design size.
+          Figma draws this panel at 900px tall; on a shorter viewport a fixed 472px
+          mockup pushed the whole page into a vertical scroll. Flex gives the box a
+          definite size before the image loads, so nothing shifts either way, and
+          object-contain keeps the aspect ratio at whatever height it ends up with. */}
       <div
-        className="relative w-full max-w-[736px] shrink-0"
-        style={{ aspectRatio: "736 / 472" }}
+        className="relative w-full min-h-0 flex-1"
+        style={{ maxWidth: 736, maxHeight: 472 }}
       >
         {!mockupFailed && (
           <img

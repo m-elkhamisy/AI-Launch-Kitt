@@ -10,6 +10,33 @@ function stubApi() {
   return { scrollNext: vi.fn() } as unknown as Parameters<typeof useAutoAdvance>[0];
 }
 
+/**
+ * Replaces window.matchMedia for one test. `listeners` collects the change
+ * handlers the hook registers so a test can assert they are removed again.
+ */
+function mockReducedMotion(matches: boolean) {
+  const listeners: unknown[] = [];
+  const removed: unknown[] = [];
+  const original = window.matchMedia;
+
+  window.matchMedia = ((query: string) => ({
+    matches: query.includes("prefers-reduced-motion") ? matches : false,
+    media: query,
+    onchange: null,
+    addEventListener: (_type: string, listener: unknown): void => {
+      listeners.push(listener);
+    },
+    removeEventListener: (_type: string, listener: unknown): void => {
+      removed.push(listener);
+    },
+    addListener: (): void => {},
+    removeListener: (): void => {},
+    dispatchEvent: () => false,
+  })) as unknown as typeof window.matchMedia;
+
+  return { listeners, removed, restore: () => { window.matchMedia = original; } };
+}
+
 describe("useAutoAdvance", () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -80,5 +107,61 @@ describe("useAutoAdvance", () => {
     vi.advanceTimersByTime(60_000);
     expect(api!.scrollNext).not.toHaveBeenCalled();
     expect(vi.getTimerCount()).toBe(0);
+  });
+
+  describe("reduced motion", () => {
+    it("never advances when the visitor asked for reduced motion", () => {
+      const media = mockReducedMotion(true);
+      try {
+        const api = stubApi();
+        renderHook(() => useAutoAdvance(api, { intervalMs: 15_000 }));
+
+        vi.advanceTimersByTime(120_000);
+        expect(api!.scrollNext).not.toHaveBeenCalled();
+      } finally {
+        media.restore();
+      }
+    });
+
+    it("advances normally when reduced motion is not requested", () => {
+      const media = mockReducedMotion(false);
+      try {
+        const api = stubApi();
+        renderHook(() => useAutoAdvance(api, { intervalMs: 15_000 }));
+
+        vi.advanceTimersByTime(15_000);
+        expect(api!.scrollNext).toHaveBeenCalledTimes(1);
+      } finally {
+        media.restore();
+      }
+    });
+
+    it("treats a missing matchMedia as motion allowed", () => {
+      const original = window.matchMedia;
+      // @ts-expect-error deliberately removing the API to prove the guard works
+      delete window.matchMedia;
+      try {
+        const api = stubApi();
+        renderHook(() => useAutoAdvance(api, { intervalMs: 15_000 }));
+
+        vi.advanceTimersByTime(15_000);
+        expect(api!.scrollNext).toHaveBeenCalledTimes(1);
+      } finally {
+        window.matchMedia = original;
+      }
+    });
+
+    it("stops listening to the preference on unmount", () => {
+      const media = mockReducedMotion(false);
+      try {
+        const { unmount } = renderHook(() => useAutoAdvance(stubApi(), { intervalMs: 15_000 }));
+
+        expect(media.listeners).toHaveLength(1);
+        unmount();
+        expect(media.removed).toEqual(media.listeners);
+      } finally {
+        media.restore();
+      }
+    });
   });
 });

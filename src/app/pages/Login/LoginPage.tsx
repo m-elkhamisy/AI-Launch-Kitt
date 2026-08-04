@@ -23,7 +23,10 @@ export function LoginPage({
       <div className="flex w-full items-center lg:w-[42.2%]">
         <SignInPanel onNext={onNext} busy={busy} />
       </div>
-      <div className="hidden lg:flex lg:w-[57.8%]">
+      {/* Bounded by the viewport rather than by its content: the showcase is the
+          taller column, so letting it size itself would scroll the whole screen on
+          any display shorter than the 900px the design assumes. */}
+      <div className="hidden lg:flex lg:h-screen lg:w-[57.8%] lg:overflow-hidden">
         <ShowcaseCarousel />
       </div>
     </div>

@@ -55,9 +55,14 @@ export function ShowcaseCarousel({
       opts={{ loop: true }}
       setApi={setApi}
       aria-label="What you can build with AI Launch Kit"
-      className="h-full w-full"
+      // CarouselContent's own scroll-clipping wrapper carries no height of its own,
+      // so without this the panel would size to its content and push the page into
+      // a vertical scroll on any viewport shorter than the 900px design. Reached by
+      // descendant selector because the shadcn component is adopted unmodified.
+      className="h-full w-full [&>[data-slot=carousel-content]]:h-full"
     >
-      {/* The component's default -ml-4 gutter would inset a full-bleed panel. */}
+      {/* The component defaults to a negative-margin gutter between slides, which
+          would inset a panel meant to run edge to edge; these override it to zero. */}
       <CarouselContent className="ml-0 h-full">
         {slides.map((slide, index) => (
           <CarouselItem key={slide.id} className="h-full pl-0">
