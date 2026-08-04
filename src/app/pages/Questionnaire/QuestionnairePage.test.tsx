@@ -4,17 +4,25 @@ import { describe, expect, it, vi } from "vitest";
 import { QuestionnairePage } from "./QuestionnairePage";
 import { makeProject } from "../../test/fixtures";
 
+function renderPage(project = makeProject()) {
+  return render(
+    <QuestionnairePage
+      project={project}
+      onSave={vi.fn()}
+      onUploadLogo={vi.fn()}
+      onUploadDocuments={vi.fn()}
+      onRemoveAsset={vi.fn()}
+      onApplySummary={vi.fn()}
+      onRunAiSummary={vi.fn()}
+      onBack={vi.fn()}
+      busy={false}
+    />,
+  );
+}
+
 describe("QuestionnairePage", () => {
   it("renders the brand form prefilled from the project", () => {
-    render(
-      <QuestionnairePage
-        project={makeProject()}
-        onSave={vi.fn()}
-        onUpload={vi.fn()}
-        onBack={vi.fn()}
-        busy={false}
-      />,
-    );
+    renderPage();
 
     expect(screen.getByText("Tell us about your brand")).toBeInTheDocument();
     expect(screen.getByText(/Company \/ Brand Name/)).toBeInTheDocument();
@@ -23,17 +31,49 @@ describe("QuestionnairePage", () => {
     expect(screen.getByRole("button", { name: /Save & Continue/i })).toBeInTheDocument();
   });
 
-  it("shows the upload affordance", () => {
-    render(
-      <QuestionnairePage
-        project={makeProject()}
-        onSave={vi.fn()}
-        onUpload={vi.fn()}
-        onBack={vi.fn()}
-        busy={false}
-      />,
+  it("shows the logo and brand-document dropzones", () => {
+    renderPage();
+
+    expect(screen.getByText("Start with your logo")).toBeInTheDocument();
+    expect(screen.getByText(/Click or drag your logo here/)).toBeInTheDocument();
+    expect(screen.getByText(/Click or drag your documents here/)).toBeInTheDocument();
+  });
+
+  it("disables AI Summary until brand documents are uploaded", () => {
+    renderPage();
+
+    expect(screen.getByRole("button", { name: /AI Summary/i })).toBeDisabled();
+  });
+
+  it("lists uploaded assets as removable chips", () => {
+    renderPage(
+      makeProject({
+        uploadedAssets: [
+          {
+            id: "ast_logo",
+            kind: "profile_image",
+            label: "Brand logo",
+            filename: "logo.png",
+            contentType: "image/png",
+            size: 2048,
+            previewUrl: "/api/v1/assets/ast_logo/content",
+          },
+          {
+            id: "ast_doc",
+            kind: "profile_source",
+            label: "Brand document",
+            filename: "brand-book.pdf",
+            contentType: "application/pdf",
+            size: 4096,
+            previewUrl: "/api/v1/assets/ast_doc/content",
+          },
+        ],
+      }),
     );
 
-    expect(screen.getByText(/Prefer to upload your portfolio instead\?/)).toBeInTheDocument();
+    expect(screen.getByText("logo.png")).toBeInTheDocument();
+    expect(screen.getByText("brand-book.pdf")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Remove logo\.png/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Remove brand-book\.pdf/i })).toBeInTheDocument();
   });
 });

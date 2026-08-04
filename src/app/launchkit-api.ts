@@ -303,6 +303,44 @@ export const launchKitApi = {
       body,
     });
   },
+  extractFromAsset: (projectId: string, assetId: string) =>
+    request<OperationView>(`/projects/${projectId}/profile-extractions/from-asset`, {
+      method: "POST",
+      body: JSON.stringify({ assetId }),
+    }),
+  uploadAsset: (projectId: string, file: File, kind: "logo" | "document") => {
+    const body = new FormData();
+    body.append("file", file);
+    body.append("kind", kind);
+    return request<AssetView>(`/projects/${projectId}/assets`, {
+      method: "POST",
+      body,
+    });
+  },
+  deleteAsset: async (projectId: string, assetId: string): Promise<void> => {
+    const headers = new Headers();
+    const accessToken = localStorage.getItem(AUTH_TOKEN_KEY);
+    if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
+    const response = await fetch(`${API_ROOT}/projects/${projectId}/assets/${assetId}`, {
+      method: "DELETE",
+      headers,
+      credentials: "include",
+    });
+    if (!response.ok) {
+      let envelope: ApiErrorEnvelope = {};
+      try {
+        envelope = await response.json() as ApiErrorEnvelope;
+      } catch {
+        // Status-based message below.
+      }
+      throw new LaunchKitApiError(
+        envelope.error?.message ?? "The asset could not be removed.",
+        response.status,
+        envelope.error?.code,
+        envelope.error?.requestId,
+      );
+    }
+  },
   getOperation: (operationId: string) => request<OperationView>(`/operations/${operationId}`),
   createMockups: (projectId: string, idempotencyKey: string) =>
     request<OperationView>(`/projects/${projectId}/mockups`, {
@@ -522,7 +560,7 @@ export async function waitForOperation(
         operation.errorCode ?? "operation_failed",
       );
     }
-    await new Promise((resolve) => setTimeout(resolve, 1200));
+    await new Promise((resolve) => setTimeout(resolve, 500));
   }
 }
 

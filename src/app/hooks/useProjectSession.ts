@@ -29,6 +29,7 @@ import {
 import { completedUpTo, Page, previousPage, resumePageForProject, stepTarget } from "../lib/navigation";
 import { clearProjectSession, readSession, removeSession, SESSION_KEYS, writeSession } from "../lib/storage";
 import type { CustomPalette } from "../pages/ColorsFonts/types";
+import { AiSummaryDraft, pickExtracted } from "../pages/Questionnaire/ai-summary";
 import type { QuestionnaireForm } from "../pages/Questionnaire/QuestionnairePage";
 
 export function useProjectSession() {
@@ -158,6 +159,24 @@ export function useProjectSession() {
     if (build?.status === "completed" && page === "building") go("download");
   }, [build?.status, page, go]);
 
+  // While a build is running in the background, keep the projects list statuses live
+  // (quiet refresh, no loading spinner) so a returning user sees current progress.
+  useEffect(() => {
+    if (page !== "projects") return;
+    const hasActiveBuild = projects.some(
+      (item) =>
+        item.latestBuildStatus &&
+        ACTIVE_BUILD_STATUSES.has(item.latestBuildStatus as BuildView["status"]),
+    );
+    if (!hasActiveBuild) return;
+    const timer = setInterval(() => {
+      launchKitApi.listProjects().then(setProjects).catch(() => {
+        // Keep the last known statuses when a poll fails; the next tick retries.
+      });
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [page, projects]);
+
   useEffect(() => {
     if (!build || !ACTIVE_BUILD_STATUSES.has(build.status)) return;
 
@@ -285,20 +304,75 @@ export function useProjectSession() {
     const updated = await launchKitApi.patchProject(current.id, {
       business: {
         companyName: form.companyName,
-        uvp: form.uniqueness,
+        industry: form.industry,
         targetAudience: form.customers,
-        notes: form.anythingElse,
       },
-      design: { tagline: form.tagline, cta: form.cta },
+      design: {
+        tagline: form.tagline,
+        cta: current.design.cta?.trim() || "Get Started",
+      },
     });
     setProject(updated);
     setMaxReachedStep(Math.max(1, maxReachedStep));
     go("category-mood");
   });
 
-  const uploadProfile = (file: File) => perform(async () => {
+  const uploadLogo = (file: File) => perform(async () => {
     const current = await ensureProject();
-    const queued = await launchKitApi.uploadProfile(current.id, file);
+    await launchKitApi.uploadAsset(current.id, file, "logo");
+    await refreshProject(current.id);
+  });
+
+  const uploadDocuments = (files: File[]) => perform(async () => {
+    const current = await ensureProject();
+    for (const file of files) {
+      await launchKitApi.uploadAsset(current.id, file, "document");
+    }
+    await refreshProject(current.id);
+  });
+
+  const removeAsset = (assetId: string) => perform(async () => {
+    const current = await ensureProject();
+    await launchKitApi.deleteAsset(current.id, assetId);
+    await refreshProject(current.id);
+  });
+
+  const applySummary = (summary: AiSummaryDraft) => perform(async () => {
+    const current = await ensureProject();
+    const extracted = current.extractedProfileFields ?? {};
+    const notesParts = [summary.services, summary.brandTone].map((part) => part.trim()).filter(Boolean);
+    const updated = await launchKitApi.patchProject(current.id, {
+      business: {
+        companyName:
+          pickExtracted(extracted.companyName, current.business.companyName) ||
+          current.business.companyName,
+        industry:
+          pickExtracted(extracted.industry, current.business.industry) ||
+          current.business.industry,
+        targetAudience:
+          summary.targetAudience.trim() || current.business.targetAudience,
+        uvp: summary.companyOverview.trim() || current.business.uvp,
+        notes: notesParts.join("\n\n") || current.business.notes,
+      },
+      design: {
+        tagline:
+          pickExtracted(extracted.tagline, current.design.tagline) ||
+          current.design.tagline,
+        cta: summary.mainCta.trim() || current.design.cta || "Get Started",
+      },
+    });
+    setProject(updated);
+  });
+
+  const runAiSummary = () => perform(async () => {
+    const current = await ensureProject();
+    const documents = current.uploadedAssets.filter((asset) => asset.kind === "profile_source");
+    // Backend merges every brand document on the project; anchor on any PDF when available.
+    const anchor =
+      [...documents].reverse().find((asset) => asset.filename.toLowerCase().endsWith(".pdf"))
+      ?? documents.at(-1);
+    if (!anchor) return;
+    const queued = await launchKitApi.extractFromAsset(current.id, anchor.id);
     setOperation(queued);
     await waitForOperation(queued.id, setOperation);
     await refreshProject(current.id);
@@ -408,7 +482,11 @@ export function useProjectSession() {
     refreshProjects,
     returnToProjects,
     saveBusiness,
-    uploadProfile,
+    uploadLogo,
+    uploadDocuments,
+    removeAsset,
+    applySummary,
+    runAiSummary,
     saveDesign,
     saveColors,
     generateMockups,
