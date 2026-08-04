@@ -380,3 +380,27 @@ scanned them, shipping every class in dead markup as real CSS.
 mechanically catches wrong effect deps or stale imports, and `noUnusedLocals` is off); styling
 convergence (D1–D2, Phase 5); modal a11y (D3); no error boundary (D5); and findings C5–C8 and E3–E10.
 No test mounts `App` or drives a full flow, so a UI change still needs the manual walk in §4.
+
+---
+
+## 7. Amendment (2026-08-04): A4 is partly resolved
+
+`components/ui/**` is **no longer entirely dormant.** The welcome-screen showcase carousel
+(`specs/001-auth-showcase-carousel/`) adopts `carousel.tsx`, which pulls in `button.tsx` and
+`utils.ts`. Those three files now have importers; the other 44 do not.
+
+This settles half of the open decision at the end of §5 — the answer for `carousel.tsx` was "keep and
+adopt", and it cost no new dependency, since `embla-carousel-react` was already installed. The wider
+question is unchanged: `dialog.tsx` still sits unused while five hand-rolled modals still lack focus
+management (D3), and that remains the strongest case for adopting more of the library rather than
+deleting it.
+
+Two related notes:
+
+- **E9 is now half-true.** `src/assets/` exists (six PNGs for the showcase), so `figmaAssetResolver`
+  no longer maps to a missing directory. It is still dormant — the assets are imported by ordinary
+  path, and no `figma:asset` import exists anywhere.
+- **`src/app/test/setup.ts` now stubs `matchMedia`, `ResizeObserver` and `IntersectionObserver`.**
+  jsdom 29 defines none of them and embla calls all three while initialising, so without the stubs
+  any test mounting a carousel throws in the effect phase. Each stub is guarded, so a future jsdom
+  that implements them wins automatically.

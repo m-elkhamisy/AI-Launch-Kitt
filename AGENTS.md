@@ -20,7 +20,7 @@ one means amending the other in the same change.
 | Forms       | `react-hook-form` + `zod` via `@hookform/resolvers`            |
 | Icons       | `lucide-react` throughout; only the logo is raw path data      |
 | Tests       | Vitest + jsdom + Testing Library                              |
-| Components  | shadcn/ui on Radix — present but **dormant, zero importers**   |
+| Components  | shadcn/ui on Radix — **dormant except `carousel`** (see below)  |
 | Font        | Montserrat (Google Fonts, `src/styles/fonts.css`)              |
 | Platform    | Windows / PowerShell                                           |
 | Node        | **≥ 22.12** required to run the tests — see below              |
@@ -62,6 +62,7 @@ scheduled job rather than a build gate (finding E1).
 ```
 src/
   main.tsx                      createRoot → <App/>, imports styles/index.css
+  assets/showcase/              6 PNGs exported from Figma for the welcome screen
   app/
     App.tsx                     routing + loading gate only (~90 lines)
     launchkit-api.ts            API client: typed views, LaunchKitApiError, SSE build stream
@@ -76,7 +77,8 @@ src/
     data/google-fonts.ts        the Google Fonts name list
     pages/<Name>/               one folder per page: the page, its page-local
                                 components, and any page-local pure logic
-      Login/          LoginPage
+      Login/          LoginPage · SignInPanel · ShowcaseCarousel · ShowcaseSlideView
+                      ShowcaseIndicators · showcase-slides · useAutoAdvance (+ tests)
       Otp/            OtpPage (parked, no importer)
       Projects/       ProjectsPage
       Questionnaire/  QuestionnairePage · UploadPortfolioModal
@@ -91,7 +93,8 @@ src/
     components/
       common/                   ScaledPage, TopHeader, SubNav, LogoSvg, ValidationError,
                                 ErrorToast, Spinner — used across pages
-      ui/                       47 shadcn components — dormant, leave alone
+      ui/                       47 shadcn components — dormant except carousel
+                                (+ button, utils, which it imports), leave the rest alone
       figma/                    ImageWithFallback — dormant
     test/                       fixtures.ts (factories), setup.ts
   styles/                       index.css → fonts.css, tailwind.css, theme.css
