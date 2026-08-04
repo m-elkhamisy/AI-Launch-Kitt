@@ -57,9 +57,20 @@ src/
       colors.ts                 palette derivation from a primary colour
       fonts.ts                  loadGoogleFont
     data/google-fonts.ts        the Google Fonts name list
-    pages/<Name>/               one folder per page: the page + its page-local components
-      Login/  Otp/  Projects/  Questionnaire/  CategoryMood/  ColorsFonts/
-      PickPages/  Generating/  Preview/  Building/  Download/
+    pages/<Name>/               one folder per page: the page, its page-local
+                                components, and any page-local pure logic
+      Login/          LoginPage
+      Otp/            OtpPage (parked, no importer)
+      Projects/       ProjectsPage
+      Questionnaire/  QuestionnairePage · UploadPortfolioModal
+      CategoryMood/   CategoryMoodPage · CategoryPickerModal · MoodPickerModal
+      ColorsFonts/    ColorsFontsPage · CustomPaletteModal · CustomFontModal
+                      FontCard · types
+      PickPages/      PickPagesPage · SectionRow · page-layout (+ tests)
+      Generating/     GeneratingPage
+      Preview/        PreviewPage
+      Building/       BuildingPage
+      Download/       DownloadPage · BrowserFramePreview · DeployTooltip
     components/
       common/                   ScaledPage, TopHeader, SubNav, LogoSvg, ValidationError,
                                 ErrorToast, Spinner — used across pages
@@ -75,7 +86,10 @@ src/
 
 - **A page's own component** (a modal, a card, a row) → beside the page in `pages/<Name>/`.
 - **Used by two or more pages** → `components/common/`.
-- **Pure logic, no JSX** → `lib/`.
+- **Pure logic, no JSX** → `lib/` if shared, `pages/<Name>/` if it serves one page
+  (see `PickPages/page-layout.ts`: functions of `(pages, …) → pages`, unit-tested, no React).
+- **No overlay markup inline in a page.** Every modal is its own component with an explicit prop
+  signature. Five pages used to inline them; none do now.
 - **Server calls** → add to the `launchKitApi` object in `launchkit-api.ts`. Never `fetch` from a
   component.
 - **Validation** → a zod schema in `wizard-validation.ts`, surfaced through `<ValidationError>`.
@@ -142,7 +156,8 @@ already editing that block.
 1. **No linter or formatter.** No ESLint, no Prettier, no `react-hooks` or `jsx-a11y` rules. Nothing
    mechanically catches wrong effect deps, unused imports (`noUnusedLocals` is off, so `tsc` misses
    them too), or a11y regressions. This is the most valuable thing still missing.
-2. **Test coverage is smoke-level for UI.** 60 tests cover the API client, the zod schemas, `lib/`,
+2. **Test coverage is smoke-level for UI.** 80 tests cover the API client, the zod schemas, `lib/`,
+   the Pick Pages layout logic,
    and one render per page. No test mounts `App` or exercises a full flow, so after a UI change walk
    it manually: sign in → projects → create → questionnaire → category & mood → colors & fonts →
    pick pages → generating → preview → building → download, at ~360 px and ~1440 px.
@@ -150,10 +165,14 @@ already editing that block.
 4. **`pages/Otp/OtpPage.tsx` is parked** — no importer. Sign-in is IC OAuth, but the backend still
    supports a fixed email/code mode for restricted staging, so it is kept compiling and tested.
    Its `loginSchema`/`otpSchema` still hardcode staging credentials.
-5. **The palette and font modals in `ColorsFonts` are still inline** in the page. They close over a
-   lot of page state, so lifting them out means designing prop signatures — a refactor, not a move.
-6. **Five hand-rolled modal overlays** have no `role="dialog"`, focus trap, or Escape handling.
-   `components/ui/dialog.tsx` solves this and is sitting unused.
+5. **Three files stay large on purpose, and are cohesive rather than mixed:**
+   `launchkit-api.ts` (544 — one client plus the 25 resource types it returns; splitting the types
+   out would be cosmetic), `hooks/useProjectSession.ts` (418 — the commands share too much state to
+   separate without inventing coupling), and `components/common/SubNav.tsx` (283 — two responsive
+   layouts of the same breadcrumb, deliberately both rendered so CSS picks).
+6. **The five modal components** still have no `role="dialog"`, focus trap, or Escape handling. They
+   are now separate files, so fixing that is a contained change — `components/ui/dialog.tsx` solves
+   it and is sitting unused.
 7. No error boundary anywhere; one `console.error` in the app.
 8. Mixed package-manager signals (`package-lock.json` + CI `npm ci`, but also `pnpm-workspace.yaml`
    with `minimumReleaseAge: 10080` and a `pnpm.overrides` vite pin). Mixed version pinning: exact

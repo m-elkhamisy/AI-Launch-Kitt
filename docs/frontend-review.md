@@ -346,3 +346,37 @@ being true, but it is only safe once Phase 0's smoke tests exist.
 
 **One open decision blocks Phase 6 and shapes Phase 5:** keep and adopt `components/ui/**`, or delete
 it. That answer determines whether 38 dependencies stay.
+
+---
+
+## 6. Outcome (2026-08-04)
+
+Phases 0–6 are done, on branch `refactor/extract-app-structure`. Behaviour is unchanged except the
+three fixes noted below, each landed as its own labelled commit.
+
+| Measure | Before | After |
+| --- | --- | --- |
+| `App.tsx` | 4,258 lines | **88** — routing and the loading gate only |
+| Largest page component | 2,397 (`imports/AiLaunchKitPickPages`) | 349 (`PickPagesPage`) |
+| `as any` | 7 | **0** |
+| Tests | 11 (API + schemas only) | **80** (+ every page, `lib/`, layout logic, logo) |
+| Dependencies | 57 declared, 4 reaching the app | **43** |
+| JS bundle | 384.35 kB / 117.32 gzip | **345.69 kB / 103.30 gzip** |
+| CSS bundle | 112.71 kB / 19.16 gzip | **91.28 kB / 15.08 gzip** |
+| `npm audit` | exit 1 (1 high, 2 moderate) | **exit 0** |
+
+**Fixed:** C1 (two spinners never animated — `@keyframes spin` was missing from the built CSS),
+C2 (`DownloadPage` iframe sandbox), C4 (unguarded `localStorage` killed the app at first render in
+blocked-storage browsers), plus C3 (duplicated `ACTIVE_BUILD_STATUSES`) and the A2 navigation
+triplication as part of the restructure.
+
+**Dead code removed:** `LegacyApp`, `OtpPage`'s routing, 9 catalog-superseded data tables, a
+never-wired rename/duplicate cluster in Pick Pages, 14 unused dependencies, and all of
+`src/imports/` — 11 Figma component trees (7,757 lines) plus 94 unused SVG path strings. Deleting
+those cut the stylesheet 19%: they were tree-shaken from the JS but Tailwind's `@source` glob still
+scanned them, shipping every class in dead markup as real CSS.
+
+**Still open, deliberately:** ESLint and Prettier (finding D7, still the most valuable gap — nothing
+mechanically catches wrong effect deps or stale imports, and `noUnusedLocals` is off); styling
+convergence (D1–D2, Phase 5); modal a11y (D3); no error boundary (D5); and findings C5–C8 and E3–E10.
+No test mounts `App` or drives a full flow, so a UI change still needs the manual walk in §4.
