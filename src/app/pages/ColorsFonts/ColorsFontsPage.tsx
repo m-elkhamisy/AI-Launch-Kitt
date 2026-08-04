@@ -6,11 +6,10 @@ import { ScaledPage } from "../../components/common/ScaledPage";
 import { SubNav } from "../../components/common/SubNav";
 import { TopHeader } from "../../components/common/TopHeader";
 import { firstValidationError, ValidationError } from "../../components/common/ValidationError";
-import { GOOGLE_FONTS_LIST } from "../../data/google-fonts";
 import { ProjectView, WizardCatalog } from "../../launchkit-api";
-import { derivePaletteFromPrimary, parseHexChannels } from "../../lib/colors";
-import { loadGoogleFont } from "../../lib/fonts";
-import { colorFontSchema, ColorFontValues, customFontsSchema, customPaletteSchema } from "../../wizard-validation";
+import { colorFontSchema, ColorFontValues } from "../../wizard-validation";
+import { CustomFontModal } from "./CustomFontModal";
+import { CustomPaletteModal } from "./CustomPaletteModal";
 import { FontCard } from "./FontCard";
 import { CustomPalette, FontPair, PaletteEntry } from "./types";
 
@@ -213,162 +212,21 @@ export function ColorsFontsPage({ project, catalog, onSave, onBack, onStepClick,
 
             {/* Custom palette modal */}
             {customModalOpen && (
-              <div
-                className="fixed inset-0 flex items-center justify-center"
-                style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)", zIndex: 9999 }}
-                onClick={() => setCustomModalOpen(false)}
-              >
-                <div
-                  className="flex flex-col gap-[24px] p-5 sm:p-10 w-[calc(100%-32px)] sm:w-[420px] max-h-[90vh] overflow-y-auto"
-                  style={{ background: "#111", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 20, fontFamily: "'Montserrat',sans-serif" }}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-white font-semibold text-[17px]">Custom Palette</span>
-                    <button onClick={() => setCustomModalOpen(false)} style={{ color: "rgba(255,255,255,0.4)", fontSize: 22, background: "none", border: "none", cursor: "pointer", lineHeight: 1 }}>×</button>
-                  </div>
-
-                  {/* Checkbox */}
-                  <label className="flex items-center gap-[10px]" style={{ cursor: "pointer" }}>
-                    <div
-                      onClick={() => {
-                        const next = !specificColors;
-                        setSpecificColors(next);
-                        if (!next) {
-                          // Regenerate derived colors from current primary
-                          const channels = parseHexChannels(customDraft.primary);
-                          if (channels) {
-                            const derived = derivePaletteFromPrimary(channels.r, channels.g, channels.b);
-                            setCustomDraft(d => ({ ...d, ...derived }));
-                          }
-                        }
-                      }}
-                      style={{
-                        width: 18, height: 18, borderRadius: 4, flexShrink: 0,
-                        background: specificColors ? "#6FCCDD" : "rgba(255,255,255,0.08)",
-                        border: `1.5px solid ${specificColors ? "#6FCCDD" : "rgba(255,255,255,0.25)"}`,
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                      }}
-                    >
-                      {specificColors && (
-                        <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                          <path d="M2 5L4 7L8 3" stroke="#0b0b0b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                        </svg>
-                      )}
-                    </div>
-                    <span style={{ fontSize: 13, color: "rgba(255,255,255,0.6)", fontWeight: 500 }}>Enter more specific colors</span>
-                  </label>
-
-                  {(["primary","secondary","background","text"] as const).map((field) => {
-                    const labels: Record<string, string> = { primary: "Primary", secondary: "Secondary", background: "Background", text: "Text" };
-                    const disabled = field !== "primary" && !specificColors;
-                    return (
-                      <div key={field} className="flex items-center gap-[16px]" style={{ opacity: disabled ? 0.35 : 1, transition: "opacity 0.2s" }}>
-                        <div style={{ position: "relative", width: 36, height: 36, flexShrink: 0 }}>
-                          <div
-                            style={{
-                              width: 36, height: 36, borderRadius: 8,
-                              background: customDraft[field] || "#333",
-                              border: "1px solid rgba(255,255,255,0.15)",
-                              cursor: disabled ? "not-allowed" : "pointer",
-                            }}
-                          />
-                          {!disabled && (
-                            <input
-                              type="color"
-                              value={customDraft[field] || "#333333"}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                const channels = field === "primary" && !specificColors
-                                  ? parseHexChannels(val)
-                                  : null;
-                                if (channels) {
-                                  const derived = derivePaletteFromPrimary(channels.r, channels.g, channels.b);
-                                  setCustomDraft(d => ({ ...d, primary: val, ...derived }));
-                                } else {
-                                  setCustomDraft(d => ({ ...d, [field]: val }));
-                                }
-                              }}
-                              style={{
-                                position: "absolute", inset: 0, width: "100%", height: "100%",
-                                opacity: 0, cursor: "pointer", border: "none", padding: 0,
-                              }}
-                              title="Pick a color"
-                            />
-                          )}
-                        </div>
-                        <div className="flex flex-col gap-[4px] flex-1">
-                          <label style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>
-                            {labels[field]}
-                          </label>
-                          <input
-                            type="text"
-                            value={customDraft[field]}
-                            disabled={disabled}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              if (field === "primary" && !specificColors) {
-                                const channels = parseHexChannels(val);
-                                if (channels) {
-                                  const derived = derivePaletteFromPrimary(channels.r, channels.g, channels.b);
-                                  setCustomDraft(d => ({ ...d, primary: val, ...derived }));
-                                } else {
-                                  setCustomDraft(d => ({ ...d, primary: val }));
-                                }
-                              } else {
-                                setCustomDraft(d => ({ ...d, [field]: val }));
-                              }
-                            }}
-                            placeholder="#000000"
-                            maxLength={7}
-                            style={{
-                              background: "rgba(255,255,255,0.05)",
-                              border: "1px solid rgba(255,255,255,0.15)",
-                              borderRadius: 8,
-                              color: "white",
-                              fontSize: 14,
-                              fontFamily: "'Montserrat',sans-serif",
-                              fontWeight: 600,
-                              padding: "8px 12px",
-                              outline: "none",
-                              width: "100%",
-                              cursor: disabled ? "not-allowed" : "text",
-                            }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-
-                  <ValidationError message={customPaletteError} />
-                  <div className="flex gap-[12px]">
-                    <button
-                      onClick={() => setCustomModalOpen(false)}
-                      className="flex-1 font-semibold text-[14px]"
-                      style={{ background: "rgba(255,255,255,0.08)", color: "white", border: "none", borderRadius: 10, padding: "12px 0", cursor: "pointer" }}
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={() => {
-                        const validation = customPaletteSchema.safeParse(customDraft);
-                        if (!validation.success) {
-                          setCustomPaletteError(validation.error.issues[0]?.message ?? "Complete the custom palette.");
-                          return;
-                        }
-                        setCustomPaletteError(undefined);
-                        setCustomPalette(validation.data);
-                        setSelectedPalette(palettes.length);
-                        setCustomModalOpen(false);
-                      }}
-                      className="flex-1 font-semibold text-[14px]"
-                      style={{ background: "#6FCCDD", color: "#0b0b0b", border: "none", borderRadius: 10, padding: "12px 0", cursor: "pointer" }}
-                    >
-                      Apply
-                    </button>
-                  </div>
-                </div>
-              </div>
+              <CustomPaletteModal
+                draft={customDraft}
+                onDraftChange={setCustomDraft}
+                specificColors={specificColors}
+                onSpecificColorsChange={setSpecificColors}
+                error={customPaletteError}
+                onError={setCustomPaletteError}
+                onCancel={() => setCustomModalOpen(false)}
+                onApply={(palette) => {
+                  setCustomPaletteError(undefined);
+                  setCustomPalette(palette);
+                  setSelectedPalette(palettes.length);
+                  setCustomModalOpen(false);
+                }}
+              />
             )}
           </div>
 
@@ -430,90 +288,23 @@ export function ColorsFontsPage({ project, catalog, onSave, onBack, onStepClick,
 
             {/* Custom font modal */}
             {fontModalOpen && (
-              <div
-                className="fixed inset-0 flex items-center justify-center"
-                style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)", zIndex: 9999 }}
-                onClick={() => setFontModalOpen(false)}
-              >
-                <div
-                  className="flex flex-col gap-[24px] p-5 sm:p-10 w-[calc(100%-32px)] sm:w-[480px] max-h-[90vh] overflow-y-auto"
-                  style={{ background: "#111", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 20, fontFamily: "'Montserrat',sans-serif" }}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-white font-semibold text-[17px]">Custom Font Pairing</span>
-                    <button onClick={() => setFontModalOpen(false)} style={{ color: "rgba(255,255,255,0.4)", fontSize: 22, background: "none", border: "none", cursor: "pointer", lineHeight: 1 }}>×</button>
-                  </div>
-
-                  {/* Heading font picker */}
-                  {[
-                    { label: "Heading Font", searchVal: headingSearch, setSearch: setHeadingSearch, field: "heading" as const },
-                    { label: "Body Font",    searchVal: bodySearch,    setSearch: setBodySearch,    field: "body" as const },
-                  ].map(({ label, searchVal, setSearch, field }) => {
-                    const filtered = GOOGLE_FONTS_LIST.filter(f => f.toLowerCase().includes(searchVal.toLowerCase())).slice(0, 30);
-                    return (
-                      <div key={field} className="flex flex-col gap-[8px]">
-                        <label style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>{label}</label>
-                        <input
-                          type="text"
-                          value={searchVal}
-                          onChange={(e) => setSearch(e.target.value)}
-                          placeholder="Search fonts…"
-                          style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8, color: "white", fontSize: 14, fontFamily: "'Montserrat',sans-serif", padding: "10px 12px", outline: "none", width: "100%" }}
-                        />
-                        {searchVal && (
-                          <div style={{ background: "#1a1a1a", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, maxHeight: 180, overflowY: "auto" }}>
-                            {filtered.length === 0 ? (
-                              <div style={{ padding: "10px 12px", color: "rgba(255,255,255,0.3)", fontSize: 13 }}>No results</div>
-                            ) : filtered.map((font) => (
-                              <button
-                                key={font}
-                                onClick={() => { setFontDraft(d => ({ ...d, [field]: font })); setSearch(font); loadGoogleFont(font); }}
-                                style={{ display: "block", width: "100%", textAlign: "left", padding: "9px 12px", background: "none", border: "none", color: fontDraft[field] === font ? "#6FCCDD" : "rgba(255,255,255,0.7)", fontSize: 13, cursor: "pointer", fontFamily: `'${font}', sans-serif` }}
-                              >
-                                {font}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                        {fontDraft[field] && (
-                          <span style={{ fontSize: 11, color: "#6FCCDD", fontWeight: 600 }}>Selected: {fontDraft[field]}</span>
-                        )}
-                      </div>
-                    );
-                  })}
-
-                  {/* Live preview */}
-                  {(fontDraft.heading || fontDraft.body) && (
-                    <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: "20px 24px" }}>
-                      <p style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 12, fontFamily: "'Montserrat',sans-serif" }}>Preview</p>
-                      {fontDraft.heading && <p style={{ fontFamily: `'${fontDraft.heading}', serif`, fontSize: 22, fontWeight: 700, color: "white", marginBottom: 8 }}>The Quick Brown Fox</p>}
-                      {fontDraft.body && <p style={{ fontFamily: `'${fontDraft.body}', sans-serif`, fontSize: 14, color: "rgba(255,255,255,0.55)", lineHeight: 1.6 }}>Jumps over the lazy dog. Clear, readable body copy for the web.</p>}
-                    </div>
-                  )}
-
-                  <ValidationError message={customFontError} />
-                  <div className="flex gap-[12px]">
-                    <button onClick={() => setFontModalOpen(false)} className="flex-1 font-semibold text-[14px]" style={{ background: "rgba(255,255,255,0.08)", color: "white", border: "none", borderRadius: 10, padding: "12px 0", cursor: "pointer" }}>Cancel</button>
-                    <button
-                      onClick={() => {
-                        const validation = customFontsSchema.safeParse(fontDraft);
-                        if (!validation.success) {
-                          setCustomFontError(validation.error.issues[0]?.message ?? "Choose both fonts.");
-                          return;
-                        }
-                        setCustomFontError(undefined);
-                        const pair: FontPair = { name: "Custom", ...validation.data };
-                        setCustomFont(pair);
-                        setSelectedFont(fontPairs.length);
-                        setFontModalOpen(false);
-                      }}
-                      className="flex-1 font-semibold text-[14px]"
-                      style={{ background: "#6FCCDD", color: "#0b0b0b", border: "none", borderRadius: 10, padding: "12px 0", cursor: "pointer", opacity: fontDraft.heading && fontDraft.body ? 1 : 0.5 }}
-                    >Apply</button>
-                  </div>
-                </div>
-              </div>
+              <CustomFontModal
+                draft={fontDraft}
+                onDraftChange={setFontDraft}
+                headingSearch={headingSearch}
+                onHeadingSearchChange={setHeadingSearch}
+                bodySearch={bodySearch}
+                onBodySearchChange={setBodySearch}
+                error={customFontError}
+                onError={setCustomFontError}
+                onCancel={() => setFontModalOpen(false)}
+                onApply={(fonts) => {
+                  setCustomFontError(undefined);
+                  setCustomFont({ name: "Custom", ...fonts });
+                  setSelectedFont(fontPairs.length);
+                  setFontModalOpen(false);
+                }}
+              />
             )}
           </div>
           <ValidationError message={firstValidationError(errors)} />

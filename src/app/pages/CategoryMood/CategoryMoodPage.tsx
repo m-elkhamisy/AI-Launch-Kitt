@@ -9,6 +9,8 @@ import { TopHeader } from "../../components/common/TopHeader";
 import { firstValidationError, ValidationError } from "../../components/common/ValidationError";
 import { ProjectView, WizardCatalog } from "../../launchkit-api";
 import { designSelectionSchema, DesignSelectionValues } from "../../wizard-validation";
+import { CategoryPickerModal } from "./CategoryPickerModal";
+import { MoodPickerModal } from "./MoodPickerModal";
 
 export function CategoryMoodPage({ project, catalog, onSave, onBack, onStepClick, completedUpTo, busy }: {
   project: ProjectView;
@@ -229,131 +231,30 @@ export function CategoryMoodPage({ project, catalog, onSave, onBack, onStepClick
 
         {/* Category Popup */}
         {showCategoryModal && (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center"
-            style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}
-            onClick={() => setShowCategoryModal(false)}
-          >
-            <div
-              className="relative flex flex-col w-[calc(100%-32px)] sm:w-[90vw] max-w-[720px] gap-5 sm:gap-6 p-5 sm:p-10"
-              style={{
-                background: "#111",
-                border: "1px solid rgba(255,255,255,0.1)",
-                borderRadius: 20,
-                maxHeight: "85vh",
-                overflowY: "auto",
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              {/* Header */}
-              <div className="flex items-center justify-between" style={{ flexShrink: 0 }}>
-                <h3 className="text-white font-semibold" style={{ fontSize: "clamp(17px, 4vw, 20px)" }}>
-                  Choose Business Category
-                </h3>
-                <button
-                  onClick={() => setShowCategoryModal(false)}
-                  className="text-white font-bold flex items-center justify-center"
-                  style={{
-                    fontSize: 20,
-                    width: 32,
-                    height: 32,
-                    background: "rgba(255,255,255,0.08)",
-                    borderRadius: 8,
-                    flexShrink: 0,
-                  }}
-                >
-                  ×
-                </button>
-              </div>
-
-              {/* Category grid — 1 col mobile, 3 cols tablet/desktop */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  {categories.map((cat) => (
-                  <button
-                    key={cat.label}
-                    onClick={() => {
-                      setCategory(cat.label);
-                      setValue("categoryId", cat.id, { shouldDirty: true, shouldValidate: true });
-                      setShowCategoryModal(false);
-                    }}
-                    className="text-left rounded-[12px] transition-all flex flex-col gap-[6px] p-4"
-                    style={{
-                      background: cat.label === category ? "rgba(111,204,221,0.12)" : "rgba(255,255,255,0.04)",
-                      border: cat.label === category ? "1px solid #6fccdd" : "1px solid rgba(255,255,255,0.1)",
-                    }}
-                  >
-                    <p
-                      className="font-semibold leading-[18px]"
-                      style={{ fontSize: "clamp(12px, 2.4vw, 13px)", color: cat.label === category ? "#6fccdd" : "white" }}
-                    >
-                      {cat.label}
-                    </p>
-                    <p
-                      className="font-medium leading-[17px]"
-                      style={{ fontSize: "clamp(10px, 2vw, 11px)", color: "rgba(255,255,255,0.45)" }}
-                    >
-                        {cat.description}
-                    </p>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
+          <CategoryPickerModal
+            choices={categories}
+            selectedLabel={category}
+            onSelect={(choice) => {
+              setCategory(choice.label);
+              setValue("categoryId", choice.id, { shouldDirty: true, shouldValidate: true });
+              setShowCategoryModal(false);
+            }}
+            onClose={() => setShowCategoryModal(false)}
+          />
         )}
 
         {/* Mood Popup */}
         {showMoodModal && (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center"
-            style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}
-            onClick={() => setShowMoodModal(false)}
-          >
-            <div
-              className="relative flex flex-col gap-5 sm:gap-6 p-5 sm:p-10 w-[calc(100%-32px)] sm:w-[90vw] max-w-[720px]"
-              style={{
-                background: "#111",
-                border: "1px solid rgba(255,255,255,0.1)",
-                borderRadius: 20,
-                maxHeight: "80vh",
-                overflowY: "auto",
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between">
-                <h3 className="text-white font-semibold" style={{ fontSize: "clamp(17px, 4vw, 20px)" }}>Choose Design Mood</h3>
-                <button
-                  onClick={() => setShowMoodModal(false)}
-                  className="text-white font-bold text-[20px] w-[32px] h-[32px] flex items-center justify-center"
-                  style={{
-                    background: "rgba(255,255,255,0.08)",
-                    borderRadius: 8,
-                  }}
-                >
-                  ×
-                </button>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-[12px]">
-                {moods.map((m) => (
-                  <button
-                    key={m.label}
-                    onClick={() => {
-                      setMood(m.label);
-                      setValue("moodId", m.id, { shouldDirty: true, shouldValidate: true });
-                      setShowMoodModal(false);
-                    }}
-                    className="p-[20px] text-left rounded-[12px] transition-all"
-                    style={{
-                      background: m.label === mood ? "rgba(111,204,221,0.12)" : "rgba(255,255,255,0.04)",
-                      border: m.label === mood ? "1px solid #6fccdd" : "1px solid rgba(255,255,255,0.1)",
-                    }}
-                  >
-                    <p className="font-semibold text-[13px] sm:text-[15px] mb-[4px]" style={{ color: m.label === mood ? "#6fccdd" : "white" }}>{m.label}</p>
-                    <p className="font-medium text-[11px] sm:text-[13px] leading-[16px] sm:leading-[18px]" style={{ color: "rgba(255,255,255,0.4)" }}>{m.description}</p>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
+          <MoodPickerModal
+            choices={moods}
+            selectedLabel={mood}
+            onSelect={(choice) => {
+              setMood(choice.label);
+              setValue("moodId", choice.id, { shouldDirty: true, shouldValidate: true });
+              setShowMoodModal(false);
+            }}
+            onClose={() => setShowMoodModal(false)}
+          />
         )}
       </div>
     </ScaledPage>
