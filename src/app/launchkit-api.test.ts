@@ -165,46 +165,36 @@ describe("Launch Kit API authentication", () => {
     expect(new Headers(init.headers).get("Authorization")).toBe("Bearer signed-token");
   });
 
-  it("downloads the build archive with the bearer token", async () => {
+  it("uploads brand documents with kind=document", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
-      new Response(new Uint8Array([1, 2, 3]), {
-        status: 200,
-        headers: {
-          "Content-Type": "application/zip",
-          "Content-Disposition": 'attachment; filename="site.zip"',
-        },
-      }),
+      new Response(
+        JSON.stringify({
+          id: "ast_doc",
+          kind: "profile_source",
+          filename: "brief.pdf",
+          label: "Brand document",
+          contentType: "application/pdf",
+          size: 12,
+          previewUrl: "/api/v1/assets/ast_doc/content",
+        }),
+        { status: 201, headers: { "Content-Type": "application/json" } },
+      ),
     );
     vi.stubGlobal("fetch", fetchMock);
     setAccessToken("signed-token");
 
-    const createObjectURL = vi.fn(() => "blob:download");
-    const revokeObjectURL = vi.fn();
-    vi.stubGlobal("URL", { ...URL, createObjectURL, revokeObjectURL });
-    const click = vi.fn();
-    const remove = vi.fn();
-    const appendChild = vi
-      .spyOn(document.body, "appendChild")
-      .mockImplementation((node) => node);
-    vi.spyOn(document, "createElement").mockReturnValue({
-      click,
-      remove,
-      set href(_value: string) {},
-      get href() {
-        return "";
-      },
-      set download(_value: string) {},
-      set rel(_value: string) {},
-    } as unknown as HTMLAnchorElement);
+    const file = new File(["hello world!"], "brief.pdf", { type: "application/pdf" });
+    const asset = await launchKitApi.uploadAsset("prj_test", file, "document");
 
-    await launchKitApi.downloadBuild("/api/v1/builds/bld_test/download");
-
+    expect(asset.kind).toBe("profile_source");
+    expect(asset.filename).toBe("brief.pdf");
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toMatch(/\/api\/v1\/builds\/bld_test\/download$/);
+    expect(url).toMatch(/\/api\/v1\/projects\/prj_test\/assets$/);
+    expect(init.method).toBe("POST");
+    expect(init.body).toBeInstanceOf(FormData);
+    const body = init.body as FormData;
+    expect(body.get("kind")).toBe("document");
+    expect(body.get("file")).toBeInstanceOf(File);
     expect(new Headers(init.headers).get("Authorization")).toBe("Bearer signed-token");
-    expect(createObjectURL).toHaveBeenCalled();
-    expect(click).toHaveBeenCalled();
-    expect(revokeObjectURL).toHaveBeenCalledWith("blob:download");
-    appendChild.mockRestore();
   });
 });

@@ -4,6 +4,7 @@ import { CircleHelp, ExternalLink } from "lucide-react";
 import { useForm } from "react-hook-form";
 import {
   absoluteApiUrl,
+  AssetView,
   beginInnovationCityLogin,
   BuildView,
   clearAccessToken,
@@ -32,16 +33,18 @@ import {
   customPaletteSchema,
   designSelectionSchema,
   DesignSelectionValues,
+  brandDocumentFileSchema,
+  logoFileSchema,
   mockupSelectionSchema,
   MockupSelectionValues,
   otpSchema,
   OtpValues,
   pageLayoutSchema,
   PageLayoutValues,
-  profileFileSchema,
   questionnaireSchema,
   QuestionnaireValues,
 } from "./wizard-validation";
+import { snapshotFileInput } from "./brand-file-input";
 
 import svgPathsLogin from "@/imports/AiLaunchKitLoginPage/svg-8vlpvs8i0v";
 import svgPathsDl from "@/imports/AiLaunchKitDownloadingGeneratedWebsitesPage/svg-7argp47g3q";
@@ -936,221 +939,773 @@ function OtpPage({
 // ─── PAGE 3: Questionnaire ────────────────────────────────────────────────────
 type QuestionnaireForm = QuestionnaireValues;
 
-function QuestionnairePage({ project, onSave, onUpload, onBack, onStepClick, completedUpTo, busy }: {
+const MAX_BRAND_DOCUMENTS = 5;
+
+type AiSummaryDraft = {
+  companyOverview: string;
+  targetAudience: string;
+  services: string;
+  brandTone: string;
+  mainCta: string;
+};
+
+type AiSummaryFieldKey = keyof AiSummaryDraft;
+
+const AI_SUMMARY_FIELDS: Array<{
+  key: AiSummaryFieldKey;
+  label: string;
+  hint: string;
+}> = [
+  {
+    key: "companyOverview",
+    label: "Company Overview",
+    hint: "Mission, vision, and core description",
+  },
+  {
+    key: "targetAudience",
+    label: "Target Audience",
+    hint: "Who you serve",
+  },
+  {
+    key: "services",
+    label: "Services & Solutions",
+    hint: "What you offer",
+  },
+  {
+    key: "brandTone",
+    label: "Brand Tone & Messaging",
+    hint: "Your communication style",
+  },
+  {
+    key: "mainCta",
+    label: "Main Call-to-Action",
+    hint: "Primary user action",
+  },
+];
+
+function pickExtracted(...values: Array<string | undefined | null>): string {
+  for (const value of values) {
+    const text = String(value ?? "").trim();
+    if (text) return text;
+  }
+  return "";
+}
+
+function buildAiSummaryDraft(
+  extracted: Record<string, string>,
+  design?: { tagline: string; cta: string },
+  business?: { targetAudience: string; uvp: string; notes: string; industry: string },
+): AiSummaryDraft {
+  return {
+    companyOverview: pickExtracted(
+      extracted.description,
+      extracted.uvp,
+      extracted.purpose,
+      extracted.notes,
+      business?.uvp,
+      business?.notes,
+    ),
+    targetAudience: pickExtracted(extracted.targetAudience, business?.targetAudience),
+    services: pickExtracted(
+      extracted.products,
+      extracted.businessActivity,
+      extracted.services,
+      business?.industry,
+    ),
+    brandTone: pickExtracted(extracted.tone, extracted.aesthetic),
+    mainCta: pickExtracted(extracted.cta, design?.cta, extracted.tagline, design?.tagline),
+  };
+}
+
+function summaryCoverage(draft: AiSummaryDraft): number {
+  const filled = AI_SUMMARY_FIELDS.filter((field) => draft[field.key].trim()).length;
+  return Math.round((filled / AI_SUMMARY_FIELDS.length) * 100);
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function isLogoAsset(asset: AssetView): boolean {
+  return asset.kind === "profile_image" && asset.label.toLowerCase().includes("logo");
+}
+
+function isDocumentAsset(asset: AssetView): boolean {
+  return asset.kind === "profile_source";
+}
+
+function FileChip({
+  name,
+  size,
+  onRemove,
+  disabled,
+}: {
+  name: string;
+  size: number;
+  onRemove?: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div
+      className="inline-flex items-center gap-[8px] px-[12px] py-[8px] max-w-full"
+      style={{
+        background: "rgba(255,255,255,0.06)",
+        border: "1px solid rgba(255,255,255,0.12)",
+        borderRadius: 10,
+      }}
+    >
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
+        <path
+          d="M4 2.5h5.5L13 6v7.5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-10a1 1 0 0 1 1-1Z"
+          stroke="rgba(255,255,255,0.55)"
+          strokeWidth="1.2"
+        />
+        <path d="M9.5 2.5V6H13" stroke="rgba(255,255,255,0.55)" strokeWidth="1.2" />
+      </svg>
+      <span className="text-white text-[12px] font-medium truncate" title={name}>
+        {name}
+      </span>
+      <span style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, whiteSpace: "nowrap" }}>
+        {formatFileSize(size)}
+      </span>
+      {onRemove && (
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove();
+          }}
+          aria-label={`Remove ${name}`}
+          style={{
+            background: "none",
+            border: "none",
+            color: "rgba(255,255,255,0.45)",
+            cursor: disabled ? "default" : "pointer",
+            fontSize: 16,
+            lineHeight: 1,
+            padding: 0,
+          }}
+        >
+          ×
+        </button>
+      )}
+    </div>
+  );
+}
+
+function AiSummaryModal({
+  draft,
+  busy,
+  onChange,
+  onCancel,
+  onApply,
+}: {
+  draft: AiSummaryDraft;
+  busy: boolean;
+  onChange: (next: AiSummaryDraft) => void;
+  onCancel: () => void;
+  onApply: () => void;
+}) {
+  const coverage = summaryCoverage(draft);
+  const hasAny = coverage > 0;
+
+  return (
+    <div
+      className="fixed inset-0 flex items-center justify-center p-4"
+      style={{ background: "rgba(0,0,0,0.72)", backdropFilter: "blur(8px)", zIndex: 9999 }}
+      onClick={onCancel}
+      role="presentation"
+    >
+      <div
+        className="flex flex-col w-full max-w-[760px] max-h-[min(90vh,880px)]"
+        style={{
+          background: "#111111",
+          border: "1px solid rgba(255,255,255,0.12)",
+          borderRadius: 20,
+          fontFamily: "'Montserrat', sans-serif",
+          boxShadow: "0 24px 80px rgba(0,0,0,0.55)",
+        }}
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="ai-summary-title"
+      >
+        <div className="flex items-start justify-between gap-4 px-6 sm:px-8 pt-7 pb-2">
+          <div className="flex flex-col gap-2 min-w-0">
+            <h2 id="ai-summary-title" className="text-white font-semibold text-[22px] sm:text-[26px] leading-tight">
+              AI Summary
+            </h2>
+            <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 13, lineHeight: 1.5, maxWidth: 520 }}>
+              Here&apos;s what we extracted from your uploaded files. Review and edit anything before
+              applying it to your form.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onCancel}
+            aria-label="Close AI Summary"
+            style={{
+              color: "rgba(255,255,255,0.55)",
+              fontSize: 26,
+              lineHeight: 1,
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              padding: 4,
+            }}
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-6 sm:px-8 py-4 flex flex-col gap-4">
+          {busy && !hasAny ? (
+            <div className="flex flex-col items-center justify-center gap-3 py-16">
+              <div
+                className="rounded-full"
+                style={{
+                  width: 36,
+                  height: 36,
+                  border: "3px solid rgba(111,204,221,0.2)",
+                  borderTop: "3px solid #6fccdd",
+                  animation: "spin 1s linear infinite",
+                }}
+              />
+              <p style={{ color: "rgba(255,255,255,0.55)", fontSize: 14 }}>
+                Reading your documents and extracting brand details…
+              </p>
+            </div>
+          ) : !hasAny ? (
+            <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 14, padding: "24px 0" }}>
+              No brand details could be extracted from the uploaded files. Try a clearer brand book,
+              portfolio, or profile document, then run AI Summary again.
+            </p>
+          ) : (
+            AI_SUMMARY_FIELDS.map(({ key, label, hint }) => (
+              <div
+                key={key}
+                className="grid grid-cols-1 sm:grid-cols-[minmax(140px,180px)_1fr] gap-3 sm:gap-5 items-start"
+              >
+                <div className="pt-1">
+                  <div className="text-white font-semibold text-[13px]">{label}</div>
+                  <div style={{ color: "rgba(255,255,255,0.38)", fontSize: 11, marginTop: 4, lineHeight: 1.4 }}>
+                    {hint}
+                  </div>
+                </div>
+                <div
+                  className="relative"
+                  style={{
+                    background: "rgba(255,255,255,0.03)",
+                    border: "1px solid rgba(255,255,255,0.12)",
+                    borderRadius: 12,
+                    minHeight: 56,
+                  }}
+                >
+                  <textarea
+                    value={draft[key]}
+                    onChange={(e) => onChange({ ...draft, [key]: e.target.value })}
+                    rows={key === "mainCta" ? 2 : 3}
+                    className="w-full bg-transparent outline-none resize-y text-[13px] leading-relaxed font-medium"
+                    style={{
+                      color: "white",
+                      caretColor: "#6fccdd",
+                      padding: "14px 40px 14px 16px",
+                      minHeight: key === "mainCta" ? 52 : 72,
+                    }}
+                    placeholder="Not found in documents — add or leave blank"
+                    disabled={busy}
+                  />
+                  <span
+                    aria-hidden
+                    className="absolute top-[14px] right-[14px] pointer-events-none"
+                    style={{ color: "rgba(255,255,255,0.35)" }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                      <path
+                        d="M11.5 2.5l2 2L5.5 12.5H3.5v-2L11.5 2.5z"
+                        stroke="currentColor"
+                        strokeWidth="1.4"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </span>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        <div
+          className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 px-6 sm:px-8 py-5"
+          style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}
+        >
+          <div className="flex items-center gap-3">
+            <span style={{ color: "rgba(255,255,255,0.45)", fontSize: 12, fontWeight: 500 }}>
+              Auto-fill Coverage
+            </span>
+            <div
+              className="inline-flex items-center gap-2 px-3 py-1.5"
+              style={{
+                background: "rgba(111,204,221,0.08)",
+                border: "1px solid rgba(111,204,221,0.35)",
+                borderRadius: 999,
+              }}
+            >
+              <span className="font-semibold text-[13px]" style={{ color: "#6FCCDD" }}>
+                {coverage}%
+              </span>
+              <div
+                style={{
+                  width: 48,
+                  height: 4,
+                  borderRadius: 999,
+                  background: "rgba(255,255,255,0.12)",
+                  overflow: "hidden",
+                }}
+              >
+                <div
+                  style={{
+                    width: `${coverage}%`,
+                    height: "100%",
+                    background: "#6FCCDD",
+                    borderRadius: 999,
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={busy}
+              className="font-semibold text-[12px] uppercase tracking-wide px-[20px] py-[12px]"
+              style={{
+                background: "transparent",
+                color: "rgba(255,255,255,0.75)",
+                border: "1px solid rgba(255,255,255,0.25)",
+                borderRadius: 10,
+                cursor: busy ? "not-allowed" : "pointer",
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={onApply}
+              disabled={busy || !hasAny}
+              className="font-semibold text-[12px] uppercase tracking-wide px-[20px] py-[12px]"
+              style={{
+                background: hasAny ? "#6FCCDD" : "rgba(111,204,221,0.25)",
+                color: "#0b0b0b",
+                border: "none",
+                borderRadius: 10,
+                cursor: hasAny && !busy ? "pointer" : "not-allowed",
+                opacity: busy ? 0.75 : 1,
+              }}
+            >
+              {busy ? "Applying..." : "Save & Apply to Form"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function UploadDropzone({
+  title,
+  hint,
+  dragOver,
+  onDragOver,
+  onDragLeave,
+  onDrop,
+  onBrowse,
+  inputRef,
+  accept,
+  multiple,
+  onChange,
+  children,
+}: {
+  title: string;
+  hint: string;
+  dragOver: boolean;
+  onDragOver: (e: React.DragEvent) => void;
+  onDragLeave: () => void;
+  onDrop: (e: React.DragEvent) => void;
+  onBrowse: () => void;
+  inputRef: React.RefObject<HTMLInputElement>;
+  accept: string;
+  multiple?: boolean;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-[12px] min-w-0">
+      <div
+        onDragOver={onDragOver}
+        onDragLeave={onDragLeave}
+        onDrop={onDrop}
+        onClick={onBrowse}
+        className="flex flex-col items-center justify-center gap-[10px] px-[20px] py-[28px] cursor-pointer"
+        style={{
+          border: `1.5px dashed ${dragOver ? "#6FCCDD" : "rgba(255,255,255,0.22)"}`,
+          borderRadius: 14,
+          background: dragOver ? "rgba(111,204,221,0.06)" : "rgba(255,255,255,0.02)",
+          minHeight: 140,
+          transition: "border-color 0.15s ease, background 0.15s ease",
+        }}
+      >
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden>
+          <path
+            d="M14 18V8M14 8l-4 4M14 8l4 4"
+            stroke="#6FCCDD"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <path
+            d="M6 20v1a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-1"
+            stroke="#6FCCDD"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+          />
+        </svg>
+        <p className="text-white font-medium text-[14px] text-center">{title}</p>
+        <p style={{ color: "rgba(255,255,255,0.38)", fontSize: 12, textAlign: "center" }}>{hint}</p>
+      </div>
+      <input
+        ref={inputRef}
+        type="file"
+        accept={accept}
+        multiple={multiple}
+        style={{ display: "none" }}
+        onChange={onChange}
+      />
+      {children}
+    </div>
+  );
+}
+
+function QuestionnairePage({
+  project,
+  onSave,
+  onUploadLogo,
+  onUploadDocuments,
+  onRemoveAsset,
+  onApplySummary,
+  onRunAiSummary,
+  onBack,
+  onStepClick,
+  completedUpTo,
+  busy,
+}: {
   project: ProjectView;
   onSave: (form: QuestionnaireForm) => Promise<void>;
-  onUpload: (file: File) => Promise<void>;
+  onUploadLogo: (file: File) => Promise<void>;
+  onUploadDocuments: (files: File[]) => Promise<void>;
+  onRemoveAsset: (assetId: string) => Promise<void>;
+  onApplySummary: (summary: AiSummaryDraft) => Promise<void>;
+  onRunAiSummary: () => Promise<void>;
   onBack: () => void;
   onStepClick?: (step: number) => void;
   completedUpTo?: number;
   busy: boolean;
 }) {
-  const p = svgPathsMerged;
-  const [uploadOpen, setUploadOpen] = useState(false);
-  const [dragOver, setDragOver] = useState(false);
-  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [logoDrag, setLogoDrag] = useState(false);
+  const [docDrag, setDocDrag] = useState(false);
   const [uploadError, setUploadError] = useState<string>();
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [logoError, setLogoError] = useState<string>();
+  const [summaryOpen, setSummaryOpen] = useState(false);
+  const [summaryDraft, setSummaryDraft] = useState<AiSummaryDraft | null>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const docInputRef = useRef<HTMLInputElement>(null);
+
+  const logoAsset = project.uploadedAssets.find(isLogoAsset) ?? null;
+  const documentAssets = project.uploadedAssets.filter(isDocumentAsset);
+  const extracted = project.extractedProfileFields ?? {};
+  const hasExtracted = Object.values(extracted).some((value) => String(value ?? "").trim())
+    || Boolean(project.design.cta?.trim() || project.business.targetAudience?.trim());
+
+  const builtSummary = buildAiSummaryDraft(
+    extracted,
+    project.design,
+    project.business,
+  );
+  const pageCoverage = summaryCoverage(builtSummary);
+
   const { register, reset, handleSubmit, formState: { errors } } = useForm<QuestionnaireForm>({
     resolver: zodResolver(questionnaireSchema),
     defaultValues: {
       companyName: project.business.companyName,
-      uniqueness: project.business.uvp,
+      industry: project.business.industry,
       customers: project.business.targetAudience,
       tagline: project.design.tagline,
-      cta: project.design.cta,
-      anythingElse: project.business.notes,
     },
     mode: "onTouched",
   });
 
-  async function acceptFile(file: File) {
-    const validation = profileFileSchema.safeParse(file);
-    if (!validation.success) {
-      setUploadError(validation.error.issues[0]?.message ?? "Choose a valid profile file.");
-      return;
-    }
-    setUploadError(undefined);
-    setUploadedFile(file);
-    setUploadOpen(false);
-    await onUpload(file);
-  }
-
-  function handleFileDrop(e: React.DragEvent) {
-    e.preventDefault();
-    setDragOver(false);
-    const file = e.dataTransfer.files[0];
-    if (file) void acceptFile(file);
-  }
-  function handleFileChoose(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (file) void acceptFile(file);
-  }
-
   useEffect(() => {
     reset({
       companyName: project.business.companyName,
-      uniqueness: project.business.uvp,
+      industry: project.business.industry,
       customers: project.business.targetAudience,
       tagline: project.design.tagline,
-      cta: project.design.cta,
-      anythingElse: project.business.notes,
     });
-  }, [project.updatedAt, project.business, project.design, reset]);
+  }, [project.id, project.updatedAt, project.business, project.design, reset]);
 
-  const continueQuestionnaire = () => void handleSubmit(onSave)();
+  const openSummaryModal = (source: AiSummaryDraft = builtSummary) => {
+    setSummaryDraft(source);
+    setSummaryOpen(true);
+  };
 
-  const fields: Array<Array<{ key: keyof QuestionnaireForm; label: string; placeholder: string; optional?: boolean }>> = [
-    [
-      { key: "companyName", label: "Company / Brand Name", placeholder: "e.g. Acme Corp" },
-      { key: "uniqueness", label: "What makes your business unique?", placeholder: "e.g. 10 years of expertise, eco-friendly..." },
-    ],
-    [
-      { key: "customers", label: "Who Are Your Customers?", placeholder: "e.g. Small business owners..." },
-      { key: "tagline", label: "Tagline / Hero Message", placeholder: "e.g. Build faster, ship smarter" },
-    ],
-    [
-      { key: "cta", label: "Main Call to Action", placeholder: "e.g. Get Started Free" },
-      { key: "anythingElse", label: "Anything Else?", placeholder: "Additional context...", optional: true },
-    ],
+  const closeSummaryModal = () => {
+    setSummaryOpen(false);
+    setSummaryDraft(null);
+  };
+
+  const continueQuestionnaire = () => {
+    if (!logoAsset) {
+      setLogoError("Upload your logo to continue.");
+      return;
+    }
+    setLogoError(undefined);
+    void handleSubmit(onSave)();
+  };
+
+  async function acceptLogo(file: File) {
+    const validation = logoFileSchema.safeParse(file);
+    if (!validation.success) {
+      setUploadError(validation.error.issues[0]?.message ?? "Choose a valid logo file.");
+      return;
+    }
+    setUploadError(undefined);
+    setLogoError(undefined);
+    await onUploadLogo(file);
+  }
+
+  async function acceptDocuments(files: FileList | File[]) {
+    const list = Array.from(files);
+    if (!list.length) return;
+    const remaining = MAX_BRAND_DOCUMENTS - documentAssets.length;
+    if (remaining <= 0) {
+      setUploadError(`Upload at most ${MAX_BRAND_DOCUMENTS} brand documents.`);
+      return;
+    }
+    const accepted: File[] = [];
+    for (const file of list.slice(0, remaining)) {
+      const validation = brandDocumentFileSchema.safeParse(file);
+      if (!validation.success) {
+        setUploadError(validation.error.issues[0]?.message ?? "Choose a valid document.");
+        return;
+      }
+      accepted.push(file);
+    }
+    setUploadError(undefined);
+    await onUploadDocuments(accepted);
+  }
+
+  const handleRunAiSummary = async () => {
+    await onRunAiSummary();
+    // Parent refreshes project; read after microtask so state has updated via re-render.
+    // Local recompute uses latest project props after await + React commit on next open.
+  };
+
+  // After extraction completes, load the latest summary into the open modal.
+  // Skip while busy so a blank "extracting" state is not overwritten mid-request.
+  // Do not depend on object identity of draft inputs — only project.updatedAt after refresh.
+  useEffect(() => {
+    if (!summaryOpen || busy) return;
+    setSummaryDraft(
+      buildAiSummaryDraft(
+        project.extractedProfileFields ?? {},
+        project.design,
+        project.business,
+      ),
+    );
+  }, [summaryOpen, busy, project.updatedAt]);
+
+  const fields: Array<{ key: keyof QuestionnaireForm; label: string; placeholder: string }> = [
+    { key: "companyName", label: "Company / Brand Name", placeholder: "e.g. Innovation City" },
+    { key: "industry", label: "Business category", placeholder: "One line description" },
+    { key: "customers", label: "Who are the customers?", placeholder: "Target audience or market" },
+    { key: "tagline", label: "Tagline or hero message", placeholder: "Leave blank if none" },
   ];
 
   return (
     <ScaledPage
       designHeight={1100}
       scrollable
-      header={<><TopHeader /><SubNav activeStep={0} completedUpTo={completedUpTo} onBack={onBack} onNext={busy ? undefined : continueQuestionnaire} onStepClick={onStepClick} /></>}
+      header={
+        <>
+          <TopHeader />
+          <SubNav
+            activeStep={0}
+            completedUpTo={completedUpTo}
+            onBack={onBack}
+            onNext={busy ? undefined : continueQuestionnaire}
+            onStepClick={onStepClick}
+          />
+        </>
+      }
     >
       <div
         className="w-full min-h-full flex flex-col"
         style={{ background: "#0b0b0b", fontFamily: "'Montserrat', sans-serif" }}
       >
-        <div className="flex-1 px-[clamp(16px,5vw,80px)] py-[clamp(24px,5vw,48px)] flex flex-col gap-[clamp(12px,3vw,24px)]">
-          {/* Upload banner */}
+        <div className="flex-1 px-[clamp(16px,5vw,80px)] py-[clamp(24px,5vw,48px)] flex flex-col gap-[clamp(16px,3vw,28px)]">
+          {/* Start with your logo */}
           <div
-            className="flex items-center justify-between px-[24px] py-[18px]"
+            className="relative flex flex-col gap-[20px] p-[clamp(20px,4vw,40px)]"
             style={{
-              background: "rgba(255,255,255,0.03)",
-              border: "1px solid white",
-              borderRadius: 12,
-              cursor: "pointer",
+              background: "#0b0b0b",
+              border: "1px solid rgba(255,255,255,0.1)",
+              borderRadius: 20,
+              boxShadow: "0 18px 40px -12px rgba(0,0,0,0.4)",
             }}
-            onClick={() => setUploadOpen(true)}
           >
-            <div className="flex items-center gap-[12px]">
-              <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-                <path
-                  d={p.p2c12f480}
-                  stroke="#6FCCDD"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-              <span className="text-white font-semibold text-[14px]">
-                {uploadedFile ? `Uploaded: ${uploadedFile.name}` : "Prefer to upload your portfolio instead?"}
-              </span>
-            </div>
-            <button
-              className="font-semibold text-[14px] underline"
-              style={{ color: "#6fccdd" }}
-              onClick={(e) => { e.stopPropagation(); setUploadOpen(true); }}
-            >
-              {uploadedFile ? "Change file →" : "Upload here →"}
-            </button>
-          </div>
-          <ValidationError message={uploadError} />
-
-          {/* Upload overlay */}
-          {uploadOpen && (
-            <div
-              className="fixed inset-0 flex items-center justify-center"
-              style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(6px)", zIndex: 9999 }}
-              onClick={() => setUploadOpen(false)}
-            >
-              <div
-                className="flex flex-col items-center gap-[24px] p-5 sm:p-12 w-[calc(100%-32px)] sm:w-[520px] max-h-[90vh] overflow-y-auto"
-                style={{
-                  background: "#111",
-                  border: "1px solid rgba(255,255,255,0.15)",
-                  borderRadius: 20,
-                  fontFamily: "'Montserrat', sans-serif",
-                }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                {/* Header */}
-                <div className="flex items-center justify-between w-full">
-                  <span className="text-white font-semibold text-[18px]">Upload Portfolio</span>
-                  <button
-                    onClick={() => setUploadOpen(false)}
-                    style={{ color: "rgba(255,255,255,0.5)", fontSize: 22, lineHeight: 1, background: "none", border: "none", cursor: "pointer" }}
-                  >×</button>
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-[16px]">
+              <div className="flex flex-col gap-[10px] max-w-[720px]">
+                <div className="flex items-center gap-[10px]">
+                  <h2 className="text-white font-semibold" style={{ fontSize: "clamp(19px, 5vw, 24px)" }}>
+                    Start with your logo
+                  </h2>
+                  <div className="w-[8px] h-[8px] rounded-full shrink-0" style={{ background: "#6fccdd" }} />
                 </div>
-
-                {/* Drop zone */}
-                <div
-                  onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-                  onDragLeave={() => setDragOver(false)}
-                  onDrop={handleFileDrop}
-                  className="flex flex-col items-center justify-center gap-[16px] w-full"
-                  style={{
-                    border: `2px dashed ${dragOver ? "#6FCCDD" : "rgba(255,255,255,0.2)"}`,
-                    borderRadius: 14,
-                    padding: "48px 32px",
-                    background: dragOver ? "rgba(111,204,221,0.06)" : "rgba(255,255,255,0.02)",
-                    transition: "all 0.2s ease",
-                    cursor: "pointer",
-                  }}
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-                    <circle cx="24" cy="24" r="24" fill="rgba(111,204,221,0.1)" />
-                    <path d="M24 32V20M24 20L19 25M24 20L29 25" stroke="#6FCCDD" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    <path d="M16 34h16" stroke="#6FCCDD" strokeWidth="2" strokeLinecap="round" />
-                  </svg>
-                  <div className="text-center">
-                    <p className="text-white font-semibold text-[15px]">Drag & drop your file here</p>
-                    <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 13, marginTop: 6 }}>or click to browse from your computer</p>
-                  </div>
-                  <p style={{ color: "rgba(255,255,255,0.3)", fontSize: 12 }}>
-                    PDF · DOCX · PPTX · TXT · PNG · JPG — max 20 MB
-                  </p>
-                </div>
-
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".pdf,.docx,.pptx,.txt,.md,.png,.jpg,.jpeg"
-                  style={{ display: "none" }}
-                  onChange={handleFileChoose}
-                />
-
-                {/* Or divider */}
-                <div className="flex items-center gap-[12px] w-full">
-                  <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.1)" }} />
-                  <span style={{ color: "rgba(255,255,255,0.3)", fontSize: 13 }}>or</span>
-                  <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.1)" }} />
-                </div>
-
+                <p style={{ color: "rgba(255,255,255,0.55)", fontSize: 14, lineHeight: 1.55 }}>
+                  Upload your logo to continue — this is required. Adding brand documents helps the AI
+                  auto-fill your business details below.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-[10px] shrink-0">
                 <button
-                  className="w-full font-semibold text-[14px]"
+                  type="button"
+                  disabled={busy || !hasExtracted}
+                  onClick={() => openSummaryModal()}
+                  className="font-semibold text-[12px] uppercase tracking-wide px-[18px] py-[11px]"
                   style={{
-                    background: "#6FCCDD",
+                    background: hasExtracted ? "#6FCCDD" : "rgba(111,204,221,0.25)",
                     color: "#0b0b0b",
                     border: "none",
                     borderRadius: 10,
-                    padding: "14px 0",
-                    cursor: "pointer",
+                    cursor: hasExtracted && !busy ? "pointer" : "not-allowed",
+                    opacity: busy ? 0.7 : 1,
                   }}
-                  onClick={() => fileInputRef.current?.click()}
                 >
-                  Choose File from Computer
+                  Apply to form
+                  {hasExtracted && pageCoverage > 0 ? ` · ${pageCoverage}%` : ""}
+                </button>
+                <button
+                  type="button"
+                  disabled={busy || documentAssets.length === 0}
+                  onClick={() => {
+                    void (async () => {
+                      openSummaryModal({
+                        companyOverview: "",
+                        targetAudience: "",
+                        services: "",
+                        brandTone: "",
+                        mainCta: "",
+                      });
+                      await handleRunAiSummary();
+                    })();
+                  }}
+                  className="font-semibold text-[12px] uppercase tracking-wide px-[18px] py-[11px]"
+                  style={{
+                    background: "transparent",
+                    color: "#6FCCDD",
+                    border: "1px solid #6FCCDD",
+                    borderRadius: 10,
+                    cursor: documentAssets.length && !busy ? "pointer" : "not-allowed",
+                    opacity: documentAssets.length && !busy ? 1 : 0.45,
+                  }}
+                >
+                  {busy && summaryOpen ? "Extracting..." : "AI Summary"}
                 </button>
               </div>
             </div>
-          )}
 
-          {/* Main form panel */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-[16px]">
+              <UploadDropzone
+                title="Click or drag your logo here"
+                hint="PNG, SVG, JPG · 1 file · Max 1.5 MB"
+                dragOver={logoDrag}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setLogoDrag(true);
+                }}
+                onDragLeave={() => setLogoDrag(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setLogoDrag(false);
+                  const file = e.dataTransfer.files[0];
+                  if (file) void acceptLogo(file);
+                }}
+                onBrowse={() => logoInputRef.current?.click()}
+                inputRef={logoInputRef}
+                accept=".png,.svg,.jpg,.jpeg,image/png,image/svg+xml,image/jpeg"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = "";
+                  if (file) void acceptLogo(file);
+                }}
+              >
+                {logoAsset && (
+                  <FileChip
+                    name={logoAsset.filename}
+                    size={logoAsset.size}
+                    disabled={busy}
+                    onRemove={() => void onRemoveAsset(logoAsset.id)}
+                  />
+                )}
+              </UploadDropzone>
+
+              <UploadDropzone
+                title="Click or drag your documents here"
+                hint="Multiple formats · Up to 5 files · Max 1.5 MB each"
+                dragOver={docDrag}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDocDrag(true);
+                }}
+                onDragLeave={() => setDocDrag(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDocDrag(false);
+                  void acceptDocuments(e.dataTransfer.files);
+                }}
+                onBrowse={() => docInputRef.current?.click()}
+                inputRef={docInputRef}
+                accept=".pdf,.docx,.pptx,.txt,.md,.png,.jpg,.jpeg"
+                multiple
+                onChange={(e) => {
+                  const files = snapshotFileInput(e.target);
+                  if (files.length) void acceptDocuments(files);
+                }}
+              >
+                {documentAssets.length > 0 && (
+                  <div className="flex flex-col gap-[8px]">
+                    {documentAssets.map((asset) => (
+                      <FileChip
+                        key={asset.id}
+                        name={asset.filename}
+                        size={asset.size}
+                        disabled={busy}
+                        onRemove={() => void onRemoveAsset(asset.id)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </UploadDropzone>
+            </div>
+
+            <ValidationError message={uploadError || logoError} />
+          </div>
+
+          {/* Tell us about your brand */}
           <div
             className="relative flex flex-col gap-[clamp(20px,4vw,40px)] p-[clamp(20px,6vw,56px)]"
             style={{
@@ -1160,65 +1715,66 @@ function QuestionnairePage({ project, onSave, onUpload, onBack, onStepClick, com
               boxShadow: "0 18px 40px -12px rgba(0,0,0,0.4)",
             }}
           >
-            {/* Grid background */}
             <svg
               className="absolute inset-0 w-full h-full"
               style={{ opacity: 0.04, pointerEvents: "none" }}
               xmlns="http://www.w3.org/2000/svg"
             >
               <defs>
-                <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+                <pattern id="grid-brand" width="40" height="40" patternUnits="userSpaceOnUse">
                   <path d="M 40 0 L 0 0 0 40" fill="none" stroke="white" strokeWidth="0.5" />
                 </pattern>
               </defs>
-              <rect width="100%" height="100%" fill="url(#grid)" />
+              <rect width="100%" height="100%" fill="url(#grid-brand)" />
             </svg>
 
             <div className="flex items-center gap-[10px] relative">
-              <h2 className="text-white font-semibold" style={{ fontSize: "clamp(19px, 5vw, 24px)" }}>Tell us about your brand</h2>
+              <h2 className="text-white font-semibold" style={{ fontSize: "clamp(19px, 5vw, 24px)" }}>
+                Tell us about your brand
+              </h2>
               <div className="w-[8px] h-[8px] rounded-full" style={{ background: "#6fccdd" }} />
             </div>
 
-            {fields.map((row, ri) => (
-              <div key={ri} className="grid grid-cols-1 sm:grid-cols-2 gap-[24px]">
-                {row.map(({ key, label, placeholder, optional }) => (
-                  <div key={key} className="flex flex-col gap-[8px]">
-                    <label
-                      className="font-semibold uppercase"
-                      style={{ fontSize: 12, color: "#6fccdd", letterSpacing: "0.08em" }}
-                    >
-                      {label}{optional ? " (Optional)" : " *"}
-                    </label>
-                    <div
-                      className="flex items-center"
-                      style={{
-                        background: "rgba(255,255,255,0.03)",
-                        border: errors[key] ? "1px solid rgba(248,113,113,0.8)" : "1px solid rgba(255,255,255,0.1)",
-                        borderRadius: 12,
-                        height: 48,
-                        padding: "0 16px",
-                      }}
-                    >
-                      <input
-                        className="w-full bg-transparent outline-none font-medium text-[14px]"
-                        style={{ color: "white", caretColor: "#6fccdd" }}
-                        placeholder={placeholder}
-                        {...register(key)}
-                        aria-invalid={Boolean(errors[key])}
-                        aria-describedby={errors[key] ? `${key}-error` : undefined}
-                      />
-                    </div>
-                    <ValidationError id={`${key}-error`} message={errors[key]?.message} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-[24px] relative">
+              {fields.map(({ key, label, placeholder }) => (
+                <div key={key} className="flex flex-col gap-[8px]">
+                  <label
+                    className="font-semibold uppercase"
+                    style={{ fontSize: 12, color: "#6fccdd", letterSpacing: "0.08em" }}
+                  >
+                    {label}
+                  </label>
+                  <div
+                    className="flex items-center"
+                    style={{
+                      background: "rgba(255,255,255,0.03)",
+                      border: errors[key]
+                        ? "1px solid rgba(248,113,113,0.8)"
+                        : "1px solid rgba(255,255,255,0.1)",
+                      borderRadius: 12,
+                      height: 48,
+                      padding: "0 16px",
+                    }}
+                  >
+                    <input
+                      className="w-full bg-transparent outline-none font-medium text-[14px]"
+                      style={{ color: "white", caretColor: "#6fccdd" }}
+                      placeholder={placeholder}
+                      {...register(key)}
+                      aria-invalid={Boolean(errors[key])}
+                      aria-describedby={errors[key] ? `${key}-error` : undefined}
+                    />
                   </div>
-                ))}
-              </div>
-            ))}
+                  <ValidationError id={`${key}-error`} message={errors[key]?.message} />
+                </div>
+              ))}
+            </div>
 
-            {/* Save button */}
             <button
+              type="button"
               onClick={continueQuestionnaire}
               disabled={busy}
-              className="w-full font-semibold text-[14px] uppercase"
+              className="w-full font-semibold text-[14px] uppercase relative"
               style={{
                 background: "#6fccdd",
                 color: "#0b0b0b",
@@ -1231,6 +1787,18 @@ function QuestionnairePage({ project, onSave, onUpload, onBack, onStepClick, com
           </div>
         </div>
       </div>
+
+      {summaryOpen && summaryDraft && (
+        <AiSummaryModal
+          draft={summaryDraft}
+          busy={busy}
+          onChange={setSummaryDraft}
+          onCancel={closeSummaryModal}
+          onApply={() => {
+            void onApplySummary(summaryDraft).then(() => closeSummaryModal());
+          }}
+        />
+      )}
     </ScaledPage>
   );
 }
@@ -4110,20 +4678,76 @@ export default function App() {
     const updated = await launchKitApi.patchProject(current.id, {
       business: {
         companyName: form.companyName,
-        uvp: form.uniqueness,
+        industry: form.industry,
         targetAudience: form.customers,
-        notes: form.anythingElse,
       },
-      design: { tagline: form.tagline, cta: form.cta },
+      design: {
+        tagline: form.tagline,
+        cta: current.design.cta?.trim() || "Get Started",
+      },
     });
     setProject(updated);
     setMaxReachedStep(Math.max(1, maxReachedStep));
     go("category-mood");
   });
 
-  const uploadProfile = (file: File) => perform(async () => {
+  const uploadLogo = (file: File) => perform(async () => {
     const current = await ensureProject();
-    const queued = await launchKitApi.uploadProfile(current.id, file);
+    await launchKitApi.uploadAsset(current.id, file, "logo");
+    await refreshProject(current.id);
+  });
+
+  const uploadDocuments = (files: File[]) => perform(async () => {
+    const current = await ensureProject();
+    for (const file of files) {
+      await launchKitApi.uploadAsset(current.id, file, "document");
+    }
+    await refreshProject(current.id);
+  });
+
+  const removeAsset = (assetId: string) => perform(async () => {
+    const current = await ensureProject();
+    await launchKitApi.deleteAsset(current.id, assetId);
+    await refreshProject(current.id);
+  });
+
+  const applySummary = (summary: AiSummaryDraft) => perform(async () => {
+    const current = await ensureProject();
+    const extracted = current.extractedProfileFields ?? {};
+    const notesParts = [summary.services, summary.brandTone].map((part) => part.trim()).filter(Boolean);
+    const updated = await launchKitApi.patchProject(current.id, {
+      business: {
+        companyName:
+          pickExtracted(extracted.companyName, current.business.companyName) ||
+          current.business.companyName,
+        industry:
+          pickExtracted(extracted.industry, current.business.industry) ||
+          current.business.industry,
+        targetAudience:
+          summary.targetAudience.trim() || current.business.targetAudience,
+        uvp: summary.companyOverview.trim() || current.business.uvp,
+        notes: notesParts.join("\n\n") || current.business.notes,
+      },
+      design: {
+        tagline:
+          pickExtracted(extracted.tagline, current.design.tagline) ||
+          current.design.tagline,
+        cta: summary.mainCta.trim() || current.design.cta || "Get Started",
+      },
+    });
+    setProject(updated);
+  });
+
+  const runAiSummary = () => perform(async () => {
+    const current = await ensureProject();
+    const documents = current.uploadedAssets.filter((asset) => asset.kind === "profile_source");
+    if (!documents.length) return;
+    // Backend merges every brand document on the project; anchor on any PDF when available.
+    const anchor =
+      [...documents].reverse().find((asset) => asset.filename.toLowerCase().endsWith(".pdf"))
+      ?? documents.at(-1);
+    if (!anchor) return;
+    const queued = await launchKitApi.extractFromAsset(current.id, anchor.id);
     setOperation(queued);
     await waitForOperation(queued.id, setOperation);
     await refreshProject(current.id);
@@ -4244,7 +4868,21 @@ export default function App() {
             onSignOut={signOut}
           />
         )}
-        {page === "questionnaire" && project && <QuestionnairePage project={project} onSave={saveBusiness} onUpload={uploadProfile} busy={busy} onBack={goBack} onStepClick={goToStep} completedUpTo={completedUpTo} />}
+        {page === "questionnaire" && project && (
+          <QuestionnairePage
+            project={project}
+            onSave={saveBusiness}
+            onUploadLogo={uploadLogo}
+            onUploadDocuments={uploadDocuments}
+            onRemoveAsset={removeAsset}
+            onApplySummary={applySummary}
+            onRunAiSummary={runAiSummary}
+            busy={busy}
+            onBack={goBack}
+            onStepClick={goToStep}
+            completedUpTo={completedUpTo}
+          />
+        )}
         {page === "category-mood" && project && catalog && <CategoryMoodPage project={project} catalog={catalog} onSave={saveDesign} busy={busy} onBack={goBack} onStepClick={goToStep} completedUpTo={completedUpTo} />}
         {page === "colors" && project && catalog && <ColorsFontsPage project={project} catalog={catalog} onSave={saveColors} busy={busy} onBack={goBack} onStepClick={goToStep} completedUpTo={completedUpTo} />}
         {page === "pick-pages" && project && catalog && <PickPagesPage project={project} catalog={catalog} onGenerate={generateMockups} busy={busy} onBack={goBack} onStepClick={goToStep} completedUpTo={completedUpTo} />}
