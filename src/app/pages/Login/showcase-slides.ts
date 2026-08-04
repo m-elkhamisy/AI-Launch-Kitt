@@ -1,0 +1,100 @@
+// The three capabilities shown beside sign-in, in the order the design cycles
+// them. This is the only place slide content lives — a colour, headline or stat
+// restated inside a component is how the old catalog tables drifted out of sync
+// with what they described.
+//
+// Content and geometry come from Figma frames 249-7740 / 249-7902 / 249-7809.
+import { BookOpen, FileText, MonitorSmartphone, type LucideIcon } from "lucide-react";
+
+import brochureMockup from "../../../assets/showcase/brochure-mockup.png";
+import brochureTexture from "../../../assets/showcase/brochure-texture.png";
+import portfolioMockup from "../../../assets/showcase/portfolio-mockup.png";
+import portfolioTexture from "../../../assets/showcase/portfolio-texture.png";
+import websiteMockup from "../../../assets/showcase/website-mockup.png";
+import websiteTexture from "../../../assets/showcase/website-texture.png";
+
+export type ShowcaseStat = {
+  value: string;
+  caption: string;
+  /** Set on the closing stat only — renders five stars in the slide accent. */
+  rating?: boolean;
+};
+
+export type ShowcaseSlide = {
+  id: string;
+  /** Lowercase hex. Tints the badge, the stars and the filled indicators. */
+  accent: string;
+  badgeLabel: string;
+  BadgeIcon: LucideIcon;
+  /** Stored sentence case; the headline renders with capitalize, as in Figma. */
+  headline: string;
+  subcopy: string;
+  mockupSrc: string;
+  /** Describes the capability rather than the picture — it stands in for the image. */
+  mockupAlt: string;
+  textureSrc: string;
+  stats: readonly ShowcaseStat[];
+};
+
+const TRUSTED_BY: ShowcaseStat = {
+  value: "Trusted by 2,000+ clients",
+  caption: "4.9/5 average rating",
+  rating: true,
+};
+
+export const SHOWCASE_SLIDES: readonly ShowcaseSlide[] = Object.freeze([
+  {
+    id: "website",
+    accent: "#e99041",
+    badgeLabel: "AI-Powered Design Builder",
+    BadgeIcon: MonitorSmartphone,
+    headline: "Launch a professional website in minutes",
+    subcopy:
+      "Generate a complete, responsive website tailored to your business, ready to customize and publish.",
+    mockupSrc: websiteMockup,
+    mockupAlt: "A generated business website shown on a desktop and a phone",
+    textureSrc: websiteTexture,
+    stats: [
+      { value: "5 min", caption: "Average generation" },
+      { value: "50+", caption: "Unique styles" },
+      { value: "100%", caption: "Responsive & SEO" },
+      TRUSTED_BY,
+    ],
+  },
+  {
+    id: "portfolio",
+    accent: "#847eda",
+    badgeLabel: "AI Portfolio Builder",
+    BadgeIcon: FileText,
+    headline: "Professional portfolio. Instantly yours.",
+    subcopy:
+      "AI creates a polished PDF portfolio that showcases your services, projects, and expertise in a clear, professional format.",
+    mockupSrc: portfolioMockup,
+    mockupAlt: "A generated PDF portfolio open in a document viewer",
+    textureSrc: portfolioTexture,
+    stats: [
+      { value: "50+", caption: "Professional layouts" },
+      { value: "100%", caption: "Brand matched" },
+      { value: "1 click", caption: "Export as PDF" },
+      TRUSTED_BY,
+    ],
+  },
+  {
+    id: "brochure",
+    accent: "#6fc074",
+    badgeLabel: "AI Brochure Generator",
+    BadgeIcon: BookOpen,
+    headline: "Create a brochure that sells your business",
+    subcopy:
+      "Generate a professional brochure with your services, branding, and contact details, ready to print or share digitally.",
+    mockupSrc: brochureMockup,
+    mockupAlt: "A generated print-ready brochure open in a document viewer",
+    textureSrc: brochureTexture,
+    stats: [
+      { value: "100%", caption: "Ready for print" },
+      { value: "PDF export", caption: "Download & share" },
+      { value: "Your Style", caption: "Matches your brand" },
+      TRUSTED_BY,
+    ],
+  },
+]);
