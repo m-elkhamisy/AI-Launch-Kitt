@@ -9,38 +9,18 @@ import { TopHeader } from "../../components/common/TopHeader";
 import { firstValidationError, ValidationError } from "../../components/common/ValidationError";
 import { PageLayout, ProjectView, WizardCatalog } from "../../launchkit-api";
 import { pageLayoutSchema, PageLayoutValues } from "../../wizard-validation";
-
-type Section = { id: string; name: string; templateId?: string; locked?: boolean };
-type PageTemplate = { id: string; name: string; slug?: string; selected: boolean; sections: Section[] };
-
-let _sid = 0;
-const sid = () => `s${++_sid}`;
-
-function editorPages(project: ProjectView, catalog: WizardCatalog): PageTemplate[] {
-  const sectionCatalog = new Map(catalog.sectionTemplates.map((item) => [item.id, item]));
-  const saved = new Map(project.pageLayout.pages.map((page) => [page.templateId, page]));
-  return catalog.pageTemplates.map((template) => {
-    const page = saved.get(template.id);
-    const sections = page?.sections ?? template.sectionTemplateIds.map((templateId, index) => ({
-      id: `${template.id}:${templateId}:${index}`,
-      templateId,
-      name: sectionCatalog.get(templateId)?.label ?? templateId,
-      locked: sectionCatalog.get(templateId)?.locked ?? false,
-    }));
-    return {
-      id: template.id,
-      name: page?.name ?? template.label,
-      slug: page?.slug ?? template.slug,
-      selected: Boolean(page),
-      sections: sections.map((section) => ({
-        id: section.id,
-        name: section.name,
-        templateId: section.templateId,
-        locked: section.locked,
-      })),
-    };
-  });
-}
+import {
+  addSection,
+  contentSections,
+  deleteSection,
+  editorPages,
+  layoutTotals,
+  MAX_PAGES,
+  moveSection,
+  togglePage,
+  toPageLayout,
+  type PageTemplate,
+} from "./page-layout";
 
 export function PickPagesPage({ project, catalog, onGenerate, onBack, onStepClick, completedUpTo, busy }: {
   project: ProjectView;
@@ -54,7 +34,6 @@ export function PickPagesPage({ project, catalog, onGenerate, onBack, onStepClic
   const [pages, setPages] = useState<PageTemplate[]>(() => editorPages(project, catalog));
   const [openMenu, setOpenMenu] = useState<{ pageId: string; sectionId: string } | null>(null);
   const [addModal, setAddModal] = useState<string | null>(null); // pageId
-  const [renaming, setRenaming] = useState<{ pageId: string; sectionId: string; value: string } | null>(null);
   const [drag, setDrag] = useState<{ pageId: string; sectionId: string } | null>(null);
   const [dragOver, setDragOver] = useState<{ pageId: string; sectionId: string } | null>(null);
   const { setValue, handleSubmit, formState: { errors } } = useForm<PageLayoutValues>({
@@ -64,112 +43,31 @@ export function PickPagesPage({ project, catalog, onGenerate, onBack, onStepClic
   });
 
   const unlockedSections = catalog.sectionTemplates.filter((section) => !section.locked);
+  const {
+    selectedPageCount,
+    totalContentSections,
+    atPageLimit,
+    atSectionLimit,
+    atLimit,
+    hasInvalidPage,
+    selectedNames,
+    canGenerate,
+  } = layoutTotals(pages);
+
   const continueGeneration = () => {
-    const layout: PageLayout = {
-      pages: pages.filter((page) => page.selected).map((page) => ({
-        id: `page:${page.id}`,
-        templateId: page.id,
-        name: page.name,
-        slug: page.slug ?? page.id,
-        sections: page.sections.map((section) => ({
-          id: section.id,
-          templateId: section.templateId ?? unlockedSections.find((item) => item.label === section.name.replace(" (Copy)", ""))?.id ?? "features",
-          name: section.name,
-          locked: Boolean(section.locked),
-        })),
-      })),
-    };
+    const layout = toPageLayout(pages, unlockedSections);
     setValue("pages", layout.pages, { shouldDirty: true, shouldValidate: true });
     void handleSubmit((values) => onGenerate(values))();
   };
 
-  const selectedPageCount = pages.filter((p) => p.selected).length;
-  const totalContentSections = pages.filter((p) => p.selected).reduce((n, p) => n + p.sections.filter((s) => !s.locked).length, 0);
-  const atPageLimit = selectedPageCount >= 6;
-  const atSectionLimit = totalContentSections >= 24;
-  const hasInvalidPage = pages.filter((p) => p.selected).some((p) => !p.sections.some((s) => !s.locked));
-  const atLimit = atPageLimit || atSectionLimit;
-
-  const togglePage = (pageId: string) =>
-    setPages((prev) => prev.map((p) => p.id === pageId ? { ...p, selected: !p.selected } : p));
-
-  const updateSections = (pageId: string, fn: (s: Section[]) => Section[]) =>
-    setPages((prev) => prev.map((p) => p.id === pageId ? { ...p, sections: fn(p.sections) } : p));
-
-  const deleteSection = (pageId: string, sectionId: string) =>
-    updateSections(pageId, (s) => s.filter((sec) => sec.id !== sectionId));
-
-  const duplicateSection = (pageId: string, sectionId: string) =>
-    updateSections(pageId, (s) => {
-      const idx = s.findIndex((sec) => sec.id === sectionId);
-      if (idx < 0) return s;
-      const copy = { ...s[idx], id: sid(), name: s[idx].name + " (Copy)", locked: false };
-      return [...s.slice(0, idx + 1), copy, ...s.slice(idx + 1)];
-    });
-
-  const addSection = (pageId: string, name: string) => {
-    updateSections(pageId, (s) => {
-      const footerIdx = s.findIndex((sec) => sec.locked && sec.name === "Footer");
-      const newSec: Section = {
-        id: sid(),
-        name,
-        templateId: unlockedSections.find((item) => item.label === name)?.id,
-      };
-      if (footerIdx >= 0) return [...s.slice(0, footerIdx), newSec, ...s.slice(footerIdx)];
-      return [...s, newSec];
-    });
+  const handleAddSection = (pageId: string, item: { id: string; label: string }) => {
+    setPages((prev) => addSection(prev, pageId, item.label, item.id));
     setAddModal(null);
   };
 
-  const commitRename = () => {
-    if (!renaming) return;
-    updateSections(renaming.pageId, (s) =>
-      s.map((sec) => sec.id === renaming.sectionId ? { ...sec, name: renaming.value } : sec)
-    );
-    setRenaming(null);
-  };
-
-  const onDragStart = (pageId: string, sectionId: string) => setDrag({ pageId, sectionId });
-
-  const onDragEnter = (pageId: string, sectionId: string) => setDragOver({ pageId, sectionId });
-
-  const onDrop = (targetPageId: string, targetSectionId: string) => {
-    if (!drag) { setDrag(null); setDragOver(null); return; }
-    const isCrossPage = drag.pageId !== targetPageId;
-    if (isCrossPage) {
-      // Move section from source page to target page, inserting before the drop target
-      setPages((prev) => {
-        const srcPage = prev.find((p) => p.id === drag.pageId);
-        if (!srcPage) return prev;
-        const movingSec = srcPage.sections.find((s) => s.id === drag.sectionId);
-        if (!movingSec || movingSec.locked) return prev;
-        return prev.map((p) => {
-          if (p.id === drag.pageId) {
-            return { ...p, sections: p.sections.filter((s) => s.id !== drag.sectionId) };
-          }
-          if (p.id === targetPageId) {
-            const toIdx = p.sections.findIndex((s) => s.id === targetSectionId);
-            const insertAt = toIdx >= 0 ? toIdx : p.sections.length - 1; // before footer
-            const next = [...p.sections];
-            next.splice(insertAt, 0, movingSec);
-            return { ...p, sections: next };
-          }
-          return p;
-        });
-      });
-    } else {
-      updateSections(targetPageId, (s) => {
-        const fromIdx = s.findIndex((sec) => sec.id === drag.sectionId);
-        const toIdx = s.findIndex((sec) => sec.id === targetSectionId);
-        if (fromIdx < 0 || toIdx < 0 || fromIdx === toIdx) return s;
-        // Prevent moving locked sections or dropping onto locked sections
-        if (s[fromIdx].locked || s[toIdx].locked) return s;
-        const item = s[fromIdx];
-        const next = [...s];
-        next.splice(fromIdx, 1);
-        next.splice(toIdx, 0, item);
-        return next;
-      });
+  const handleDrop = (targetPageId: string, targetSectionId: string) => {
+    if (drag) {
+      setPages((prev) => moveSection(prev, drag, { pageId: targetPageId, sectionId: targetSectionId }));
     }
     setDrag(null);
     setDragOver(null);
@@ -227,7 +125,7 @@ export function PickPagesPage({ project, catalog, onGenerate, onBack, onStepClic
                   </p>
                 </div>
                 <span className="font-semibold text-[13px]" style={{ color: "#6fccdd" }}>
-                  {pages.filter((p) => p.selected).length} of 6 pages selected
+                  {selectedPageCount} of {MAX_PAGES} pages selected
                 </span>
               </div>
             </div>
@@ -239,9 +137,9 @@ export function PickPagesPage({ project, catalog, onGenerate, onBack, onStepClic
                   key={page.id}
                   className="flex flex-col gap-[16px] p-[20px]"
                   onClick={() => {
-                    const hasContent = page.sections.some((s) => !s.locked);
+                    const hasContent = contentSections(page.sections).length > 0;
                     if (!hasContent || (!page.selected && atPageLimit)) return;
-                    togglePage(page.id);
+                    setPages((prev) => togglePage(prev, page.id));
                   }}
                   style={{
                     backdropFilter: "blur(12px)",
@@ -249,12 +147,12 @@ export function PickPagesPage({ project, catalog, onGenerate, onBack, onStepClic
                     borderRadius: 16,
                     border: page.selected ? "1px solid white" : "1px solid rgba(255,255,255,0.15)",
                     opacity: page.selected ? 1 : (
-                      !page.sections.some((s) => !s.locked) ? 0.4
+                      contentSections(page.sections).length === 0 ? 0.4
                       : atPageLimit ? 0.25
                       : 0.5
                     ),
                     transition: "opacity 0.2s, border 0.2s",
-                    cursor: (!page.sections.some((s) => !s.locked) || (!page.selected && atPageLimit)) ? "not-allowed" : "pointer",
+                    cursor: (contentSections(page.sections).length === 0 || (!page.selected && atPageLimit)) ? "not-allowed" : "pointer",
                   }}
                 >
                   {/* Card header */}
@@ -275,7 +173,7 @@ export function PickPagesPage({ project, catalog, onGenerate, onBack, onStepClic
                   </div>
 
                   {/* No-content warning */}
-                  {!page.sections.some((s) => !s.locked) && (
+                  {contentSections(page.sections).length === 0 && (
                     <p style={{ color: "rgba(248,113,113,0.85)", fontSize: 12, lineHeight: 1.55, marginTop: -4 }}>
                       A page requires at least one content section.
                     </p>
@@ -287,17 +185,17 @@ export function PickPagesPage({ project, catalog, onGenerate, onBack, onStepClic
                       const isMenuOpen = openMenu?.pageId === page.id && openMenu?.sectionId === section.id;
                       const isDragging = drag?.pageId === page.id && drag?.sectionId === section.id;
                       const isOver = dragOver?.pageId === page.id && dragOver?.sectionId === section.id;
-                      const isLastContent = !section.locked && page.sections.filter((s) => !s.locked).length <= 1;
+                      const isLastContent = !section.locked && contentSections(page.sections).length <= 1;
 
                       return (
                         <div
                           key={section.id}
                           draggable={!section.locked}
                           onClick={(e) => e.stopPropagation()}
-                          onDragStart={() => !section.locked && onDragStart(page.id, section.id)}
-                          onDragEnter={() => onDragEnter(page.id, section.id)}
+                          onDragStart={() => !section.locked && setDrag({ pageId: page.id, sectionId: section.id })}
+                          onDragEnter={() => setDragOver({ pageId: page.id, sectionId: section.id })}
                           onDragOver={(e) => e.preventDefault()}
-                          onDrop={() => onDrop(page.id, section.id)}
+                          onDrop={() => handleDrop(page.id, section.id)}
                           onDragEnd={() => { setDrag(null); setDragOver(null); }}
                           className="flex items-center gap-[10px] px-[12px] py-[10px] rounded-[8px] relative"
                           style={{
@@ -374,7 +272,7 @@ export function PickPagesPage({ project, catalog, onGenerate, onBack, onStepClic
                                     </div>
                                   ) : (
                                     <button
-                                      onClick={() => { deleteSection(page.id, section.id); setOpenMenu(null); }}
+                                      onClick={() => { setPages((prev) => deleteSection(prev, page.id, section.id)); setOpenMenu(null); }}
                                       className="flex items-center gap-[10px] px-[14px] py-[10px] font-medium text-[13px] text-left w-full"
                                       style={{ color: "#f87171", background: "transparent" }}
                                       onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(248,113,113,0.08)")}
@@ -397,8 +295,7 @@ export function PickPagesPage({ project, catalog, onGenerate, onBack, onStepClic
 
                   {/* Add section button — 24 content-section global limit */}
                   {(() => {
-                    const totalContent = pages.filter((p) => p.selected).reduce((n, p) => n + p.sections.filter((s) => !s.locked).length, 0);
-                    const atContentLimit = totalContent >= 24;
+                    const atContentLimit = atSectionLimit;
                     return (
                       <div className="relative">
                         <button
@@ -441,7 +338,7 @@ export function PickPagesPage({ project, catalog, onGenerate, onBack, onStepClic
                               {unlockedSections.filter((item) => !page.sections.some((s) => s.templateId === item.id)).map((item) => (
                                 <button
                                   key={item.id}
-                                  onClick={() => addSection(page.id, item.label)}
+                                  onClick={() => handleAddSection(page.id, item)}
                                   className="flex items-center gap-[10px] px-[14px] py-[9px] font-medium text-[13px] text-left w-full"
                                   style={{ color: "rgba(255,255,255,0.8)", background: "transparent" }}
                                   onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(111,204,221,0.08)")}
@@ -490,15 +387,14 @@ export function PickPagesPage({ project, catalog, onGenerate, onBack, onStepClic
             >
               <div>
                 <p className="text-white font-semibold text-[14px]">
-                  {pages.filter((p) => p.selected).length} pages · {totalContentSections} content sections
+                  {selectedPageCount} pages · {totalContentSections} content sections
                 </p>
                 <p className="font-medium text-[12px] mt-[2px]" style={{ color: "rgba(255,255,255,0.4)" }}>
-                  {pages.filter((p) => p.selected).map((p) => p.name).join(", ")}
+                  {selectedNames.join(", ")}
                 </p>
               </div>
               <div className="flex flex-col items-stretch sm:items-end gap-[6px]">
                 {(() => {
-                  const canGenerate = selectedPageCount > 0 && !hasInvalidPage && !atSectionLimit;
                   return (
                     <>
                       <button
