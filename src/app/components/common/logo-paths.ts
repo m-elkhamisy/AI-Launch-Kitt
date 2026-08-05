@@ -2,11 +2,42 @@
 // app still carries. Every generic icon is a lucide component now; a logo
 // cannot be, so this stays. Do not hand-edit the coordinates.
 
-/** The two shapes of the gradient logo mark. */
+/** The two shapes of the gradient logo mark, on a 50×36 canvas. */
 export const LOGO_MARK = {
   p3be92e00: "M21.0641 14.5585H35.5405C33.9404 6.26416 26.6684 0 17.9355 0C8.02913 0 0 8.05933 0 18C0 27.942 8.03043 36 17.9355 36C26.6189 36 33.8597 29.8076 35.5145 21.5838H21.0641V14.5585Z",
   p2287a280: "M35.5405 14.5585C35.7551 15.6735 35.8723 16.8224 35.8723 18C35.8723 19.2273 35.7487 20.4258 35.5158 21.5838H50V14.5585L35.5405 14.5585Z",
 } as const;
+
+/**
+ * The mark's teal-to-purple ramp.
+ *
+ * The coordinates are in user space, not the SVG default of the path's own
+ * bounding box. That distinction is the whole point of recording them: the mark
+ * path spans x 0–35.54, so a 0→1 bounding-box gradient compresses the ramp into
+ * that range and finishes purple well before the design does, which reaches
+ * #5752A3 only at x 44.42 — past the right edge of the shape. Getting this wrong
+ * is not obviously wrong; the mark simply looks too purple.
+ */
+export const LOGO_MARK_GRADIENT = {
+  x1: 8.87992,
+  y1: 18,
+  x2: 44.4204,
+  y2: 18,
+  stops: [
+    { offset: 0, color: "#85D2DB" },
+    { offset: 0.09, color: "#83CCD8" },
+    { offset: 0.2, color: "#81BCD2" },
+    { offset: 0.32, color: "#7CA2C7" },
+    { offset: 0.45, color: "#757EB7" },
+    { offset: 0.53, color: "#7165AD" },
+    { offset: 0.64, color: "#645CA8" },
+    { offset: 0.81, color: "#5A54A4" },
+    { offset: 1, color: "#5752A3" },
+  ],
+} as const;
+
+/** Flat fill of the bar to the right of the mark, and of the wordmark. */
+export const LOGO_BAR_FILL = "#5752A3";
 
 /** The 14 letter shapes of the "AI LAUNCH KIT" wordmark, in reading order. */
 export const LOGO_WORDMARK = [
@@ -23,7 +54,7 @@ export const LOGO_WORDMARK = [
   "M60 24.544C60 20.9861 62.8687 18.5844 66.5715 18.5844C69.8395 18.5844 71.4357 20.3459 72.1623 21.9354L69.0042 23.3332C68.6952 22.4362 67.7512 21.6577 66.5715 21.6577C64.9008 21.6577 63.7211 22.9359 63.7211 24.5428C63.7211 26.1497 64.9008 27.4267 66.5715 27.4267C67.7512 27.4267 68.6952 26.6494 69.0042 25.7512L72.1623 27.1327C71.454 28.6688 69.8383 30.5 66.5715 30.5C62.8687 30.5 60 28.0832 60 24.5416V24.544Z",
   "M72.4174 30.2955V18.7762H76.0836V30.2955H72.4174Z",
   "M79.7514 30.2955V21.8158H76.5017V18.7762H86.6489V21.8158H83.4175V30.2955H79.7502H79.7514Z",
-  "M90.2979 30.2955V25.7187L85.7598 18.7762H89.8802L92.1309 22.6617L94.345 18.7762H98.4655L93.964 25.7187V30.2955H90.2979Z",
+  "M90.2979 30.2955V25.7187L85.7598 18.7762H89.8802L92.1309 22.6617L94.3451 18.7762H98.4655L93.964 25.7187V30.2955H90.2979Z",
 ] as const;
 
 /** The compact logo glyph used inside the auth cards. */

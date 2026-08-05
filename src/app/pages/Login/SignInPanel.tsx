@@ -1,6 +1,6 @@
 import { ArrowRight } from "lucide-react";
 
-import { LOGO_GLYPH } from "../../components/common/logo-paths";
+import { LogoMark } from "../../components/common/LogoMark";
 
 // The left column of the welcome screen. Behaviour is carried over unchanged from
 // the previous single-card LoginPage: one button, disabled while redirecting.
@@ -18,10 +18,7 @@ export function SignInPanel({
     <div className="flex w-full flex-1 items-center justify-center px-5 py-10 sm:px-6">
       <div className="flex w-full max-w-[407px] flex-col items-center gap-[28px]">
         <div className="flex w-full flex-col items-center gap-[16px]">
-          <svg width="50" height="36" viewBox="10 14 32 24" fill="none" aria-hidden="true">
-            <path d={LOGO_GLYPH.pdbfe710} fill="#5752A3" />
-            <path d={LOGO_GLYPH.p389a4180} fill="#5752A3" />
-          </svg>
+          <LogoMark />
           <div className="text-center">
             <h1 className="mb-[8px] font-semibold text-white" style={{ fontSize: 28, lineHeight: "40px" }}>
               Welcome To Launch Kit
