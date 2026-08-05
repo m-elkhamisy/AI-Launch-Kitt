@@ -58,25 +58,37 @@ export function buildAiSummaryDraft(
   extracted: Record<string, string>,
   design?: { tagline: string; cta: string },
   business?: { targetAudience: string; uvp: string; notes: string; industry: string },
+  options?: { preferSourcesOnly?: boolean },
 ): AiSummaryDraft {
+  // After a fresh AI Summary, never fall back to form business fields — those may
+  // still hold a previous extract and make a URL-only re-run look like the old docs.
+  const sourcesOnly = options?.preferSourcesOnly === true;
   return {
     companyOverview: pickExtracted(
       extracted.description,
       extracted.uvp,
       extracted.purpose,
       extracted.notes,
-      business?.uvp,
-      business?.notes,
+      sourcesOnly ? undefined : business?.uvp,
+      sourcesOnly ? undefined : business?.notes,
     ),
-    targetAudience: pickExtracted(extracted.targetAudience, business?.targetAudience),
+    targetAudience: pickExtracted(
+      extracted.targetAudience,
+      sourcesOnly ? undefined : business?.targetAudience,
+    ),
     services: pickExtracted(
       extracted.products,
       extracted.businessActivity,
       extracted.services,
-      business?.industry,
+      sourcesOnly ? undefined : business?.industry,
     ),
     brandTone: pickExtracted(extracted.tone, extracted.aesthetic),
-    mainCta: pickExtracted(extracted.cta, design?.cta, extracted.tagline, design?.tagline),
+    mainCta: pickExtracted(
+      extracted.cta,
+      sourcesOnly ? undefined : design?.cta,
+      extracted.tagline,
+      sourcesOnly ? undefined : design?.tagline,
+    ),
   };
 }
 

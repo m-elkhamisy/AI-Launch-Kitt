@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { loginSchema, otpSchema, questionnaireSchema } from "./wizard-validation";
+import { loginSchema, otpSchema, questionnaireSchema, websiteUrlSchema } from "./wizard-validation";
 
 describe("restricted staging credentials", () => {
   it("accepts only the enabled staging email", () => {
@@ -34,5 +34,19 @@ describe("brand questionnaire", () => {
     });
 
     expect(result.success).toBe(true);
+  });
+});
+
+describe("existing website discovery", () => {
+  it("accepts full addresses and adds https to bare domains", () => {
+    expect(websiteUrlSchema.parse("https://example.com/menu")).toBe("https://example.com/menu");
+    expect(websiteUrlSchema.parse("example.com")).toBe("https://example.com");
+  });
+
+  it("rejects empty and non-web addresses", () => {
+    expect(websiteUrlSchema.safeParse("").success).toBe(false);
+    expect(websiteUrlSchema.safeParse("ftp://example.com").success).toBe(false);
+    expect(websiteUrlSchema.safeParse("not a url").success).toBe(false);
+    expect(websiteUrlSchema.safeParse("localhost").success).toBe(false);
   });
 });

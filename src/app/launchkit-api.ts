@@ -308,6 +308,11 @@ export const launchKitApi = {
       method: "POST",
       body: JSON.stringify({ assetId }),
     }),
+  extractFromWebsite: (projectId: string, url?: string | null) =>
+    request<OperationView>(`/projects/${projectId}/website-extractions`, {
+      method: "POST",
+      body: JSON.stringify({ url: url?.trim() ? url.trim() : null }),
+    }),
   uploadAsset: (projectId: string, file: File, kind: "logo" | "document") => {
     const body = new FormData();
     body.append("file", file);
