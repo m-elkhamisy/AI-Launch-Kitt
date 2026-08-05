@@ -364,15 +364,13 @@ export function useProjectSession() {
     setProject(updated);
   });
 
-  const runAiSummary = () => perform(async () => {
+  const runAiSummary = (websiteUrl?: string) => perform(async () => {
     const current = await ensureProject();
     const documents = current.uploadedAssets.filter((asset) => asset.kind === "profile_source");
-    // Backend merges every brand document on the project; anchor on any PDF when available.
-    const anchor =
-      [...documents].reverse().find((asset) => asset.filename.toLowerCase().endsWith(".pdf"))
-      ?? documents.at(-1);
-    if (!anchor) return;
-    const queued = await launchKitApi.extractFromAsset(current.id, anchor.id);
+    const trimmed = (websiteUrl ?? "").trim();
+    // Combined discovery: scrape URL first (optional), then every brand document (optional).
+    if (!trimmed && !documents.length) return;
+    const queued = await launchKitApi.extractFromWebsite(current.id, trimmed || null);
     setOperation(queued);
     await waitForOperation(queued.id, setOperation);
     await refreshProject(current.id);

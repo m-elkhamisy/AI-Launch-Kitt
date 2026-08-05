@@ -31,18 +31,26 @@ describe("QuestionnairePage", () => {
     expect(screen.getByRole("button", { name: /Save & Continue/i })).toBeInTheDocument();
   });
 
-  it("shows the logo and brand-document dropzones", () => {
+  it("shows optional logo and brand-document dropzones", () => {
     renderPage();
 
-    expect(screen.getByText("Start with your logo")).toBeInTheDocument();
+    expect(screen.getByText("Start with your brand")).toBeInTheDocument();
     expect(screen.getByText(/Click or drag your logo here/)).toBeInTheDocument();
     expect(screen.getByText(/Click or drag your documents here/)).toBeInTheDocument();
   });
 
-  it("disables AI Summary until brand documents are uploaded", () => {
+  it("disables AI Summary until a website or documents are provided", () => {
     renderPage();
 
     expect(screen.getByRole("button", { name: /AI Summary/i })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: /AI Discovery/i })).not.toBeInTheDocument();
+  });
+
+  it("offers an optional website URL field for combined discovery", () => {
+    renderPage();
+
+    expect(screen.getByText(/Already have a website\?/)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("https://your-website.com")).toBeInTheDocument();
   });
 
   it("lists uploaded assets as removable chips", () => {
@@ -75,5 +83,6 @@ describe("QuestionnairePage", () => {
     expect(screen.getByText("brand-book.pdf")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Remove logo\.png/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Remove brand-book\.pdf/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /AI Summary/i })).toBeEnabled();
   });
 });

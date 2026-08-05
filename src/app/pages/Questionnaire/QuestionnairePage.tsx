@@ -8,7 +8,13 @@ import { TopHeader } from "../../components/common/TopHeader";
 import { ValidationError } from "../../components/common/ValidationError";
 import { snapshotFileInput } from "../../brand-file-input";
 import { ProjectView } from "../../launchkit-api";
-import { brandDocumentFileSchema, logoFileSchema, questionnaireSchema, QuestionnaireValues } from "../../wizard-validation";
+import {
+  brandDocumentFileSchema,
+  logoFileSchema,
+  questionnaireSchema,
+  QuestionnaireValues,
+  websiteUrlSchema,
+} from "../../wizard-validation";
 import {
   AiSummaryDraft,
   buildAiSummaryDraft,
@@ -41,7 +47,7 @@ export function QuestionnairePage({
   onUploadDocuments: (files: File[]) => Promise<void>;
   onRemoveAsset: (assetId: string) => Promise<void>;
   onApplySummary: (summary: AiSummaryDraft) => Promise<void>;
-  onRunAiSummary: () => Promise<void>;
+  onRunAiSummary: (websiteUrl?: string) => Promise<void>;
   onBack: () => void;
   onStepClick?: (step: number) => void;
   completedUpTo?: number;
@@ -50,20 +56,25 @@ export function QuestionnairePage({
   const [logoDrag, setLogoDrag] = useState(false);
   const [docDrag, setDocDrag] = useState(false);
   const [uploadError, setUploadError] = useState<string>();
-  const [logoError, setLogoError] = useState<string>();
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [summaryDraft, setSummaryDraft] = useState<AiSummaryDraft | null>(null);
+  const [websiteUrl, setWebsiteUrl] = useState("");
+  const [websiteError, setWebsiteError] = useState<string>();
+  const [summaryError, setSummaryError] = useState<string>();
   const logoInputRef = useRef<HTMLInputElement>(null);
   const docInputRef = useRef<HTMLInputElement>(null);
 
   const logoAsset = project.uploadedAssets.find(isLogoAsset) ?? null;
   const documentAssets = project.uploadedAssets.filter(isDocumentAsset);
   const extracted = project.extractedProfileFields ?? {};
-  const hasExtracted = Object.values(extracted).some((value) => String(value ?? "").trim())
-    || Boolean(project.design.cta?.trim() || project.business.targetAudience?.trim());
+  // Apply / coverage must only reflect the latest AI extract, not manually entered form data.
+  const hasExtracted = Object.values(extracted).some((value) => String(value ?? "").trim());
 
-  const builtSummary = buildAiSummaryDraft(extracted, project.design, project.business);
+  const builtSummary = buildAiSummaryDraft(extracted, undefined, undefined, {
+    preferSourcesOnly: true,
+  });
   const pageCoverage = summaryCoverage(builtSummary);
+  const canRunSummary = documentAssets.length > 0 || Boolean(websiteUrl.trim());
 
   const { register, reset, handleSubmit, formState: { errors } } = useForm<QuestionnaireForm>({
     resolver: zodResolver(questionnaireSchema),
@@ -96,11 +107,6 @@ export function QuestionnairePage({
   };
 
   const continueQuestionnaire = () => {
-    if (!logoAsset) {
-      setLogoError("Upload your logo to continue.");
-      return;
-    }
-    setLogoError(undefined);
     void handleSubmit(onSave)();
   };
 
@@ -111,7 +117,6 @@ export function QuestionnairePage({
       return;
     }
     setUploadError(undefined);
-    setLogoError(undefined);
     await onUploadLogo(file);
   }
 
@@ -136,13 +141,50 @@ export function QuestionnairePage({
     await onUploadDocuments(accepted);
   }
 
-  // After extraction completes, load the latest summary into the open modal.
-  // Skip while busy so a blank "extracting" state is not overwritten mid-request.
-  // Do not depend on object identity of draft inputs — only project.updatedAt after refresh.
+  const runAiSummary = () => {
+    const trimmed = websiteUrl.trim();
+    if (!trimmed && documentAssets.length === 0) {
+      setSummaryError("Add a website address or brand documents to run AI Summary.");
+      return;
+    }
+    if (trimmed) {
+      const validation = websiteUrlSchema.safeParse(websiteUrl);
+      if (!validation.success) {
+        setWebsiteError(validation.error.issues[0]?.message ?? "Enter a valid website address.");
+        return;
+      }
+      setWebsiteError(undefined);
+      setSummaryError(undefined);
+      openSummaryModal({
+        companyOverview: "",
+        targetAudience: "",
+        services: "",
+        brandTone: "",
+        mainCta: "",
+      });
+      void onRunAiSummary(validation.data);
+      return;
+    }
+    setWebsiteError(undefined);
+    setSummaryError(undefined);
+    openSummaryModal({
+      companyOverview: "",
+      targetAudience: "",
+      services: "",
+      brandTone: "",
+      mainCta: "",
+    });
+    void onRunAiSummary();
+  };
+
+  // After extraction completes, load ONLY the latest extract into the open modal.
+  // Never mix in project.business — that retained prior document runs after URL-only re-extract.
   useEffect(() => {
     if (!summaryOpen || busy) return;
     setSummaryDraft(
-      buildAiSummaryDraft(project.extractedProfileFields ?? {}, project.design, project.business),
+      buildAiSummaryDraft(project.extractedProfileFields ?? {}, undefined, undefined, {
+        preferSourcesOnly: true,
+      }),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [summaryOpen, busy, project.updatedAt]);
@@ -175,7 +217,7 @@ export function QuestionnairePage({
         style={{ background: "#0b0b0b", fontFamily: "'Montserrat', sans-serif" }}
       >
         <div className="flex-1 px-[clamp(16px,5vw,80px)] py-[clamp(24px,5vw,48px)] flex flex-col gap-[clamp(16px,3vw,28px)]">
-          {/* Start with your logo */}
+          {/* Brand assets + optional website for AI Summary */}
           <div
             className="relative flex flex-col gap-[20px] p-[clamp(20px,4vw,40px)]"
             style={{
@@ -189,13 +231,13 @@ export function QuestionnairePage({
               <div className="flex flex-col gap-[10px] max-w-[720px]">
                 <div className="flex items-center gap-[10px]">
                   <h2 className="text-white font-semibold" style={{ fontSize: "clamp(19px, 5vw, 24px)" }}>
-                    Start with your logo
+                    Start with your brand
                   </h2>
                   <div className="w-[8px] h-[8px] rounded-full shrink-0" style={{ background: "#6fccdd" }} />
                 </div>
                 <p style={{ color: "rgba(255,255,255,0.55)", fontSize: 14, lineHeight: 1.55 }}>
-                  Upload your logo to continue — this is required. Adding brand documents helps the AI
-                  auto-fill your business details below.
+                  Logo, documents, and website are all optional. AI Summary scrapes your site first
+                  (when provided), then reads your documents, and builds one combined brief.
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-[10px] shrink-0">
@@ -218,27 +260,16 @@ export function QuestionnairePage({
                 </button>
                 <button
                   type="button"
-                  disabled={busy || documentAssets.length === 0}
-                  onClick={() => {
-                    void (async () => {
-                      openSummaryModal({
-                        companyOverview: "",
-                        targetAudience: "",
-                        services: "",
-                        brandTone: "",
-                        mainCta: "",
-                      });
-                      await onRunAiSummary();
-                    })();
-                  }}
+                  disabled={busy || !canRunSummary}
+                  onClick={runAiSummary}
                   className="font-semibold text-[12px] uppercase tracking-wide px-[18px] py-[11px]"
                   style={{
                     background: "transparent",
                     color: "#6FCCDD",
                     border: "1px solid #6FCCDD",
                     borderRadius: 10,
-                    cursor: documentAssets.length && !busy ? "pointer" : "not-allowed",
-                    opacity: documentAssets.length && !busy ? 1 : 0.45,
+                    cursor: canRunSummary && !busy ? "pointer" : "not-allowed",
+                    opacity: canRunSummary && !busy ? 1 : 0.45,
                   }}
                 >
                   {busy && summaryOpen ? "Extracting..." : "AI Summary"}
@@ -249,7 +280,7 @@ export function QuestionnairePage({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-[16px]">
               <UploadDropzone
                 title="Click or drag your logo here"
-                hint="PNG, SVG, JPG · 1 file · Max 1.5 MB"
+                hint="Optional · PNG, SVG, JPG · 1 file · Max 1.5 MB"
                 dragOver={logoDrag}
                 onDragOver={(e) => {
                   e.preventDefault();
@@ -283,7 +314,7 @@ export function QuestionnairePage({
 
               <UploadDropzone
                 title="Click or drag your documents here"
-                hint="Multiple formats · Up to 5 files · Max 1.5 MB each"
+                hint="Optional · Up to 5 files · Max 1.5 MB each"
                 dragOver={docDrag}
                 onDragOver={(e) => {
                   e.preventDefault();
@@ -320,7 +351,58 @@ export function QuestionnairePage({
               </UploadDropzone>
             </div>
 
-            <ValidationError message={uploadError || logoError} />
+            <ValidationError message={uploadError} />
+
+            {/* Existing website — used by AI Summary, no separate discovery button */}
+            <div
+              className="flex flex-col gap-[12px] pt-[20px]"
+              style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}
+            >
+              <div className="flex flex-col gap-[6px]">
+                <label
+                  htmlFor="website-url"
+                  className="font-semibold uppercase"
+                  style={{ fontSize: 12, color: "#6fccdd", letterSpacing: "0.08em" }}
+                >
+                  Already have a website? (optional)
+                </label>
+                <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 13, lineHeight: 1.5 }}>
+                  Paste the link if you have one. AI Summary will scrape it first, then combine it with
+                  any uploaded documents into one reviewable brief.
+                </p>
+              </div>
+              <div
+                className="flex items-center w-full"
+                style={{
+                  background: "rgba(255,255,255,0.03)",
+                  border: websiteError
+                    ? "1px solid rgba(248,113,113,0.8)"
+                    : "1px solid rgba(255,255,255,0.1)",
+                  borderRadius: 12,
+                  height: 48,
+                  padding: "0 16px",
+                }}
+              >
+                <input
+                  id="website-url"
+                  type="url"
+                  inputMode="url"
+                  className="w-full bg-transparent outline-none font-medium text-[14px]"
+                  style={{ color: "white", caretColor: "#6fccdd" }}
+                  placeholder="https://your-website.com"
+                  value={websiteUrl}
+                  onChange={(e) => {
+                    setWebsiteUrl(e.target.value);
+                    setWebsiteError(undefined);
+                    setSummaryError(undefined);
+                  }}
+                  disabled={busy}
+                  aria-invalid={Boolean(websiteError)}
+                  aria-describedby={websiteError ? "website-url-error" : undefined}
+                />
+              </div>
+              <ValidationError id="website-url-error" message={websiteError || summaryError} />
+            </div>
           </div>
 
           {/* Tell us about your brand */}

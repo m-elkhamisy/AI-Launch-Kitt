@@ -181,6 +181,23 @@ export const brandDocumentFileSchema = z.custom<File>(
 
 export const profileFileSchema = brandDocumentFileSchema;
 
+export const websiteUrlSchema = z.string()
+  .trim()
+  .min(1, "Enter your website address.")
+  .max(2048, "The website address is too long.")
+  .transform((value) => (value.includes("://") ? value : `https://${value}`))
+  .refine((value) => {
+    try {
+      const parsed = new URL(value);
+      return (
+        (parsed.protocol === "http:" || parsed.protocol === "https:") &&
+        parsed.hostname.includes(".")
+      );
+    } catch {
+      return false;
+    }
+  }, "Enter a full website address such as https://example.com.");
+
 export type LoginValues = z.infer<typeof loginSchema>;
 export type OtpValues = z.infer<typeof otpSchema>;
 export type QuestionnaireValues = z.infer<typeof questionnaireSchema>;
