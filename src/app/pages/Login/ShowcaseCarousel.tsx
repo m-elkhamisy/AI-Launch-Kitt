@@ -66,7 +66,14 @@ export function ShowcaseCarousel({
       <CarouselContent className="ml-0 h-full">
         {slides.map((slide, index) => (
           <CarouselItem key={slide.id} className="h-full pl-0">
-            <ShowcaseSlideView slide={slide} eager={index === 0} />
+            {/* Only the selected slide animates: the others are mounted the whole
+                time, so without this every panel would play its entrance at once,
+                off-screen, and be sitting still by the time it scrolled into view. */}
+            <ShowcaseSlideView
+              slide={slide}
+              active={index === selectedIndex}
+              eager={index === 0}
+            />
           </CarouselItem>
         ))}
       </CarouselContent>

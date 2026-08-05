@@ -1,6 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { mockReducedMotion } from "../../../test/reduced-motion";
 import { useAutoAdvance } from "./useAutoAdvance";
 
 // The hook only ever calls scrollNext, so a two-field stub is enough — embla
@@ -8,33 +9,6 @@ import { useAutoAdvance } from "./useAutoAdvance";
 // verified by hand (see quickstart.md) rather than mocked into a false pass.
 function stubApi() {
   return { scrollNext: vi.fn() } as unknown as Parameters<typeof useAutoAdvance>[0];
-}
-
-/**
- * Replaces window.matchMedia for one test. `listeners` collects the change
- * handlers the hook registers so a test can assert they are removed again.
- */
-function mockReducedMotion(matches: boolean) {
-  const listeners: unknown[] = [];
-  const removed: unknown[] = [];
-  const original = window.matchMedia;
-
-  window.matchMedia = ((query: string) => ({
-    matches: query.includes("prefers-reduced-motion") ? matches : false,
-    media: query,
-    onchange: null,
-    addEventListener: (_type: string, listener: unknown): void => {
-      listeners.push(listener);
-    },
-    removeEventListener: (_type: string, listener: unknown): void => {
-      removed.push(listener);
-    },
-    addListener: (): void => {},
-    removeListener: (): void => {},
-    dispatchEvent: () => false,
-  })) as unknown as typeof window.matchMedia;
-
-  return { listeners, removed, restore: () => { window.matchMedia = original; } };
 }
 
 describe("useAutoAdvance", () => {

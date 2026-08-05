@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { CarouselApi } from "../../components/ui/carousel";
-
-const REDUCED_MOTION = "(prefers-reduced-motion: reduce)";
+import { usePrefersReducedMotion } from "./usePrefersReducedMotion";
 
 /**
  * Advances a carousel on a fixed interval until the visitor takes over.
@@ -21,18 +20,7 @@ export function useAutoAdvance(
   const [stopped, setStopped] = useState(false);
   const stop = useCallback(() => setStopped(true), []);
 
-  const [reducedMotion, setReducedMotion] = useState(prefersReducedMotion);
-
-  // matchMedia rather than CSS because this suppresses a timer, not a transition.
-  // Subscribed so toggling the system setting mid-visit takes effect immediately.
-  useEffect(() => {
-    const query = window.matchMedia?.(REDUCED_MOTION);
-    if (!query) return;
-    const sync = () => setReducedMotion(query.matches);
-    sync();
-    query.addEventListener("change", sync);
-    return () => query.removeEventListener("change", sync);
-  }, []);
+  const reducedMotion = usePrefersReducedMotion();
 
   // Read through a ref so a new api identity does not restart the interval
   // mid-cycle, which would make the first slide after a re-render last longer.
@@ -50,9 +38,4 @@ export function useAutoAdvance(
   }, [running, intervalMs]);
 
   return { stop };
-}
-
-// A browser without matchMedia has expressed no preference, so motion is allowed.
-function prefersReducedMotion(): boolean {
-  return window.matchMedia?.(REDUCED_MOTION).matches ?? false;
 }

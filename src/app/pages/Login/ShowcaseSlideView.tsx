@@ -1,16 +1,31 @@
 import { useState } from "react";
 
+import { PdfViewerMockup } from "./PdfViewerMockup";
+import { riseIn } from "./showcase-motion";
 import type { ShowcaseSlide } from "./showcase-slides";
+import { usePrefersReducedMotion } from "./usePrefersReducedMotion";
+import { useReveal } from "./useReveal";
 
 // One capability panel. Geometry is from Figma 249:7741 — 48/32 padding, a 42px
 // column gap, and a 736x472 mockup box.
 //
 // Named *View so it does not collide with the ShowcaseSlide type.
+
+// The panel's own elements arrive in reading order, a beat apart. The mockup is
+// absent from this list because it times its own entrance — a rebuilt one has
+// interior parts to stagger, which only it knows about.
+const BADGE_DELAY_MS = 0;
+const HEADING_DELAY_MS = 70;
+const STATS_DELAY_MS = 200;
+
 export function ShowcaseSlideView({
   slide,
+  active,
   eager = false,
 }: {
   slide: ShowcaseSlide;
+  /** True while this slide is the carousel's selection — drives every entrance. */
+  active: boolean;
   /** The first slide loads immediately; the rest defer so the screen paints sooner. */
   eager?: boolean;
 }) {
@@ -18,6 +33,10 @@ export function ShowcaseSlideView({
   // the badge, headline, copy and figures still carry the message on their own.
   const [mockupFailed, setMockupFailed] = useState(false);
   const loading = eager ? "eager" : "lazy";
+
+  const reducedMotion = usePrefersReducedMotion();
+  const revealed = useReveal(active);
+  const settled = reducedMotion || revealed;
 
   // Bottom padding is 82px rather than 32px: the indicator strip is positioned over
   // the panel by ShowcaseCarousel — one set for all slides, rather than the
@@ -41,7 +60,10 @@ export function ShowcaseSlideView({
       <div className="relative flex w-full flex-col items-center gap-[16px]">
         <div
           className="flex items-center gap-[12px] rounded-full px-[16px] py-[8px]"
-          style={{ border: "1px solid rgba(255,255,255,0.1)" }}
+          style={{
+            border: "1px solid rgba(255,255,255,0.1)",
+            ...riseIn({ settled, reducedMotion, delayMs: BADGE_DELAY_MS }),
+          }}
         >
           <slide.BadgeIcon size={20} color={slide.accent} aria-hidden="true" />
           <span
@@ -52,7 +74,10 @@ export function ShowcaseSlideView({
           </span>
         </div>
 
-        <div className="flex w-full flex-col items-center gap-[8px] text-center">
+        <div
+          className="flex w-full flex-col items-center gap-[8px] text-center"
+          style={riseIn({ settled, reducedMotion, delayMs: HEADING_DELAY_MS })}
+        >
           {/* Figma stores sentence case and title-cases it in CSS; keep both so the
               stored copy stays readable and the rendered result matches the design. */}
           <h2
@@ -74,21 +99,32 @@ export function ShowcaseSlideView({
           Figma draws this panel at 900px tall; on a shorter viewport a fixed 472px
           mockup pushed the whole page into a vertical scroll. Flex gives the box a
           definite size before the image loads, so nothing shifts either way, and
-          object-contain keeps the aspect ratio at whatever height it ends up with. */}
+          the mockup keeps its aspect ratio at whatever height it ends up with. */}
       <div
-        className="relative w-full min-h-0 flex-1"
+        className="relative flex w-full min-h-0 flex-1 items-center justify-center"
         style={{ maxWidth: 736, maxHeight: 472 }}
       >
-        {!mockupFailed && (
-          <img
-            src={slide.mockupSrc}
+        {slide.mockup.kind === "pdf" ? (
+          <PdfViewerMockup
+            fileName={slide.mockup.fileName}
+            pages={slide.mockup.pages}
             alt={slide.mockupAlt}
-            width={736}
-            height={472}
-            loading={loading}
-            onError={() => setMockupFailed(true)}
-            className="h-full w-full object-contain"
+            active={active}
+            eager={eager}
           />
+        ) : (
+          !mockupFailed && (
+            <img
+              src={slide.mockup.src}
+              alt={slide.mockupAlt}
+              width={736}
+              height={472}
+              loading={loading}
+              onError={() => setMockupFailed(true)}
+              className="h-full w-full object-contain"
+              style={riseIn({ settled, reducedMotion, delayMs: HEADING_DELAY_MS })}
+            />
+          )
         )}
       </div>
 
@@ -98,6 +134,7 @@ export function ShowcaseSlideView({
           background: "rgba(255,255,255,0.04)",
           border: "1px solid rgba(255,255,255,0.1)",
           backdropFilter: "blur(43.5px)",
+          ...riseIn({ settled, reducedMotion, delayMs: STATS_DELAY_MS }),
         }}
       >
         {slide.stats.map((stat, index) => (

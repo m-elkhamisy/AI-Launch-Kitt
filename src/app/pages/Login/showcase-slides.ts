@@ -8,7 +8,11 @@ import { BookOpen, FileText, MonitorSmartphone, type LucideIcon } from "lucide-r
 
 import brochureMockup from "../../../assets/showcase/brochure-mockup.png";
 import brochureTexture from "../../../assets/showcase/brochure-texture.png";
-import portfolioMockup from "../../../assets/showcase/portfolio-mockup.png";
+import portfolioPage1 from "../../../assets/showcase/portfolio-page-1.webp";
+import portfolioPage2 from "../../../assets/showcase/portfolio-page-2.webp";
+import portfolioPage3 from "../../../assets/showcase/portfolio-page-3.webp";
+import portfolioPage4 from "../../../assets/showcase/portfolio-page-4.webp";
+import portfolioPage5 from "../../../assets/showcase/portfolio-page-5.webp";
 import portfolioTexture from "../../../assets/showcase/portfolio-texture.png";
 import websiteMockup from "../../../assets/showcase/website-mockup.png";
 import websiteTexture from "../../../assets/showcase/website-texture.png";
@@ -20,6 +24,25 @@ export type ShowcaseStat = {
   rating?: boolean;
 };
 
+export type ShowcasePage = {
+  /** One export serves both the open sheet and its thumbnail in the rail. */
+  src: string;
+  /** Printed under the thumbnail, as the viewer's page number. */
+  label: string;
+};
+
+/**
+ * How a slide's mockup is drawn.
+ *
+ * `image` is a flat export of the whole Figma frame: correct, but nothing inside
+ * it can move. `pdf` carries the pages instead, letting `PdfViewerMockup` rebuild
+ * the window and turn them. A slide graduates from one to the other as its
+ * interior is rebuilt; the kind is what tells the panel which to render.
+ */
+export type ShowcaseMockup =
+  | { kind: "image"; src: string }
+  | { kind: "pdf"; fileName: string; pages: readonly ShowcasePage[] };
+
 export type ShowcaseSlide = {
   id: string;
   /** Lowercase hex. Tints the badge, the stars and the filled indicators. */
@@ -29,8 +52,8 @@ export type ShowcaseSlide = {
   /** Stored sentence case; the headline renders with capitalize, as in Figma. */
   headline: string;
   subcopy: string;
-  mockupSrc: string;
-  /** Describes the capability rather than the picture — it stands in for the image. */
+  mockup: ShowcaseMockup;
+  /** Describes the capability rather than the picture — it stands in for the mockup. */
   mockupAlt: string;
   textureSrc: string;
   stats: readonly ShowcaseStat[];
@@ -51,7 +74,7 @@ export const SHOWCASE_SLIDES: readonly ShowcaseSlide[] = Object.freeze([
     headline: "Launch a professional website in minutes",
     subcopy:
       "Generate a complete, responsive website tailored to your business, ready to customize and publish.",
-    mockupSrc: websiteMockup,
+    mockup: { kind: "image", src: websiteMockup },
     mockupAlt: "A generated business website shown on a desktop and a phone",
     textureSrc: websiteTexture,
     stats: [
@@ -69,7 +92,20 @@ export const SHOWCASE_SLIDES: readonly ShowcaseSlide[] = Object.freeze([
     headline: "Professional portfolio. Instantly yours.",
     subcopy:
       "AI creates a polished PDF portfolio that showcases your services, projects, and expertise in a clear, professional format.",
-    mockupSrc: portfolioMockup,
+    // The five pages of the sample portfolio, in the order the viewer turns them.
+    // Exported from the page fills behind Figma 249:7911 rather than from the
+    // thumbnails, which Figma only renders at their 79px display size.
+    mockup: {
+      kind: "pdf",
+      fileName: "LuminaTech_CapabilityPortfolio_2025.pdf",
+      pages: [
+        { src: portfolioPage1, label: "1" },
+        { src: portfolioPage2, label: "2" },
+        { src: portfolioPage3, label: "3" },
+        { src: portfolioPage4, label: "4" },
+        { src: portfolioPage5, label: "5" },
+      ],
+    },
     mockupAlt: "A generated PDF portfolio open in a document viewer",
     textureSrc: portfolioTexture,
     stats: [
@@ -87,7 +123,7 @@ export const SHOWCASE_SLIDES: readonly ShowcaseSlide[] = Object.freeze([
     headline: "Create a brochure that sells your business",
     subcopy:
       "Generate a professional brochure with your services, branding, and contact details, ready to print or share digitally.",
-    mockupSrc: brochureMockup,
+    mockup: { kind: "image", src: brochureMockup },
     mockupAlt: "A generated print-ready brochure open in a document viewer",
     textureSrc: brochureTexture,
     stats: [

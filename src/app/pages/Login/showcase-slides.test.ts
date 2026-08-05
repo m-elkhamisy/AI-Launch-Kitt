@@ -72,13 +72,36 @@ describe("SHOWCASE_SLIDES", () => {
 
   it("leaves no text or asset field empty", () => {
     for (const slide of SHOWCASE_SLIDES) {
-      for (const field of ["badgeLabel", "headline", "subcopy", "mockupSrc", "mockupAlt", "textureSrc"] as const) {
+      for (const field of ["badgeLabel", "headline", "subcopy", "mockupAlt", "textureSrc"] as const) {
         expect(slide[field].trim(), `${slide.id}.${field}`).not.toBe("");
       }
       // lucide icons are forwardRef components, so they are objects rather than
       // plain functions — assert renderability, not a specific typeof.
       expect(slide.BadgeIcon, slide.id).toBeTruthy();
       expect(typeof slide.BadgeIcon, slide.id).not.toBe("string");
+    }
+  });
+
+  it("gives every mockup the assets its kind needs to render", () => {
+    for (const slide of SHOWCASE_SLIDES) {
+      const { mockup } = slide;
+      if (mockup.kind === "image") {
+        expect(mockup.src.trim(), slide.id).not.toBe("");
+        continue;
+      }
+      expect(mockup.fileName.trim(), slide.id).not.toBe("");
+      // A rebuilt viewer with one page has nothing to turn, which would leave the
+      // rail and the cycle rendering but visibly inert.
+      expect(mockup.pages.length, slide.id).toBeGreaterThan(1);
+      const labels = mockup.pages.map((page) => page.label);
+      // Labels are what the rail prints, so a duplicate or a gap is visible.
+      expect(labels, slide.id).toEqual(labels.map((_, index) => String(index + 1)));
+      for (const page of mockup.pages) {
+        expect(page.src.trim(), `${slide.id} page ${page.label}`).not.toBe("");
+      }
+      expect(new Set(mockup.pages.map((page) => page.src)).size, slide.id).toBe(
+        mockup.pages.length,
+      );
     }
   });
 

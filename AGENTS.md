@@ -78,7 +78,9 @@ src/
     pages/<Name>/               one folder per page: the page, its page-local
                                 components, and any page-local pure logic
       Login/          LoginPage · SignInPanel · ShowcaseCarousel · ShowcaseSlideView
-                      ShowcaseIndicators · showcase-slides · useAutoAdvance (+ tests)
+                      ShowcaseIndicators · PdfViewerMockup · showcase-slides
+                      showcase-motion · useAutoAdvance · usePageCycle
+                      usePrefersReducedMotion · useReveal (+ tests)
       Otp/            OtpPage (parked, no importer)
       Projects/       ProjectsPage
       Questionnaire/  QuestionnairePage · UploadPortfolioModal
@@ -96,7 +98,7 @@ src/
       ui/                       47 shadcn components — dormant except carousel
                                 (+ button, utils, which it imports), leave the rest alone
       figma/                    ImageWithFallback — dormant
-    test/                       fixtures.ts (factories), setup.ts
+    test/                       fixtures.ts (factories), reduced-motion.ts, setup.ts
   styles/                       index.css → fonts.css, tailwind.css, theme.css
 ```
 
