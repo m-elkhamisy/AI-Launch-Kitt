@@ -78,7 +78,8 @@ src/
     pages/<Name>/               one folder per page: the page, its page-local
                                 components, and any page-local pure logic
       Login/          LoginPage · SignInPanel · ShowcaseCarousel · ShowcaseSlideView
-                      ShowcaseIndicators · PdfViewerMockup · showcase-slides
+                      ShowcaseIndicators · MockupFrame · PdfViewerMockup
+                      BrochureViewerMockup · WebsiteMockup · showcase-slides
                       showcase-motion · useAutoAdvance · usePageCycle
                       usePrefersReducedMotion · useReveal (+ tests)
       Otp/            OtpPage (parked, no importer)
@@ -201,7 +202,16 @@ already editing that block.
    pins from the Figma export alongside newer `^` ranges.
 9. `react`/`react-dom` are optional `peerDependencies`, not `dependencies` — they resolve from the
    lockfile today.
-10. Dormant by design: `figmaAssetResolver` in `vite.config.ts` (maps to a non-existent
+10. **`brochure-spread-2-placeholder.webp` is a stand-in.** The Figma file holds only the
+    brochure's first spread, but its viewer shows a two-page rail, so the second spread is a
+    generated wireframe in the brochure's palette. Drop the real export in beside it and point
+    `showcase-slides.ts` at the new file — nothing else changes. The portfolio's five pages and
+    the first brochure spread are all real.
+11. **Inside a mockup, `1em` is one design pixel** (see `MockupFrame`). The trap: `em` resolves
+    against an element's *own* font-size, so `left: 16em` beside `fontSize: 7em` lands at 112
+    design pixels. jsdom does no layout, so no test catches it — check the browser after touching
+    mockup geometry.
+12. Dormant by design: `figmaAssetResolver` in `vite.config.ts` (maps to a non-existent
     `src/assets/`), `src/styles/globals.css` (empty, unimported), `guidelines/Guidelines.md`
     (unedited Figma template), `README-frontend.md` (stale — `README.md` is current).
 

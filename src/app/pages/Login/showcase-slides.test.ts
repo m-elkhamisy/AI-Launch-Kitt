@@ -85,7 +85,7 @@ describe("SHOWCASE_SLIDES", () => {
   it("gives every mockup the assets its kind needs to render", () => {
     for (const slide of SHOWCASE_SLIDES) {
       const { mockup } = slide;
-      if (mockup.kind === "image") {
+      if (mockup.kind === "website") {
         expect(mockup.src.trim(), slide.id).not.toBe("");
         continue;
       }

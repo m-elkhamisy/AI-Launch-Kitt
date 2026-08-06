@@ -1,10 +1,9 @@
 import { History, Minus, MoreVertical, PanelRight, Plus, Search } from "lucide-react";
 
+import { MockupFrame } from "./MockupFrame";
 import { RAIL_LEAD_MS, RAIL_STAGGER_MS, riseIn } from "./showcase-motion";
 import type { ShowcasePage } from "./showcase-slides";
 import { usePageCycle } from "./usePageCycle";
-import { usePrefersReducedMotion } from "./usePrefersReducedMotion";
-import { useReveal } from "./useReveal";
 
 // The document preview shown on the portfolio slide, rebuilt from its pages so it
 // can turn them. Geometry is Figma 249:7911: a 686x472 window, a 28px title bar,
@@ -15,7 +14,8 @@ import { useReveal } from "./useReveal";
 // baked image cannot do — and the five page exports together come to less than the
 // one flat PNG did, so the swap costs nothing in payload.
 
-/** The design's own frame. Every measurement below is one of its pixels — see the root. */
+// The design's own frame. MockupFrame makes 1em one of its pixels, so every
+// measurement below is the Figma number.
 const DESIGN_WIDTH = 686;
 const DESIGN_HEIGHT = 472;
 
@@ -46,40 +46,25 @@ export function PdfViewerMockup({
   /** The first slide loads immediately; the rest defer so the screen paints sooner. */
   eager?: boolean;
 }) {
-  const reducedMotion = usePrefersReducedMotion();
+  // Under reduced motion this holds page one and starts no timer, so the viewer is
+  // simply a still of the open document.
   const openPage = usePageCycle({
     count: pages.length,
     intervalMs: PAGE_INTERVAL_MS,
     active,
   });
 
-  // Under reduced motion the viewer is simply already settled — no entrance, and
-  // `usePageCycle` holds page one, so nothing here moves at all.
-  const revealed = useReveal(active);
-  const settled = reducedMotion || revealed;
-  const ease = (declaration: string) => (reducedMotion ? undefined : declaration);
-
   return (
-    <div className="flex h-full w-full items-center justify-center">
-      {/* Keeps the design's aspect and fits whatever the column leaves, so the
-          window never distorts as the panel narrows between 1024px and 1440px. */}
-      <div
-        className="h-full max-h-full w-auto max-w-full"
-        style={{ aspectRatio: `${DESIGN_WIDTH} / ${DESIGN_HEIGHT}` }}
-      >
-        <div className="h-full w-full" style={{ containerType: "inline-size" }}>
-          {/* From here down 1em is one design pixel, so every number is the Figma
-              measurement and the whole window scales as a single piece. Percentages
-              would need a different denominator per axis and per nesting level. */}
-          <div
-            role="img"
-            aria-label={alt}
-            className="flex h-full w-full flex-col overflow-hidden"
-            style={{
-              fontSize: `calc(100cqw / ${DESIGN_WIDTH})`,
-              ...riseIn({ settled, reducedMotion, distance: "10em" }),
-            }}
-          >
+    <MockupFrame
+      designWidth={DESIGN_WIDTH}
+      designHeight={DESIGN_HEIGHT}
+      alt={alt}
+      active={active}
+    >
+      {({ settled, reducedMotion }) => {
+        const ease = (declaration: string) => (reducedMotion ? undefined : declaration);
+        return (
+          <>
             <TitleBar fileName={fileName} />
 
             <div
@@ -188,10 +173,10 @@ export function PdfViewerMockup({
                 ))}
               </div>
             </div>
-          </div>
-        </div>
-      </div>
-    </div>
+          </>
+        );
+      }}
+    </MockupFrame>
   );
 }
 
@@ -209,22 +194,26 @@ function TitleBar({ fileName }: { fileName: string }) {
         borderTopRightRadius: "12em",
       }}
     >
-      <div className="flex items-center" style={{ gap: "4.5em" }}>
-        {WINDOW_BUTTONS.map((colour) => (
-          <span
-            key={colour}
-            className="rounded-full"
-            style={{ width: "7em", height: "7em", background: colour }}
-          />
-        ))}
-      </div>
+      {/* The 40px offset is a gap on this row rather than a margin on the filename:
+          beside a font-size, an em margin would resolve against 8px, not 1px. */}
+      <div className="flex items-center" style={{ gap: "40em" }}>
+        <div className="flex items-center" style={{ gap: "4.5em" }}>
+          {WINDOW_BUTTONS.map((colour) => (
+            <span
+              key={colour}
+              className="rounded-full"
+              style={{ width: "7em", height: "7em", background: colour }}
+            />
+          ))}
+        </div>
 
-      <span
-        className="whitespace-nowrap font-semibold text-white"
-        style={{ marginLeft: "40em", fontSize: "8em" }}
-      >
-        {fileName}
-      </span>
+        <span
+          className="whitespace-nowrap font-semibold text-white"
+          style={{ fontSize: "8em" }}
+        >
+          {fileName}
+        </span>
+      </div>
 
       <span className="flex-1" />
 

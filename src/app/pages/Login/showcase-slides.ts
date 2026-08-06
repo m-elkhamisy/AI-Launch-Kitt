@@ -6,7 +6,8 @@
 // Content and geometry come from Figma frames 249-7740 / 249-7902 / 249-7809.
 import { BookOpen, FileText, MonitorSmartphone, type LucideIcon } from "lucide-react";
 
-import brochureMockup from "../../../assets/showcase/brochure-mockup.png";
+import brochureSpread1 from "../../../assets/showcase/brochure-spread-1.webp";
+import brochureSpread2Placeholder from "../../../assets/showcase/brochure-spread-2-placeholder.webp";
 import brochureTexture from "../../../assets/showcase/brochure-texture.png";
 import portfolioPage1 from "../../../assets/showcase/portfolio-page-1.webp";
 import portfolioPage2 from "../../../assets/showcase/portfolio-page-2.webp";
@@ -32,16 +33,25 @@ export type ShowcasePage = {
 };
 
 /**
- * How a slide's mockup is drawn.
+ * How a slide's mockup is drawn — the kind names the component that renders it.
  *
- * `image` is a flat export of the whole Figma frame: correct, but nothing inside
- * it can move. `pdf` carries the pages instead, letting `PdfViewerMockup` rebuild
- * the window and turn them. A slide graduates from one to the other as its
- * interior is rebuilt; the kind is what tells the panel which to render.
+ * The two document viewers are rebuilt from their pages, because a page turn has to
+ * change what the window *shows*, which a baked image cannot do. They are separate
+ * kinds rather than one because the windows differ: the portfolio is a macOS-style
+ * preview with a thumbnail grid, the brochure an editor with a toolbar and a side
+ * rail. The website stays a flat export with one strip re-rendered over it; see
+ * `WebsiteMockup` for why that one is overlaid instead.
  */
 export type ShowcaseMockup =
-  | { kind: "image"; src: string }
-  | { kind: "pdf"; fileName: string; pages: readonly ShowcasePage[] };
+  | { kind: "website"; src: string }
+  | { kind: "pdf"; fileName: string; pages: readonly ShowcasePage[] }
+  | {
+      kind: "brochure";
+      fileName: string;
+      /** The saved-at line under the filename. */
+      fileMeta: string;
+      pages: readonly ShowcasePage[];
+    };
 
 export type ShowcaseSlide = {
   id: string;
@@ -74,7 +84,7 @@ export const SHOWCASE_SLIDES: readonly ShowcaseSlide[] = Object.freeze([
     headline: "Launch a professional website in minutes",
     subcopy:
       "Generate a complete, responsive website tailored to your business, ready to customize and publish.",
-    mockup: { kind: "image", src: websiteMockup },
+    mockup: { kind: "website", src: websiteMockup },
     mockupAlt: "A generated business website shown on a desktop and a phone",
     textureSrc: websiteTexture,
     stats: [
@@ -123,7 +133,18 @@ export const SHOWCASE_SLIDES: readonly ShowcaseSlide[] = Object.freeze([
     headline: "Create a brochure that sells your business",
     subcopy:
       "Generate a professional brochure with your services, branding, and contact details, ready to print or share digitally.",
-    mockup: { kind: "image", src: brochureMockup },
+    // Spread two is a stand-in: the design only holds the first spread, and the
+    // real second one is still to be exported. Replace the placeholder asset and
+    // this slide needs no other change.
+    mockup: {
+      kind: "brochure",
+      fileName: "Brochure.pdf",
+      fileMeta: "22.07.2026 • 13:42",
+      pages: [
+        { src: brochureSpread1, label: "1" },
+        { src: brochureSpread2Placeholder, label: "2" },
+      ],
+    },
     mockupAlt: "A generated print-ready brochure open in a document viewer",
     textureSrc: brochureTexture,
     stats: [

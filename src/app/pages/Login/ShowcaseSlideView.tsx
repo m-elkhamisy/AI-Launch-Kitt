@@ -1,10 +1,10 @@
-import { useState } from "react";
-
+import { BrochureViewerMockup } from "./BrochureViewerMockup";
 import { PdfViewerMockup } from "./PdfViewerMockup";
 import { riseIn } from "./showcase-motion";
 import type { ShowcaseSlide } from "./showcase-slides";
 import { usePrefersReducedMotion } from "./usePrefersReducedMotion";
 import { useReveal } from "./useReveal";
+import { WebsiteMockup } from "./WebsiteMockup";
 
 // One capability panel. Geometry is from Figma 249:7741 — 48/32 padding, a 42px
 // column gap, and a 736x472 mockup box.
@@ -29,9 +29,6 @@ export function ShowcaseSlideView({
   /** The first slide loads immediately; the rest defer so the screen paints sooner. */
   eager?: boolean;
 }) {
-  // A failed mockup must not collapse the panel or leave a broken-image icon —
-  // the badge, headline, copy and figures still carry the message on their own.
-  const [mockupFailed, setMockupFailed] = useState(false);
   const loading = eager ? "eager" : "lazy";
 
   const reducedMotion = usePrefersReducedMotion();
@@ -104,7 +101,7 @@ export function ShowcaseSlideView({
         className="relative flex w-full min-h-0 flex-1 items-center justify-center"
         style={{ maxWidth: 736, maxHeight: 472 }}
       >
-        {slide.mockup.kind === "pdf" ? (
+        {slide.mockup.kind === "pdf" && (
           <PdfViewerMockup
             fileName={slide.mockup.fileName}
             pages={slide.mockup.pages}
@@ -112,19 +109,25 @@ export function ShowcaseSlideView({
             active={active}
             eager={eager}
           />
-        ) : (
-          !mockupFailed && (
-            <img
-              src={slide.mockup.src}
-              alt={slide.mockupAlt}
-              width={736}
-              height={472}
-              loading={loading}
-              onError={() => setMockupFailed(true)}
-              className="h-full w-full object-contain"
-              style={riseIn({ settled, reducedMotion, delayMs: HEADING_DELAY_MS })}
-            />
-          )
+        )}
+        {slide.mockup.kind === "brochure" && (
+          <BrochureViewerMockup
+            fileName={slide.mockup.fileName}
+            fileMeta={slide.mockup.fileMeta}
+            pages={slide.mockup.pages}
+            alt={slide.mockupAlt}
+            active={active}
+            eager={eager}
+          />
+        )}
+        {slide.mockup.kind === "website" && (
+          <WebsiteMockup
+            src={slide.mockup.src}
+            alt={slide.mockupAlt}
+            accent={slide.accent}
+            active={active}
+            eager={eager}
+          />
         )}
       </div>
 
