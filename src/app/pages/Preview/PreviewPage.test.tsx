@@ -2,7 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { PreviewPage } from "./PreviewPage";
-import { makeMockups } from "../../test/fixtures";
+import { makeMockups } from "@/app/test/fixtures";
 
 describe("PreviewPage", () => {
   beforeEach(() => {

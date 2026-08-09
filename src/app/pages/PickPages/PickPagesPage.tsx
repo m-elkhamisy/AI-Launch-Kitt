@@ -3,12 +3,12 @@ import { CircleCheck } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 
-import { ScaledPage } from "../../components/common/ScaledPage";
-import { SubNav } from "../../components/common/SubNav";
-import { TopHeader } from "../../components/common/TopHeader";
-import { firstValidationError, ValidationError } from "../../components/common/ValidationError";
-import { PageLayout, ProjectView, WizardCatalog } from "../../launchkit-api";
-import { pageLayoutSchema, PageLayoutValues } from "../../wizard-validation";
+import { ScaledPage } from "@/app/components/common/ScaledPage";
+import { SubNav } from "@/app/components/common/SubNav";
+import { TopHeader } from "@/app/components/common/TopHeader";
+import { firstValidationError, ValidationError } from "@/app/components/common/ValidationError";
+import { PageLayout, ProjectView, WizardCatalog } from "@/app/launchkit-api";
+import { pageLayoutSchema, PageLayoutValues } from "@/app/wizard-validation";
 import {
   addSection,
   contentSections,

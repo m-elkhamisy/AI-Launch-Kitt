@@ -1,4 +1,4 @@
-import type { Choice } from "../../launchkit-api";
+import type { Choice } from "@/app/launchkit-api";
 
 /** Overlay grid for picking one catalog choice. Selection closes it. */
 export function MoodPickerModal({

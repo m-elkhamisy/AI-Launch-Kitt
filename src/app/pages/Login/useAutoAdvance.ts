@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import type { CarouselApi } from "../../components/ui/carousel";
+import type { CarouselApi } from "@/app/components/ui/carousel";
 import { usePrefersReducedMotion } from "./usePrefersReducedMotion";
 
 /**

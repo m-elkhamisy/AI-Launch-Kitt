@@ -1,7 +1,7 @@
 import { act, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { mockReducedMotion } from "../../../test/reduced-motion";
+import { mockReducedMotion } from "@/test/reduced-motion";
 import { WebsiteMockup } from "./WebsiteMockup";
 
 const ALT = "A generated business website shown on a desktop and a phone";

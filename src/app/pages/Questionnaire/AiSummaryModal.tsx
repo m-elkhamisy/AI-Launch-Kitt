@@ -1,4 +1,4 @@
-import { Spinner } from "../../components/common/Spinner";
+import { Spinner } from "@/app/components/common/Spinner";
 import { AI_SUMMARY_FIELDS, AiSummaryDraft, summaryCoverage } from "./ai-summary";
 
 export function AiSummaryModal({

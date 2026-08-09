@@ -9,11 +9,11 @@ import { useEffect, useRef, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 
-import { LogoSvg } from "../../components/common/LogoSvg";
-import { LOGO_GLYPH } from "../../components/common/logo-paths";
-import { ScaledPage } from "../../components/common/ScaledPage";
-import { ValidationError } from "../../components/common/ValidationError";
-import { otpSchema, OtpValues } from "../../wizard-validation";
+import { LogoSvg } from "@/app/components/common/LogoSvg";
+import { LOGO_GLYPH } from "@/app/components/common/logo-paths";
+import { ScaledPage } from "@/app/components/common/ScaledPage";
+import { ValidationError } from "@/app/components/common/ValidationError";
+import { otpSchema, OtpValues } from "@/app/wizard-validation";
 
 export function OtpPage({
   onNext,

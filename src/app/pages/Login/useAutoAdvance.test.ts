@@ -1,7 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { mockReducedMotion } from "../../../test/reduced-motion";
+import { mockReducedMotion } from "@/test/reduced-motion";
 import { useAutoAdvance } from "./useAutoAdvance";
 
 // The hook only ever calls scrollNext, so a two-field stub is enough — embla

@@ -5,7 +5,7 @@ import {
   CarouselContent,
   CarouselItem,
   type CarouselApi,
-} from "../../components/ui/carousel";
+} from "@/app/components/ui/carousel";
 import { SHOWCASE_SLIDES, type ShowcaseSlide } from "./showcase-slides";
 import { ShowcaseIndicators } from "./ShowcaseIndicators";
 import { ShowcaseSlideView } from "./ShowcaseSlideView";

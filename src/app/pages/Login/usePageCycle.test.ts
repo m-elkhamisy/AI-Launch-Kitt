@@ -1,7 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { mockReducedMotion } from "../../../test/reduced-motion";
+import { mockReducedMotion } from "@/test/reduced-motion";
 import { usePageCycle } from "./usePageCycle";
 
 const INTERVAL = 2400;

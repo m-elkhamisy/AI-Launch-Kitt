@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { QuestionnairePage } from "./QuestionnairePage";
-import { makeProject } from "../../test/fixtures";
+import { makeProject } from "@/app/test/fixtures";
 
 function renderPage(project = makeProject()) {
   return render(

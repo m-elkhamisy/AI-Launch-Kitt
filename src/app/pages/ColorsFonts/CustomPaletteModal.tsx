@@ -1,6 +1,6 @@
-import { ValidationError } from "../../components/common/ValidationError";
-import { derivePaletteFromPrimary, parseHexChannels } from "../../lib/colors";
-import { customPaletteSchema } from "../../wizard-validation";
+import { ValidationError } from "@/app/components/common/ValidationError";
+import { derivePaletteFromPrimary, parseHexChannels } from "@/app/lib/colors";
+import { customPaletteSchema } from "@/app/wizard-validation";
 import type { CustomPalette } from "./types";
 
 /**

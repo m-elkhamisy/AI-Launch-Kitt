@@ -1,7 +1,7 @@
-import { ScaledPage } from "../../components/common/ScaledPage";
-import { Spinner } from "../../components/common/Spinner";
-import { TopHeader } from "../../components/common/TopHeader";
-import { ProjectSummaryView } from "../../launchkit-api";
+import { ScaledPage } from "@/app/components/common/ScaledPage";
+import { Spinner } from "@/app/components/common/Spinner";
+import { TopHeader } from "@/app/components/common/TopHeader";
+import { ProjectSummaryView } from "@/app/launchkit-api";
 
 function formatProjectUpdatedAt(value: string): string {
   const date = new Date(value);

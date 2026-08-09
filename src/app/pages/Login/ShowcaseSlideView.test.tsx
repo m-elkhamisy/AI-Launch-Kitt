@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { mockReducedMotion, runAnimationFramesImmediately } from "../../../test/reduced-motion";
+import { mockReducedMotion, runAnimationFramesImmediately } from "@/test/reduced-motion";
 import { ShowcaseSlideView } from "./ShowcaseSlideView";
 import { SHOWCASE_SLIDES } from "./showcase-slides";
 

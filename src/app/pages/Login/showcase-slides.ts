@@ -6,17 +6,17 @@
 // Content and geometry come from Figma frames 249-7740 / 249-7902 / 249-7809.
 import { BookOpen, FileText, MonitorSmartphone, type LucideIcon } from "lucide-react";
 
-import brochureSpread1 from "../../../assets/showcase/brochure-spread-1.webp";
-import brochureSpread2Placeholder from "../../../assets/showcase/brochure-spread-2-placeholder.webp";
-import brochureTexture from "../../../assets/showcase/brochure-texture.png";
-import portfolioPage1 from "../../../assets/showcase/portfolio-page-1.webp";
-import portfolioPage2 from "../../../assets/showcase/portfolio-page-2.webp";
-import portfolioPage3 from "../../../assets/showcase/portfolio-page-3.webp";
-import portfolioPage4 from "../../../assets/showcase/portfolio-page-4.webp";
-import portfolioPage5 from "../../../assets/showcase/portfolio-page-5.webp";
-import portfolioTexture from "../../../assets/showcase/portfolio-texture.png";
-import websiteMockup from "../../../assets/showcase/website-mockup.png";
-import websiteTexture from "../../../assets/showcase/website-texture.png";
+import brochureSpread1 from "@/assets/showcase/brochure-spread-1.webp";
+import brochureSpread2Placeholder from "@/assets/showcase/brochure-spread-2-placeholder.webp";
+import brochureTexture from "@/assets/showcase/brochure-texture.png";
+import portfolioPage1 from "@/assets/showcase/portfolio-page-1.webp";
+import portfolioPage2 from "@/assets/showcase/portfolio-page-2.webp";
+import portfolioPage3 from "@/assets/showcase/portfolio-page-3.webp";
+import portfolioPage4 from "@/assets/showcase/portfolio-page-4.webp";
+import portfolioPage5 from "@/assets/showcase/portfolio-page-5.webp";
+import portfolioTexture from "@/assets/showcase/portfolio-texture.png";
+import websiteMockup from "@/assets/showcase/website-mockup.png";
+import websiteTexture from "@/assets/showcase/website-texture.png";
 
 export type ShowcaseStat = {
   value: string;

@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Check, Download, ExternalLink, Globe } from "lucide-react";
 
-import { ScaledPage } from "../../components/common/ScaledPage";
-import { TopHeader } from "../../components/common/TopHeader";
-import { absoluteApiUrl, BuildView, DeploymentView, launchKitApi, LaunchKitApiError } from "../../launchkit-api";
+import { ScaledPage } from "@/app/components/common/ScaledPage";
+import { TopHeader } from "@/app/components/common/TopHeader";
+import { absoluteApiUrl, BuildView, DeploymentView, launchKitApi, LaunchKitApiError } from "@/app/launchkit-api";
 import { BrowserFramePreview } from "./BrowserFramePreview";
 import { DeployTooltip } from "./DeployTooltip";
 

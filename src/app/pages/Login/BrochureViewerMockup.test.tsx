@@ -2,7 +2,7 @@ import { act, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { BrochureViewerMockup } from "./BrochureViewerMockup";
-import { mockReducedMotion } from "../../../test/reduced-motion";
+import { mockReducedMotion } from "@/test/reduced-motion";
 import type { ShowcasePage } from "./showcase-slides";
 
 const PAGES: readonly ShowcasePage[] = [

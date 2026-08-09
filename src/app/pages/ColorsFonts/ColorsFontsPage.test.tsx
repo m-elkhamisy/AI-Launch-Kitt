@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { ColorsFontsPage } from "./ColorsFontsPage";
-import { makeCatalog, makeProject } from "../../test/fixtures";
+import { makeCatalog, makeProject } from "@/app/test/fixtures";
 
 describe("ColorsFontsPage", () => {
   it("renders palette and font-pairing grids from the catalog", () => {

@@ -1,7 +1,7 @@
-import { ScaledPage } from "../../components/common/ScaledPage";
-import { Spinner } from "../../components/common/Spinner";
-import { TopHeader } from "../../components/common/TopHeader";
-import { OperationView } from "../../launchkit-api";
+import { ScaledPage } from "@/app/components/common/ScaledPage";
+import { Spinner } from "@/app/components/common/Spinner";
+import { TopHeader } from "@/app/components/common/TopHeader";
+import { OperationView } from "@/app/launchkit-api";
 
 export function GeneratingPage({ operation, error, onRetry }: {
   operation: OperationView | null;

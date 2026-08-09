@@ -2,19 +2,19 @@ import { useEffect, useRef, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 
-import { ScaledPage } from "../../components/common/ScaledPage";
-import { SubNav } from "../../components/common/SubNav";
-import { TopHeader } from "../../components/common/TopHeader";
-import { ValidationError } from "../../components/common/ValidationError";
-import { snapshotFileInput } from "../../brand-file-input";
-import { ProjectView } from "../../launchkit-api";
+import { ScaledPage } from "@/app/components/common/ScaledPage";
+import { SubNav } from "@/app/components/common/SubNav";
+import { TopHeader } from "@/app/components/common/TopHeader";
+import { ValidationError } from "@/app/components/common/ValidationError";
+import { snapshotFileInput } from "@/app/brand-file-input";
+import { ProjectView } from "@/app/launchkit-api";
 import {
   brandDocumentFileSchema,
   logoFileSchema,
   questionnaireSchema,
   QuestionnaireValues,
   websiteUrlSchema,
-} from "../../wizard-validation";
+} from "@/app/wizard-validation";
 import {
   AiSummaryDraft,
   buildAiSummaryDraft,

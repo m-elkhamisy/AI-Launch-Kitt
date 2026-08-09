@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 
-import { loadGoogleFont } from "../../lib/fonts";
+import { loadGoogleFont } from "@/app/lib/fonts";
 import { FontPair } from "./types";
 
 export function FontCard({

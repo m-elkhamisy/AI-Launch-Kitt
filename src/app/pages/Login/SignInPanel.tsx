@@ -1,6 +1,6 @@
 import { ArrowRight } from "lucide-react";
 
-import { LogoMark } from "../../components/common/LogoMark";
+import { LogoMark } from "@/app/components/common/LogoMark";
 
 // The left column of the welcome screen. Behaviour is carried over unchanged from
 // the previous single-card LoginPage: one button, disabled while redirecting.

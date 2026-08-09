@@ -1,7 +1,7 @@
 // Pure data logic behind the Pick Pages editor. Every function here takes the
 // editor's page array and returns a new one — no React, no state — so the
 // component is left holding only presentation and event wiring.
-import type { PageLayout, ProjectView, WizardCatalog } from "../../launchkit-api";
+import type { PageLayout, ProjectView, WizardCatalog } from "@/app/launchkit-api";
 
 export type Section = { id: string; name: string; templateId?: string; locked?: boolean };
 export type PageTemplate = {

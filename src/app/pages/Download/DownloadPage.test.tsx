@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { DownloadPage } from "./DownloadPage";
-import { makeBuild, makeDeployment } from "../../test/fixtures";
+import { makeBuild, makeDeployment } from "@/app/test/fixtures";
 
 describe("DownloadPage", () => {
   it("renders the success state with download and deploy actions", () => {

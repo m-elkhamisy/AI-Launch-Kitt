@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { ProjectsPage } from "./ProjectsPage";
-import { makeProjectSummaries } from "../../test/fixtures";
+import { makeProjectSummaries } from "@/app/test/fixtures";
 
 const handlers = {
   onCreate: vi.fn(),
