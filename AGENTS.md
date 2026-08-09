@@ -67,6 +67,7 @@ src/
     App.tsx                     routing + loading gate only (~90 lines)
     launchkit-api.ts            API client: typed views, LaunchKitApiError, SSE build stream
     wizard-validation.ts        all zod schemas + inferred value types
+    brand-file-input.ts         snapshotFileInput — FileList is live, so copy before clearing
     hooks/
       useProjectSession.ts      wizard state, auth bootstrap, all 12 API commands
     lib/
@@ -84,7 +85,8 @@ src/
                       usePrefersReducedMotion · useReveal (+ tests)
       Otp/            OtpPage (parked, no importer)
       Projects/       ProjectsPage
-      Questionnaire/  QuestionnairePage · UploadPortfolioModal
+      Questionnaire/  QuestionnairePage · UploadDropzone · AiSummaryModal
+                      ai-summary
       CategoryMood/   CategoryMoodPage · CategoryPickerModal · MoodPickerModal
       ColorsFonts/    ColorsFontsPage · CustomPaletteModal · CustomFontModal
                       FontCard · types
