@@ -26,8 +26,6 @@ import {
 import { AiSummaryModal } from "./AiSummaryModal";
 import { FileChip, UploadDropzone } from "./UploadDropzone";
 
-export type QuestionnaireForm = QuestionnaireValues;
-
 export function QuestionnairePage({
   project,
   onSave,
@@ -42,7 +40,7 @@ export function QuestionnairePage({
   busy,
 }: {
   project: ProjectView;
-  onSave: (form: QuestionnaireForm) => Promise<void>;
+  onSave: (form: QuestionnaireValues) => Promise<void>;
   onUploadLogo: (file: File) => Promise<void>;
   onUploadDocuments: (files: File[]) => Promise<void>;
   onRemoveAsset: (assetId: string) => Promise<void>;
@@ -76,7 +74,7 @@ export function QuestionnairePage({
   const pageCoverage = summaryCoverage(builtSummary);
   const canRunSummary = documentAssets.length > 0 || Boolean(websiteUrl.trim());
 
-  const { register, reset, handleSubmit, formState: { errors } } = useForm<QuestionnaireForm>({
+  const { register, reset, handleSubmit, formState: { errors } } = useForm<QuestionnaireValues>({
     resolver: zodResolver(questionnaireSchema),
     defaultValues: {
       companyName: project.business.companyName,
@@ -189,7 +187,7 @@ export function QuestionnairePage({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [summaryOpen, busy, project.updatedAt]);
 
-  const fields: Array<{ key: keyof QuestionnaireForm; label: string; placeholder: string }> = [
+  const fields: Array<{ key: keyof QuestionnaireValues; label: string; placeholder: string }> = [
     { key: "companyName", label: "Company / Brand Name", placeholder: "e.g. Innovation City" },
     { key: "industry", label: "Business category", placeholder: "One line description" },
     { key: "customers", label: "Who are the customers?", placeholder: "Target audience or market" },

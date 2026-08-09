@@ -7,16 +7,16 @@ import { SubNav } from "@/app/components/common/SubNav";
 import { TopHeader } from "@/app/components/common/TopHeader";
 import { firstValidationError, ValidationError } from "@/app/components/common/ValidationError";
 import { ProjectView, WizardCatalog } from "@/app/launchkit-api";
-import { colorFontSchema, ColorFontValues } from "@/app/wizard-validation";
+import { colorFontSchema, ColorFontValues, CustomPaletteValues } from "@/app/wizard-validation";
 import { CustomFontModal } from "./CustomFontModal";
 import { CustomPaletteModal } from "./CustomPaletteModal";
 import { FontCard } from "./FontCard";
-import { CustomPalette, FontPair, PaletteEntry } from "./types";
+import { FontPair, PaletteEntry } from "./types";
 
 export function ColorsFontsPage({ project, catalog, onSave, onBack, onStepClick, completedUpTo, busy }: {
   project: ProjectView;
   catalog: WizardCatalog;
-  onSave: (paletteId: string, customPalette: CustomPalette | null, fontId: string, customFonts: { heading: string; body: string } | null) => Promise<void>;
+  onSave: (paletteId: string, customPalette: CustomPaletteValues | null, fontId: string, customFonts: { heading: string; body: string } | null) => Promise<void>;
   onBack: () => void;
   onStepClick?: (step: number) => void;
   completedUpTo?: number;
@@ -41,8 +41,8 @@ export function ColorsFontsPage({ project, catalog, onSave, onBack, onStepClick,
   const [customModalOpen, setCustomModalOpen] = useState(false);
   const [customPaletteError, setCustomPaletteError] = useState<string>();
   const [specificColors, setSpecificColors] = useState(false);
-  const [customPalette, setCustomPalette] = useState<CustomPalette | null>(project.design.customPalette);
-  const [customDraft, setCustomDraft] = useState<CustomPalette>({ primary: "", secondary: "", background: "", text: "" });
+  const [customPalette, setCustomPalette] = useState<CustomPaletteValues | null>(project.design.customPalette);
+  const [customDraft, setCustomDraft] = useState<CustomPaletteValues>({ primary: "", secondary: "", background: "", text: "" });
   const [fontModalOpen, setFontModalOpen] = useState(false);
   const [customFontError, setCustomFontError] = useState<string>();
   const [customFont, setCustomFont] = useState<FontPair | null>(

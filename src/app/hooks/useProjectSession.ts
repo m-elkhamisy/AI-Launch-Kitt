@@ -28,9 +28,8 @@ import {
 } from "../launchkit-api";
 import { completedUpTo, Page, previousPage, resumePageForProject, stepTarget } from "../lib/navigation";
 import { clearProjectSession, readSession, removeSession, SESSION_KEYS, writeSession } from "../lib/storage";
-import type { CustomPalette } from "../pages/ColorsFonts/types";
 import { AiSummaryDraft, pickExtracted } from "../lib/ai-summary";
-import type { QuestionnaireForm } from "../pages/Questionnaire/QuestionnairePage";
+import type { CustomPaletteValues, QuestionnaireValues } from "../wizard-validation";
 
 export function useProjectSession() {
   const [page, setPage] = useState<Page>(() => (hasAccessToken() ? "projects" : "login"));
@@ -299,7 +298,7 @@ export function useProjectSession() {
     go("login");
   };
 
-  const saveBusiness = (form: QuestionnaireForm) => perform(async () => {
+  const saveBusiness = (form: QuestionnaireValues) => perform(async () => {
     const current = await ensureProject();
     const updated = await launchKitApi.patchProject(current.id, {
       business: {
@@ -389,7 +388,7 @@ export function useProjectSession() {
 
   const saveColors = (
     paletteId: string,
-    customPalette: CustomPalette | null,
+    customPalette: CustomPaletteValues | null,
     fontPairingId: string,
     customFonts: { heading: string; body: string } | null,
   ) => perform(async () => {

@@ -203,5 +203,6 @@ export type OtpValues = z.infer<typeof otpSchema>;
 export type QuestionnaireValues = z.infer<typeof questionnaireSchema>;
 export type DesignSelectionValues = z.infer<typeof designSelectionSchema>;
 export type ColorFontValues = z.infer<typeof colorFontSchema>;
+export type CustomPaletteValues = z.infer<typeof customPaletteSchema>;
 export type PageLayoutValues = z.infer<typeof pageLayoutSchema>;
 export type MockupSelectionValues = z.infer<typeof mockupSelectionSchema>;
