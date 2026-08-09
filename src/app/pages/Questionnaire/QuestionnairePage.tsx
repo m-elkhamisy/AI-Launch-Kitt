@@ -22,7 +22,7 @@ import {
   isLogoAsset,
   MAX_BRAND_DOCUMENTS,
   summaryCoverage,
-} from "./ai-summary";
+} from "@/app/lib/ai-summary";
 import { AiSummaryModal } from "./AiSummaryModal";
 import { FileChip, UploadDropzone } from "./UploadDropzone";
 

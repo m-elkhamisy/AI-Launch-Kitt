@@ -29,7 +29,7 @@ import {
 import { completedUpTo, Page, previousPage, resumePageForProject, stepTarget } from "../lib/navigation";
 import { clearProjectSession, readSession, removeSession, SESSION_KEYS, writeSession } from "../lib/storage";
 import type { CustomPalette } from "../pages/ColorsFonts/types";
-import { AiSummaryDraft, pickExtracted } from "../pages/Questionnaire/ai-summary";
+import { AiSummaryDraft, pickExtracted } from "../lib/ai-summary";
 import type { QuestionnaireForm } from "../pages/Questionnaire/QuestionnairePage";
 
 export function useProjectSession() {
