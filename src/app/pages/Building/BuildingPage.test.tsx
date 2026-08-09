@@ -11,6 +11,7 @@ describe("BuildingPage", () => {
         build={makeBuild({ status: "running", stage: "generating", message: "Generating pages" })}
         error={null}
         onBack={vi.fn()}
+        onProjects={vi.fn()}
       />,
     );
 
@@ -25,6 +26,7 @@ describe("BuildingPage", () => {
         build={makeBuild({ status: "failed", message: "The provider rejected the build." })}
         error={null}
         onBack={vi.fn()}
+        onProjects={vi.fn()}
       />,
     );
 
@@ -38,6 +40,7 @@ describe("BuildingPage", () => {
         build={makeBuild({ status: "running", warnings: ["Two images could not be optimised."] })}
         error={null}
         onBack={vi.fn()}
+        onProjects={vi.fn()}
       />,
     );
 

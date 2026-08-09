@@ -35,11 +35,9 @@ export const otpSchema = z.object({
 
 export const questionnaireSchema = z.object({
   companyName: requiredText("Company or brand name", 2, 120),
-  uniqueness: requiredText("Business differentiator", 10, 1_000),
+  industry: requiredText("Business category", 2, 200),
   customers: requiredText("Customer description", 3, 500),
-  tagline: requiredText("Tagline", 3, 160),
-  cta: requiredText("Call to action", 2, 80),
-  anythingElse: optionalText("Additional context", 1, 2_000),
+  tagline: optionalText("Tagline", 3, 160),
 });
 
 export const designSelectionSchema = z.object({
@@ -145,19 +143,60 @@ export const mockupSelectionSchema = z.object({
   mockupId: z.string().trim().min(1, "Select a design before building."),
 });
 
-const supportedProfileExtensions = new Set(["pdf", "docx", "pptx", "txt", "md", "png", "jpg", "jpeg"]);
-export const profileFileSchema = z.custom<File>(
+const BRAND_MAX_BYTES = 1.5 * 1024 * 1024;
+const logoExtensions = new Set(["png", "svg", "jpg", "jpeg"]);
+const documentExtensions = new Set(["pdf", "docx", "pptx", "txt", "md", "png", "jpg", "jpeg"]);
+
+export const logoFileSchema = z.custom<File>(
   (value) => typeof File !== "undefined" && value instanceof File,
-  "Choose a profile file.",
+  "Choose a logo file.",
 ).superRefine((file, context) => {
   const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
-  if (!supportedProfileExtensions.has(extension)) {
-    context.addIssue({ code: z.ZodIssueCode.custom, message: "Choose PDF, DOCX, PPTX, TXT, Markdown, PNG, or JPEG." });
+  if (!logoExtensions.has(extension)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: "Choose a PNG, SVG, or JPG logo." });
   }
-  if (file.size > 20 * 1024 * 1024) {
-    context.addIssue({ code: z.ZodIssueCode.custom, message: "The profile file must be 20 MB or smaller." });
+  if (file.size > BRAND_MAX_BYTES) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: "The logo must be 1.5 MB or smaller." });
   }
 });
+
+export const brandDocumentFileSchema = z.custom<File>(
+  (value) => typeof File !== "undefined" && value instanceof File,
+  "Choose a brand document.",
+).superRefine((file, context) => {
+  const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
+  if (!documentExtensions.has(extension)) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Choose PDF, DOCX, PPTX, TXT, Markdown, PNG, or JPEG.",
+    });
+  }
+  if (file.size > BRAND_MAX_BYTES) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Each document must be 1.5 MB or smaller.",
+    });
+  }
+});
+
+export const profileFileSchema = brandDocumentFileSchema;
+
+export const websiteUrlSchema = z.string()
+  .trim()
+  .min(1, "Enter your website address.")
+  .max(2048, "The website address is too long.")
+  .transform((value) => (value.includes("://") ? value : `https://${value}`))
+  .refine((value) => {
+    try {
+      const parsed = new URL(value);
+      return (
+        (parsed.protocol === "http:" || parsed.protocol === "https:") &&
+        parsed.hostname.includes(".")
+      );
+    } catch {
+      return false;
+    }
+  }, "Enter a full website address such as https://example.com.");
 
 export type LoginValues = z.infer<typeof loginSchema>;
 export type OtpValues = z.infer<typeof otpSchema>;
