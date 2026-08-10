@@ -64,7 +64,10 @@ export default function App() {
 
   return (
     <div style={{ minHeight: "100vh", width: "100%", background: "#0b0b0b", display: "flex", justifyContent: "center", alignItems: "stretch" }}>
-      <div style={{ width: "100%", maxWidth: 1440, minHeight: "100vh", margin: "0 auto", display: "flex", flexDirection: "column" }}>
+      {/* Wizard screens are centred at the 1440px design width. The auth screen is
+          full-bleed by design — its showcase panel runs to the right edge — so it
+          opts out of the cap rather than sitting in letterbox bars on wide displays. */}
+      <div style={{ width: "100%", maxWidth: isAuthPage ? "none" : 1440, minHeight: "100vh", margin: "0 auto", display: "flex", flexDirection: "column" }}>
         {page === "login" && <LoginPage onNext={signIn} busy={busy} />}
         <ErrorToast message={error} onDismiss={() => setError(null)} />
         {page === "projects" && (
