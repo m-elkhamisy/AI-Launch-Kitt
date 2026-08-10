@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { BuildingPage } from "./BuildingPage";
-import { makeBuild } from "../../test/fixtures";
+import { makeBuild } from "@/app/test/fixtures";
 
 describe("BuildingPage", () => {
   it("shows the current build stage message", () => {

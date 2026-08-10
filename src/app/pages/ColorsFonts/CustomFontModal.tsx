@@ -1,7 +1,7 @@
-import { ValidationError } from "../../components/common/ValidationError";
-import { GOOGLE_FONTS_LIST } from "../../data/google-fonts";
-import { loadGoogleFont } from "../../lib/fonts";
-import { customFontsSchema } from "../../wizard-validation";
+import { ValidationError } from "@/app/components/common/ValidationError";
+import { GOOGLE_FONTS_LIST } from "@/app/data/google-fonts";
+import { loadGoogleFont } from "@/app/lib/fonts";
+import { customFontsSchema } from "@/app/wizard-validation";
 
 /** Heading/body font picker with a live preview, searching the Google Fonts list. */
 export function CustomFontModal({

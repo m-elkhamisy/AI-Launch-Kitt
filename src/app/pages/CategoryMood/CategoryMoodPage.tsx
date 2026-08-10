@@ -3,14 +3,14 @@ import { Building2, CircleCheck, Sparkles } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 
-import { ScaledPage } from "../../components/common/ScaledPage";
-import { SubNav } from "../../components/common/SubNav";
-import { TopHeader } from "../../components/common/TopHeader";
-import { firstValidationError, ValidationError } from "../../components/common/ValidationError";
-import { ProjectView, WizardCatalog } from "../../launchkit-api";
-import { designSelectionSchema, DesignSelectionValues } from "../../wizard-validation";
-import { CategoryPickerModal } from "./CategoryPickerModal";
-import { MoodPickerModal } from "./MoodPickerModal";
+import { ScaledPage } from "@/app/components/common/ScaledPage";
+import { SubNav } from "@/app/components/common/SubNav";
+import { TopHeader } from "@/app/components/common/TopHeader";
+import { firstValidationError, ValidationError } from "@/app/components/common/ValidationError";
+import { ProjectView, WizardCatalog } from "@/app/launchkit-api";
+import { designSelectionSchema, DesignSelectionValues } from "@/app/wizard-validation";
+import { CategoryPickerModal } from "./components/CategoryPickerModal";
+import { MoodPickerModal } from "./components/MoodPickerModal";
 
 export function CategoryMoodPage({ project, catalog, onSave, onBack, onStepClick, completedUpTo, busy }: {
   project: ProjectView;

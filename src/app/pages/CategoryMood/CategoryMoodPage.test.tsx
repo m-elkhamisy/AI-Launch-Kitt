@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { CategoryMoodPage } from "./CategoryMoodPage";
-import { makeCatalog, makeProject } from "../../test/fixtures";
+import { makeCatalog, makeProject } from "@/app/test/fixtures";
 
 describe("CategoryMoodPage", () => {
   it("renders the selected category and mood from the catalog", () => {

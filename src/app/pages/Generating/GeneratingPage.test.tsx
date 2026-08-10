@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { GeneratingPage } from "./GeneratingPage";
-import { makeOperation } from "../../test/fixtures";
+import { makeOperation } from "@/app/test/fixtures";
 
 describe("GeneratingPage", () => {
   it("reports progress while the operation runs", () => {

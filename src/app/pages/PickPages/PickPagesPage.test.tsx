@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { PickPagesPage } from "./PickPagesPage";
-import { makeCatalog, makeProject } from "../../test/fixtures";
+import { makeCatalog, makeProject } from "@/app/test/fixtures";
 
 describe("PickPagesPage", () => {
   it("renders a card per catalog page template with its sections", () => {

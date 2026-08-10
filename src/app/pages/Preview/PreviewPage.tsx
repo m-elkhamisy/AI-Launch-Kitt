@@ -3,11 +3,11 @@ import { ChevronRight } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 
-import { ScaledPage } from "../../components/common/ScaledPage";
-import { TopHeader } from "../../components/common/TopHeader";
-import { ValidationError } from "../../components/common/ValidationError";
-import { launchKitApi, MockupView } from "../../launchkit-api";
-import { mockupSelectionSchema, MockupSelectionValues } from "../../wizard-validation";
+import { ScaledPage } from "@/app/components/common/ScaledPage";
+import { TopHeader } from "@/app/components/common/TopHeader";
+import { ValidationError } from "@/app/components/common/ValidationError";
+import { launchKitApi, MockupView } from "@/app/launchkit-api";
+import { mockupSelectionSchema, MockupSelectionValues } from "@/app/wizard-validation";
 
 export function PreviewPage({ mockups, selectedMockupId, onConfirm, onBack, busy }: {
   mockups: MockupView[];

@@ -1,7 +1,6 @@
-import { ValidationError } from "../../components/common/ValidationError";
-import { derivePaletteFromPrimary, parseHexChannels } from "../../lib/colors";
-import { customPaletteSchema } from "../../wizard-validation";
-import type { CustomPalette } from "./types";
+import { ValidationError } from "@/app/components/common/ValidationError";
+import { derivePaletteFromPrimary, parseHexChannels } from "@/app/lib/colors";
+import { customPaletteSchema, type CustomPaletteValues } from "@/app/wizard-validation";
 
 /**
  * Four-swatch palette editor. The draft and the "specific colors" toggle stay
@@ -18,14 +17,14 @@ export function CustomPaletteModal({
   onCancel,
   onApply,
 }: {
-  draft: CustomPalette;
-  onDraftChange: (update: (draft: CustomPalette) => CustomPalette) => void;
+  draft: CustomPaletteValues;
+  onDraftChange: (update: (draft: CustomPaletteValues) => CustomPaletteValues) => void;
   specificColors: boolean;
   onSpecificColorsChange: (next: boolean) => void;
   error?: string;
   onError: (message: string) => void;
   onCancel: () => void;
-  onApply: (palette: CustomPalette) => void;
+  onApply: (palette: CustomPaletteValues) => void;
 }) {
   return (
           <div

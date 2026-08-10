@@ -20,7 +20,7 @@ one means amending the other in the same change.
 | Forms       | `react-hook-form` + `zod` via `@hookform/resolvers`            |
 | Icons       | `lucide-react` throughout; only the logo is raw path data      |
 | Tests       | Vitest + jsdom + Testing Library                              |
-| Components  | shadcn/ui on Radix — present but **dormant, zero importers**   |
+| Components  | shadcn/ui on Radix — **dormant except `carousel`** (see below)  |
 | Font        | Montserrat (Google Fonts, `src/styles/fonts.css`)              |
 | Platform    | Windows / PowerShell                                           |
 | Node        | **≥ 22.12** required to run the tests — see below              |
@@ -62,10 +62,12 @@ scheduled job rather than a build gate (finding E1).
 ```
 src/
   main.tsx                      createRoot → <App/>, imports styles/index.css
+  assets/showcase/              6 PNGs exported from Figma for the welcome screen
   app/
     App.tsx                     routing + loading gate only (~90 lines)
     launchkit-api.ts            API client: typed views, LaunchKitApiError, SSE build stream
     wizard-validation.ts        all zod schemas + inferred value types
+    brand-file-input.ts         snapshotFileInput — FileList is live, so copy before clearing
     hooks/
       useProjectSession.ts      wizard state, auth bootstrap, all 12 API commands
     lib/
@@ -76,10 +78,15 @@ src/
     data/google-fonts.ts        the Google Fonts name list
     pages/<Name>/               one folder per page: the page, its page-local
                                 components, and any page-local pure logic
-      Login/          LoginPage
+      Login/          LoginPage · SignInPanel · ShowcaseCarousel · ShowcaseSlideView
+                      ShowcaseIndicators · MockupFrame · PdfViewerMockup
+                      BrochureViewerMockup · WebsiteMockup · showcase-slides
+                      showcase-motion · useAutoAdvance · usePageCycle
+                      usePrefersReducedMotion · useReveal (+ tests)
       Otp/            OtpPage (parked, no importer)
       Projects/       ProjectsPage
-      Questionnaire/  QuestionnairePage · UploadPortfolioModal
+      Questionnaire/  QuestionnairePage · UploadDropzone · AiSummaryModal
+                      ai-summary
       CategoryMood/   CategoryMoodPage · CategoryPickerModal · MoodPickerModal
       ColorsFonts/    ColorsFontsPage · CustomPaletteModal · CustomFontModal
                       FontCard · types
@@ -91,9 +98,10 @@ src/
     components/
       common/                   ScaledPage, TopHeader, SubNav, LogoSvg, ValidationError,
                                 ErrorToast, Spinner — used across pages
-      ui/                       47 shadcn components — dormant, leave alone
+      ui/                       47 shadcn components — dormant except carousel
+                                (+ button, utils, which it imports), leave the rest alone
       figma/                    ImageWithFallback — dormant
-    test/                       fixtures.ts (factories), setup.ts
+    test/                       fixtures.ts (factories), reduced-motion.ts, setup.ts
   styles/                       index.css → fonts.css, tailwind.css, theme.css
 ```
 
@@ -196,7 +204,16 @@ already editing that block.
    pins from the Figma export alongside newer `^` ranges.
 9. `react`/`react-dom` are optional `peerDependencies`, not `dependencies` — they resolve from the
    lockfile today.
-10. Dormant by design: `figmaAssetResolver` in `vite.config.ts` (maps to a non-existent
+10. **`brochure-spread-2-placeholder.webp` is a stand-in.** The Figma file holds only the
+    brochure's first spread, but its viewer shows a two-page rail, so the second spread is a
+    generated wireframe in the brochure's palette. Drop the real export in beside it and point
+    `showcase-slides.ts` at the new file — nothing else changes. The portfolio's five pages and
+    the first brochure spread are all real.
+11. **Inside a mockup, `1em` is one design pixel** (see `MockupFrame`). The trap: `em` resolves
+    against an element's *own* font-size, so `left: 16em` beside `fontSize: 7em` lands at 112
+    design pixels. jsdom does no layout, so no test catches it — check the browser after touching
+    mockup geometry.
+12. Dormant by design: `figmaAssetResolver` in `vite.config.ts` (maps to a non-existent
     `src/assets/`), `src/styles/globals.css` (empty, unimported), `guidelines/Guidelines.md`
     (unedited Figma template), `README-frontend.md` (stale — `README.md` is current).
 

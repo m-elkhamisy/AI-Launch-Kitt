@@ -1,6 +1,6 @@
 // AI Summary draft built from extraction results; shared by the modal and the
 // session hook that applies the draft back onto the project.
-import type { AssetView } from "../../launchkit-api";
+import type { AssetView } from "@/app/launchkit-api";
 
 export const MAX_BRAND_DOCUMENTS = 5;
 

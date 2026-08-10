@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { makeCatalog, makeProject } from "../../test/fixtures";
+import { makeCatalog, makeProject } from "@/app/test/fixtures";
 import {
   addSection,
   deleteSection,
