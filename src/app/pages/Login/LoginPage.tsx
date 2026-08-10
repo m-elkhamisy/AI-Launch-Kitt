@@ -25,8 +25,15 @@ export function LoginPage({
       </div>
       {/* Bounded by the viewport rather than by its content: the showcase is the
           taller column, so letting it size itself would scroll the whole screen on
-          any display shorter than the 900px the design assumes. */}
-      <div className="hidden lg:flex lg:h-screen lg:w-[57.8%] lg:overflow-hidden">
+          any display shorter than the 900px the design assumes.
+
+          Below lg it stacks under the sign-in panel and needs a definite height of
+          its own — the carousel and every slide inside are h-full, so an auto-height
+          parent collapses them to nothing. svh rather than vh so the panel does not
+          resize when a mobile browser hides its URL bar mid-scroll, and shrink-0
+          because the column is a flex container: without it the panel is squeezed
+          toward the parent's min-h-screen instead of keeping the height set here. */}
+      <div className="flex h-[82svh] min-h-[520px] w-full shrink-0 overflow-hidden lg:h-screen lg:min-h-0 lg:w-[57.8%]">
         <ShowcaseCarousel />
       </div>
     </div>

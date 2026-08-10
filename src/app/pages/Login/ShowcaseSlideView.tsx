@@ -41,7 +41,7 @@ export function ShowcaseSlideView({
   // the 42px column gap and the 8px dots.
   return (
     <div
-      className="relative flex h-full w-full flex-col items-center justify-center gap-[42px] overflow-hidden px-6 pt-8 pb-[82px] lg:px-[48px] lg:pt-[32px]"
+      className="relative flex h-full w-full flex-col items-center justify-center gap-6 overflow-hidden px-6 pt-8 pb-14 lg:gap-[42px] lg:px-[48px] lg:pt-[32px] lg:pb-[82px]"
       style={{ background: "rgba(255,255,255,0.08)" }}
     >
       {/* Tinted grid texture, one per capability. Decorative, so it stays out of the a11y tree. */}
@@ -131,8 +131,12 @@ export function ShowcaseSlideView({
         )}
       </div>
 
+      {/* Four stats side by side needs roughly 600px. Narrower than that they wrap
+          one per line and the strip eats the height the mockup needs, so below sm
+          they pair up in a 2x2 grid and drop the dividers, which only read as
+          separators in a single row. */}
       <div
-        className="relative flex w-full flex-wrap items-center justify-between gap-y-4 rounded-[16px] p-[26px]"
+        className="relative grid w-full shrink-0 grid-cols-2 gap-4 rounded-[16px] p-[18px] sm:flex sm:flex-wrap sm:items-center sm:justify-between sm:gap-y-4 sm:p-[26px]"
         style={{
           background: "rgba(255,255,255,0.04)",
           border: "1px solid rgba(255,255,255,0.1)",
@@ -145,6 +149,7 @@ export function ShowcaseSlideView({
             {index > 0 && (
               <span
                 aria-hidden="true"
+                className="hidden sm:block"
                 style={{ width: 1, height: 32, background: "rgba(255,255,255,0.1)" }}
               />
             )}
