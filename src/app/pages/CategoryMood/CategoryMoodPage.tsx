@@ -9,8 +9,8 @@ import { TopHeader } from "@/app/components/common/TopHeader";
 import { firstValidationError, ValidationError } from "@/app/components/common/ValidationError";
 import { ProjectView, WizardCatalog } from "@/app/launchkit-api";
 import { designSelectionSchema, DesignSelectionValues } from "@/app/wizard-validation";
-import { CategoryPickerModal } from "./CategoryPickerModal";
-import { MoodPickerModal } from "./MoodPickerModal";
+import { CategoryPickerModal } from "./components/CategoryPickerModal";
+import { MoodPickerModal } from "./components/MoodPickerModal";
 
 export function CategoryMoodPage({ project, catalog, onSave, onBack, onStepClick, completedUpTo, busy }: {
   project: ProjectView;
