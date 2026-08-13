@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { loginSchema, otpSchema, questionnaireSchema } from "./wizard-validation";
+import { loginSchema, otpSchema, questionnaireSchema, websiteUrlSchema } from "./wizard-validation";
 
 describe("restricted staging credentials", () => {
   it("accepts only the enabled staging email", () => {
@@ -16,27 +16,37 @@ describe("restricted staging credentials", () => {
 });
 
 describe("brand questionnaire", () => {
-  it("requires the five core brand fields", () => {
+  it("requires the four core brand fields", () => {
     expect(questionnaireSchema.safeParse({
       companyName: "",
-      uniqueness: "",
+      industry: "",
       customers: "",
       tagline: "",
-      cta: "",
-      anythingElse: "",
     }).success).toBe(false);
   });
 
-  it("allows only additional context to be empty", () => {
+  it("allows tagline to be empty", () => {
     const result = questionnaireSchema.safeParse({
       companyName: "Innovation City",
-      uniqueness: "A focused launch platform for growing businesses.",
+      industry: "Technology launch platform",
       customers: "Founders and product teams",
-      tagline: "Launch with confidence",
-      cta: "Start building",
-      anythingElse: "",
+      tagline: "",
     });
 
     expect(result.success).toBe(true);
+  });
+});
+
+describe("existing website discovery", () => {
+  it("accepts full addresses and adds https to bare domains", () => {
+    expect(websiteUrlSchema.parse("https://example.com/menu")).toBe("https://example.com/menu");
+    expect(websiteUrlSchema.parse("example.com")).toBe("https://example.com");
+  });
+
+  it("rejects empty and non-web addresses", () => {
+    expect(websiteUrlSchema.safeParse("").success).toBe(false);
+    expect(websiteUrlSchema.safeParse("ftp://example.com").success).toBe(false);
+    expect(websiteUrlSchema.safeParse("not a url").success).toBe(false);
+    expect(websiteUrlSchema.safeParse("localhost").success).toBe(false);
   });
 });
