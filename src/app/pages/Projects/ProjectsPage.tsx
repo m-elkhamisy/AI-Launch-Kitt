@@ -32,7 +32,7 @@ export function ProjectsPage({
   onSignOut: () => void;
 }) {
   return (
-    <ScaledPage scrollable header={<TopHeader />}>
+    <ScaledPage scrollable header={<TopHeader onSignOut={onSignOut} />}>
       <div
         className="w-full min-h-full flex flex-col"
         style={{ background: "#0b0b0b", fontFamily: "'Montserrat', sans-serif" }}
@@ -140,14 +140,6 @@ export function ProjectsPage({
             </div>
           )}
 
-          <button
-            type="button"
-            onClick={onSignOut}
-            className="self-start font-medium text-[12px] mt-[8px]"
-            style={{ color: "rgba(255,255,255,0.4)" }}
-          >
-            Sign out
-          </button>
         </div>
       </div>
     </ScaledPage>
